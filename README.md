@@ -27,7 +27,7 @@ Rule B: Request for /api/login -> Forward to Gunicorn (Port 8000).
 
 Application (Django/Gunicorn): Runs 9-10 worker processes. Handles logic, auth, and DB queries.
 
-Database (Postgres): Runs on Port 5432 (Blocked from outside). Accessible only by Django.
+Database (Postgres): Runs on Port 5433 (Blocked from outside). Accessible only by Django.
 
 Celery Worker: A separate background process that wakes up to send emails or shuffle grievances.
 

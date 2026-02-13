@@ -2,11 +2,14 @@ services:
   db:
     image: postgres:15-alpine
     volumes:
+      - ./init_db.sql:/docker-entrypoint-initdb.d/init_db.sql # MAGIC LINE
       - postgres_data:/var/lib/postgresql/data
     environment:
       - POSTGRES_DB=exam_e
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5433:5432"
 
   redis:
     image: redis:7-alpine

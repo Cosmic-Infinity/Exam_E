@@ -1,0 +1,29 @@
+# --- Docker & Local Data ---
+# This ignores the local volume folder defined in your docker-compose.yml
+postgres_data/
+.docker/
+*.log
+
+# --- Environments & Secrets ---
+# NEVER push your secret keys or DB passwords
+.env
+.env.local
+
+# --- Frontend (React/Node) ---
+frontend/node_modules/
+frontend/build/
+frontend/dist/
+frontend/.eslintcache
+
+# --- Backend (Django/Python) ---
+backend/__pycache__/
+backend/*.py[cod]
+backend/*$py.class
+backend/venv/
+backend/.venv/
+backend/media/
+backend/static_root/
+
+# --- OS Specific ---
+.DS_Store
+Thumbs.db

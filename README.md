@@ -61,3 +61,4 @@ Mass Mailing:
 Trigger: Coordinator clicks "Send Passwords" in Admin Panel.
 
 Action: Django adds 5,000 tasks to Redis. Celery workers pick them up one by one and talk to the Google Workspace SMTP server.
+

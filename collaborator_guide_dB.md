@@ -44,7 +44,7 @@ python scripts/import_academic_data.py --teachers Data/teachers.csv
 python scripts/bulk_enroll.py --csv Data/enrollments.csv --session "Spring 2026"
 
 🏁 Final Summary of Your Progress
-Schema: 11 normalized tables covering Schools, Streams, Users, Enrollments, and Exams.
+Schema: 12 normalized tables covering Schools, Streams, Users, Enrollments, and Exams.
 
 Logic: Role-Based Access Control (RBAC) via the role column and Session-based course mapping.
 

@@ -1,0 +1,220 @@
+{% extends "admin/base_site.html" %} {% block content %}
+<style>
+  .dashboard-container {
+    padding: 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .chart-box {
+    background: #fff;
+    border: 1px solid #ccc;
+    padding: 15px;
+    border-radius: 4px;
+    min-height: 300px;
+  }
+  .chart-box h2 {
+    margin-top: 0;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+  }
+  .filters {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+  }
+  .student-list {
+    margin-top: 20px;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  table.student-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  table.student-table th,
+  table.student-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+  }
+  table.student-table th {
+    background-color: #f2f2f2;
+  }
+</style>
+
+<h1>Statistics Dashboard</h1>
+
+<div class="filters">
+  <label for="courseFilter">Select Course:</label>
+  <select id="courseFilter" onchange="updateCharts()">
+    <option value="">All Courses</option>
+    {% for code, title in courses %}
+    <option value="{{ code }}">{{ code }} - {{ title }}</option>
+    {% endfor %}
+  </select>
+</div>
+
+<div class="dashboard-container">
+  <div class="chart-box">
+    <h2>Grievances</h2>
+    <canvas id="grievanceChart"></canvas>
+  </div>
+  <div class="chart-box">
+    <h2>Score Distribution</h2>
+    <p class="help">Click a bar to see students in that range.</p>
+    <canvas id="scoreChart"></canvas>
+  </div>
+</div>
+
+<div class="chart-box" style="margin-top: 20px; display: none" id="studentDetailsBox">
+  <h2>Details: Students in Score Range <span id="rangeLabel"></span></h2>
+  <div class="student-list">
+    <table class="student-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Score</th>
+          <th>Section</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="studentTableBody">
+        <!-- Rows here -->
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  let grievanceChart = null;
+  let scoreChart = null;
+
+  document.addEventListener("DOMContentLoaded", function () {
+    updateCharts();
+  });
+
+  function updateCharts() {
+    const course = document.getElementById("courseFilter").value;
+    fetchGrievances(course);
+    fetchScores(course);
+    document.getElementById("studentDetailsBox").style.display = "none";
+  }
+
+  // 1. Grievances
+  function fetchGrievances(course) {
+    let url = "/admin/dashboard/api/grievances/";
+
+    let query = "";
+    if (course) query = `?course_code=${course}`;
+
+    fetch(url + query)
+      .then((res) => res.json())
+      .then((data) => {
+        const ctx = document.getElementById("grievanceChart").getContext("2d");
+        if (grievanceChart) grievanceChart.destroy();
+
+        // Format data for Chart.js
+        // data.chart_data is list of { label: 'CS101', count: 5 }
+        const labels = data.chart_data.map((d) => d.label);
+        const values = data.chart_data.map((d) => d.count);
+        const title = course ? `Grievances per Section (${course})` : "Grievances per Course";
+
+        grievanceChart = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: "Number of Grievances",
+                data: values,
+                backgroundColor: "rgba(255, 99, 132, 0.5)",
+                borderColor: "rgba(255, 99, 132, 1)",
+                borderWidth: 1,
+              },
+            ],
+          },
+          options: {
+            plugins: {
+              title: { display: true, text: title },
+            },
+            scales: { y: { beginAtZero: true } },
+          },
+        });
+      });
+  }
+
+  // 2. Scores
+  function fetchScores(course) {
+    let url = `/admin/dashboard/api/scores/?course_code=${course || ""}`;
+    fetch(url)
+      .then((res) => res.json())
+      .then((data) => {
+        const ctx = document.getElementById("scoreChart").getContext("2d");
+        if (scoreChart) scoreChart.destroy();
+
+        scoreChart = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: data.labels, // "0-10", "10-20"...
+            datasets: [
+              {
+                label: "Students Count",
+                data: data.distribution,
+                backgroundColor: "rgba(54, 162, 235, 0.5)",
+                borderColor: "rgba(54, 162, 235, 1)",
+                borderWidth: 1,
+              },
+            ],
+          },
+          options: {
+            scales: { y: { beginAtZero: true } },
+            onClick: (e) => {
+              const points = scoreChart.getElementsAtEventForMode(e, "nearest", { intersect: true }, true);
+              if (points.length) {
+                const index = points[0].index;
+                const label = data.labels[index];
+                // Parse label "10-20" to min/max
+                const parts = label.split("-");
+                const min = parts[0];
+                const max = parts[1];
+                loadStudents(course, min, max, label);
+              }
+            },
+          },
+        });
+      });
+  }
+
+  function loadStudents(course, min, max, label) {
+    let url = `/admin/dashboard/api/students/?course_code=${course || ""}&min=${min}&max=${max}`;
+    fetch(url)
+      .then((res) => res.json())
+      .then((data) => {
+        const tbody = document.getElementById("studentTableBody");
+        tbody.innerHTML = "";
+
+        if (data.students && data.students.length > 0) {
+          data.students.forEach((s) => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                            <td>${s.university_id}</td>
+                            <td>${s.name}</td>
+                            <td>${s.score}</td>
+                            <td>${s.section}</td>
+                            <td><a href="/admin/core/exampaper/${s.paper_id}/change/" target="_blank">View Paper</a></td>
+                        `;
+            tbody.appendChild(tr);
+          });
+        } else {
+          tbody.innerHTML = '<tr><td colspan="5">No students found in this range.</td></tr>';
+        }
+
+        document.getElementById("rangeLabel").innerText = label;
+        document.getElementById("studentDetailsBox").style.display = "block";
+      });
+  }
+</script>
+{% endblock %}

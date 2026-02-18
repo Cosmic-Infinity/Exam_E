@@ -27,7 +27,15 @@ python scripts/bulk_enroll.py --csv Data/enrollments.csv --session "Spring 2026"
 
 ---
 
-## 3. Exam Paper Digitization
+## 4. Exam Configuration (Per Session)
+
+_Before papers can be uploaded, the "Exam Event" must be created._
+
+| Table     | What to Feed                     | How to Feed                                                                                                                                     |
+| :-------- | :------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **exams** | `exam_type`, `marks`, `metadata` | **Django Admin Dashboard** <br> Navigate to `http://localhost:8000/admin/` -> Exams -> Add Exam. Define marks and upload JSON schema if needed. |
+
+## 5. Exam Paper Digitization
 
 _Students do not upload papers. A dedicated department digitizes and maps them._
 
@@ -42,12 +50,13 @@ _Students do not upload papers. A dedicated department digitizes and maps them._
     - **Parsing**: Extracts `ROLLNUMBER` and `COURSECODE` from the folder name.
     - **Conversion (Optional)**: Converts images to a single PDF (Frontend can display PDF easier) or keeps as image list.
     - **Lookup**: Finds the active `enrollment_id` for that Student + Course combo.
+    - **Linkage**: Finds the active `exam_id` (e.g., Midsem) based on strict configuration or user input.
     - **Upload**: Uploads either the PDF or the list of image paths to storage (S3/MinIO/Local).
     - **Database**: Inserts row into `exam_papers` with `file_path` (as JSON array or PDF path) and `status='PENDING'`.
 
 ---
 
-## 4. Evaluation & Results
+## 6. Evaluation & Results
 
 _Generated dynamically during the grading process._
 

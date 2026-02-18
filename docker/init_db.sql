@@ -147,6 +147,47 @@ ALTER TABLE public.enrollments_enrollment_id_seq OWNER TO postgres;
 ALTER SEQUENCE public.enrollments_enrollment_id_seq OWNED BY public.enrollments.enrollment_id;
 
 
+
+--
+-- Name: exams; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.exams (
+    exam_id integer NOT NULL,
+    allocation_id integer,
+    exam_type character varying(20) NOT NULL CHECK (exam_type IN ('MIDSEM', 'ENDSEM', 'QUIZ')),
+    total_marks integer NOT NULL,
+    passing_marks integer,
+    question_paper_schema jsonb, -- Stores structure like: [{"q_no": 1, "parts": [1, 1, 1, 1, 1]}, {"q_no": 2, "parts": [2, 3]}]
+    is_active boolean DEFAULT true,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+ALTER TABLE public.exams OWNER TO postgres;
+
+--
+-- Name: exams_exam_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.exams_exam_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER TABLE public.exams_exam_id_seq OWNER TO postgres;
+
+--
+-- Name: exams_exam_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.exams_exam_id_seq OWNED BY public.exams.exam_id;
+
+
 --
 -- Name: exam_papers; Type: TABLE; Schema: public; Owner: postgres
 --
@@ -154,6 +195,7 @@ ALTER SEQUENCE public.enrollments_enrollment_id_seq OWNED BY public.enrollments.
 CREATE TABLE public.exam_papers (
     paper_id integer NOT NULL,
     enrollment_id integer,
+    exam_id integer,
     file_path text NOT NULL,
     marks_json jsonb,
     total_score numeric(5,2),
@@ -641,6 +683,22 @@ ALTER TABLE ONLY public.enrollments
 
 ALTER TABLE ONLY public.exam_papers
     ADD CONSTRAINT exam_papers_enrollment_id_fkey FOREIGN KEY (enrollment_id) REFERENCES public.enrollments(enrollment_id);
+
+
+--
+-- Name: exams exams_allocation_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.exams
+    ADD CONSTRAINT exams_allocation_id_fkey FOREIGN KEY (allocation_id) REFERENCES public.course_allocations(allocation_id);
+
+
+--
+-- Name: exam_papers exam_papers_exam_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.exam_papers
+    ADD CONSTRAINT exam_papers_exam_id_fkey FOREIGN KEY (exam_id) REFERENCES public.exams(exam_id);
 
 
 --

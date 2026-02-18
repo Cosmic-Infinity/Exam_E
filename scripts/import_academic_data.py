@@ -195,29 +195,6 @@ def import_allocations(conn, filepath):
     finally:
         cur.close()
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Import Academic Data")
-    parser.add_argument("--teachers", help="Path to teachers.csv")
-    parser.add_argument("--courses", help="Path to courses.csv")
-    parser.add_argument("--allocations", help="Path to allocations.csv")
-    
-    args = parser.parse_args()
-    
-    if not (args.teachers or args.courses or args.allocations):
-        print("Please provide at least one file path (--teachers, --courses, --allocations)")
-        sys.exit(1)
-
-    conn = connect_db()
-    
-    if args.teachers:
-        import_teachers(conn, args.teachers)
-    
-    if args.courses:
-        import_courses(conn, args.courses)
-        
-    if args.allocations:
-        import_allocations(conn, args.allocations)
-
 def import_schools_streams(conn, filepath):
     if not filepath: return
     print(f"\n--- Importing Schools and Streams from {filepath} ---")

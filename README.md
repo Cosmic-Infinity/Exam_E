@@ -62,3 +62,13 @@ Trigger: Coordinator clicks "Send Passwords" in Admin Panel.
 
 Action: Django adds 5,000 tasks to Redis. Celery workers pick them up one by one and talk to the Google Workspace SMTP server.
 
+
+# 5. Admin & Analytics
+
+**Dashboard**: A custom Django Admin dashboard (`/admin/dashboard/`) provides real-time statistics:
+- **Grievance Analytics**: Visualize complaints per course/section.
+- **Score Distribution**: Histograms of student performance.
+- **Drill-down**: Click on charts to view specific students and their exam papers.
+
+**Exam Builder**: A visual drag-and-drop interface within the Admin panel allows Coordinators to define complex exam structures (Sections, Questions, Parts) without writing raw JSON.
+

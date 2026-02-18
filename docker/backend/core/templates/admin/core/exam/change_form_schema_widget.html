@@ -1,0 +1,247 @@
+<style>
+  .schema-builder {
+    border: 1px solid #ddd;
+    padding: 15px;
+    background: #f9f9f9;
+    margin-top: 10px;
+  }
+  .section-block {
+    background: #fff;
+    border: 1px solid #ccc;
+    margin-bottom: 20px;
+    padding: 15px;
+    border-radius: 4px;
+  }
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #eee;
+    padding: 10px;
+    margin: -15px -15px 15px -15px;
+    border-bottom: 1px solid #ccc;
+    border-radius: 4px 4px 0 0;
+  }
+  .question-block {
+    margin-left: 20px;
+    border-left: 3px solid #79aec8;
+    padding-left: 15px;
+    margin-bottom: 10px;
+  }
+  .sub-questions-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 5px;
+  }
+  .sub-question-input {
+    width: 60px;
+    padding: 5px;
+    text-align: center;
+  }
+  .btn-sm {
+    padding: 5px 10px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .btn-add-section {
+    background-color: #417690;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .btn-remove {
+    background-color: #c45858;
+    color: white;
+    border: none;
+    border-radius: 4px;
+  }
+  .total-marks {
+    font-weight: bold;
+    color: #2c3e50;
+  }
+</style>
+
+<div id="schema-builder-root-{{ widget.name }}" class="schema-builder">
+  <h3>Exam Structure Builder</h3>
+
+  <div id="sections-container-{{ widget.name }}"></div>
+
+  <button type="button" class="btn-add-section" onclick="examBuilder.addSection('{{ widget.name }}')">+ Add New Section</button>
+
+  <!-- The actual input that Django sees -->
+  <textarea name="{{ widget.name }}" id="id_{{ widget.name }}" style="display: none">{{ widget.value }}</textarea>
+</div>
+
+<script>
+  if (typeof examBuilder === "undefined") {
+    var examBuilder = {
+      data: {}, // Stores data keyed by widget name
+
+      init: function (widgetName, initialValue) {
+        let schema = [];
+        if (initialValue) {
+          try {
+            let parsed = typeof initialValue === "string" ? JSON.parse(initialValue) : initialValue;
+            if (Array.isArray(parsed)) {
+              schema = [{ type: "COMPULSORY", questions: parsed }];
+            } else if (parsed && parsed.sections) {
+              schema = parsed.sections;
+            }
+          } catch (e) {
+            console.error("Error parsing schema", e);
+          }
+        }
+        this.data[widgetName] = schema;
+        this.render(widgetName);
+      },
+
+      render: function (name) {
+        const container = document.getElementById("sections-container-" + name);
+        container.innerHTML = "";
+        this.updateInput(name);
+
+        this.data[name].forEach((section, sIndex) => {
+          const sectionDiv = document.createElement("div");
+          sectionDiv.className = "section-block";
+
+          let headerHtml = `
+                        <div class="section-header">
+                            <div>
+                                <strong>Section ${sIndex + 1}</strong>
+                                <select onchange="examBuilder.updateSectionType('${name}', ${sIndex}, this.value)" style="margin-left: 10px;">
+                                    <option value="COMPULSORY" ${section.type === "COMPULSORY" ? "selected" : ""}>Compulsory (Answer All)</option>
+                                    <option value="OPTIONAL" ${section.type === "OPTIONAL" ? "selected" : ""}>Optional (Choose X)</option>
+                                </select>
+                                ${
+                                  section.type === "OPTIONAL"
+                                    ? `<span style="margin-left:10px">Choose <input type="number" style="width:50px" value="${section.choose || 1}" onchange="examBuilder.updateSectionChoose('${name}', ${sIndex}, this.value)"></span>`
+                                    : ""
+                                }
+                            </div>
+                            <div>
+                                <span class="total-marks">Total: ${this.calculateSectionTotal(section)} Marks</span>
+                                <button type="button" class="btn-remove btn-sm" onclick="examBuilder.removeSection('${name}', ${sIndex})" style="margin-left: 15px;">Remove Section</button>
+                            </div>
+                        </div>
+                        <div class="questions-list"></div>
+                        <button type="button" class="btn-sm" style="margin-top:10px" onclick="examBuilder.addQuestion('${name}', ${sIndex})">+ Add Question</button>
+                    `;
+          sectionDiv.innerHTML = headerHtml;
+
+          const qList = sectionDiv.querySelector(".questions-list");
+          section.questions.forEach((q, qIndex) => {
+            const qDiv = document.createElement("div");
+            qDiv.className = "question-block";
+            const qTotal = q.parts.reduce((a, b) => a + (parseFloat(b) || 0), 0);
+
+            qDiv.innerHTML = `
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                                <div><strong>Q${q.q_no || qIndex + 1}</strong></div>
+                                <div>
+                                     <span style="margin-right:15px; font-size: 0.9em; color:#666;">Total: ${qTotal}</span>
+                                     <button type="button" class="btn-remove btn-sm" onclick="examBuilder.removeQuestion('${name}', ${sIndex}, ${qIndex})">x</button>
+                                </div>
+                            </div>
+                            <div class="sub-questions-container">
+                                ${q.parts
+                                  .map(
+                                    (mark, pIndex) => `
+                                    <input type="number" class="sub-question-input" value="${mark}" 
+                                           placeholder="Marks"
+                                           onchange="examBuilder.updatePartMark('${name}', ${sIndex}, ${qIndex}, ${pIndex}, this.value)"
+                                           title="Part ${pIndex + 1} Marks">
+                                `,
+                                  )
+                                  .join("")}
+                                <button type="button" class="btn-sm" onclick="examBuilder.addPart('${name}', ${sIndex}, ${qIndex})">+</button>
+                            </div>
+                        `;
+            qList.appendChild(qDiv);
+          });
+          container.appendChild(sectionDiv);
+        });
+      },
+
+      addSection: function (name) {
+        this.data[name].push({ type: "COMPULSORY", questions: [] });
+        this.render(name);
+      },
+
+      removeSection: function (name, index) {
+        if (confirm("Delete this section?")) {
+          this.data[name].splice(index, 1);
+          this.render(name);
+        }
+      },
+
+      updateSectionType: function (name, index, value) {
+        this.data[name][index].type = value;
+        if (value === "OPTIONAL" && !this.data[name][index].choose) this.data[name][index].choose = 1;
+        this.render(name);
+      },
+
+      updateSectionChoose: function (name, index, value) {
+        this.data[name][index].choose = parseInt(value) || 1;
+        this.updateInput(name);
+      },
+
+      addQuestion: function (name, sIndex) {
+        let maxQ = 0;
+        // Find global max Q number
+        this.data[name].forEach((s) =>
+          s.questions.forEach((q) => {
+            if (q.q_no > maxQ) maxQ = q.q_no;
+          }),
+        );
+        this.data[name][sIndex].questions.push({ q_no: maxQ + 1, parts: [10] });
+        this.render(name);
+      },
+
+      removeQuestion: function (name, sIndex, qIndex) {
+        this.data[name][sIndex].questions.splice(qIndex, 1);
+        this.render(name);
+      },
+
+      addPart: function (name, sIndex, qIndex) {
+        this.data[name][sIndex].questions[qIndex].parts.push(5);
+        this.render(name);
+      },
+
+      updatePartMark: function (name, sIndex, qIndex, pIndex, value) {
+        const val = parseFloat(value);
+        if (!isNaN(val)) {
+          this.data[name][sIndex].questions[qIndex].parts[pIndex] = val;
+          this.render(name);
+        }
+      },
+
+      calculateSectionTotal: function (section) {
+        let total = 0;
+        section.questions.forEach((q) => {
+          total += q.parts.reduce((a, b) => a + (parseFloat(b) || 0), 0);
+        });
+        return total;
+      },
+
+      updateInput: function (name) {
+        const input = document.querySelector(`textarea[name="${name}"]`);
+        if (input) {
+          input.value = JSON.stringify({
+            version: 2,
+            sections: this.data[name],
+          });
+        }
+      },
+    };
+  }
+
+  // Initialize logic
+  (function () {
+    const widgetName = "{{ widget.name }}";
+    const initialValue = document.querySelector(`textarea[name="${widgetName}"]`).value;
+    examBuilder.init(widgetName, initialValue);
+  })();
+</script>

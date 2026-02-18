@@ -122,6 +122,7 @@ The catalog of subjects (Metadata only).
 | :------------------ | :----------- | :---------------------- | :--------------------------------------------------- |
 | `paper_id`          | Integer (PK) | **DB Auto-Gen**         | **Paper ID**.                                        |
 | `enrollment_id`     | Integer (FK) | **Digitization Script** | **Context**. Extracted from folder/filename mapping. |
+| `exam_id`           | Integer (FK) | **App Logic**           | **Exam Event**. Links to the specific exam definition. |
 | `file_path`         | Text         | **Digitization Script** | System path to the file.                             |
 | `marks_json`        | JSONB        | **App (Teacher)**       | Detailed scores. <br> _Nullable_                     |
 | `total_score`       | Numeric      | **App (Teacher)**       | Result. <br> _Nullable_                              |
@@ -138,3 +139,18 @@ Dispute resolution.
 | `student_comment`      | Text         | **App (Student)** | User input.                                                           |
 | `assigned_coordinator` | Integer      | **App Logic**     | Auto-assigned based on Course Policy.                                 |
 | `status`               | Varchar(20)  | **DB Default**    | Workflow state. <br> _Default: `'OPEN'`_                              |
+
+## 12. exams
+
+Defines the exam structure and rules for a specific course allocation.
+
+| Attribute               | Type             | Source           | Description                                                                 |
+| :---------------------- | :--------------- | :--------------- | :-------------------------------------------------------------------------- |
+| `exam_id`               | Integer (PK)     | **DB Auto-Gen**  | **Exam ID**.                                                                |
+| `allocation_id`         | Integer (FK)     | **Manual Input** | **Course Section**. Which class is this exam for?                           |
+| `exam_type`             | Varchar(20)      | **Manual Input** | Event type. <br> _Values: `'MIDSEM'`, `'ENDSEM'`, `'QUIZ'`_                 |
+| `total_marks`           | Integer          | **Manual Input** | Maximum possible score.                                                     |
+| `passing_marks`         | Integer          | **Manual Input** | Threshold for pass. <br> _Nullable_                                         |
+| `question_paper_schema` | JSONB            | **App (Admin)**  | Structure definition (Sections, Questions). <br> _Example: `{"sections": [...]}`_ |
+| `is_active`             | Boolean          | **Manual Input** | Enable/Disable. <br> _Default: `true`_                                      |
+| `created_at`            | Timestamp        | **DB Default**   | Creation time.                                                              |

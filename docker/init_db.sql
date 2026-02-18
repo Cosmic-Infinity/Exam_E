@@ -331,6 +331,7 @@ ALTER TABLE public.teachers OWNER TO postgres;
 CREATE TABLE public.users (
     id integer NOT NULL,
     university_id character varying(30) NOT NULL,
+    full_name character varying(100) NOT NULL,
     email character varying(100) NOT NULL,
     password_hash text NOT NULL,
     role character varying(20),

@@ -15,17 +15,33 @@ docker compose up -d
 Since the schema is stored in init_db.sql, you need to import it into your local container:
 
 Bash
-docker exec -i docker-db-1 psql -U postgres -d university_exam_system < init_db.sql
+docker exec -i docker-db-1 psql -U postgres -d exam_e < init_db.sql
 4. Connect via DBeaver
 Host: localhost
 
 Port: 5433
 
-Database: university_exam_system
+Database: exam_e
 
 User/Pass: postgres / postgres
 
 Note: We are using port 5433 to avoid conflicts with any local Postgres installations.
+
+5. Populate Initial Data
+The database starts empty. Use the Python scripts to load the initial university structure.
+
+Bash
+# 1. Load Schools & Streams
+python scripts/import_academic_data.py --founders Data/schools_streams.csv
+
+# 2. Load Courses
+python scripts/import_academic_data.py --courses Data/courses.csv
+
+# 3. Load Teachers
+python scripts/import_academic_data.py --teachers Data/teachers.csv
+
+# 4. Enroll Students (Bulk)
+python scripts/bulk_enroll.py --csv Data/enrollments.csv --session "Spring 2026"
 
 🏁 Final Summary of Your Progress
 Schema: 11 normalized tables covering Schools, Streams, Users, Enrollments, and Exams.

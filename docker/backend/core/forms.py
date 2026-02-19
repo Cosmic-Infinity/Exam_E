@@ -26,7 +26,7 @@ class ExamSchemaWidget(Widget):
 
 class ExamForm(forms.ModelForm):
     apply_to_all_sections = forms.BooleanField(
-        required=False, 
+        required=False,
         label="Apply schema to all sections of this subject",
         help_text="If checked, this schema and marks configuration will be copied to all other sections of this course for the same exam type."
     )

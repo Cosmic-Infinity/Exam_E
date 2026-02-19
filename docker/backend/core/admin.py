@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.db.models import F
+import json
 from .models import Exam, CourseAllocation, AcademicSession, School, User, Stream, Course, Enrollment, ExamPaper, Student, Teacher, Grievance
 from .forms import ExamForm
 
@@ -58,6 +60,9 @@ class EnrollmentAdmin(admin.ModelAdmin):
 @admin.register(Exam)
 class ExamAdmin(admin.ModelAdmin):
     form = ExamForm
+    # We use a custom template to add the drill-down filters
+    change_form_template = 'admin/core/exam/change_form.html'
+    
     list_display = ('exam_type', 'total_marks', 'allocation', 'is_active')
     list_filter = ('exam_type', 'is_active')
     search_fields = ('allocation__course__course_code',)
@@ -71,6 +76,39 @@ class ExamAdmin(admin.ModelAdmin):
             'description': 'Use the builder below to define sections and questions.'
         }),
     )
+
+    def render_change_form(self, request, context, add=False, change=False, form_url='', obj=None):
+        if context is None:
+            context = {}
+            
+        # Build hierarchy for frontend drill-down
+        allocs = CourseAllocation.objects.select_related('course', 'session') \
+            .filter(session__is_active=True) \
+            .annotate(
+                code=F('course__course_code'),
+                title=F('course__title'),
+                sem=F('semester')
+            ).values(
+                'allocation_id', 'sem', 'code', 'title', 'section_name'
+            ).order_by('sem', 'code', 'section_name')
+
+        hierarchy = {}
+        for a in allocs:
+            sem_key = str(a['sem'])
+            code_title = f"{a['code']} - {a['title']}"
+            
+            if sem_key not in hierarchy:
+                hierarchy[sem_key] = {}
+            if code_title not in hierarchy[sem_key]:
+                hierarchy[sem_key][code_title] = []
+            
+            hierarchy[sem_key][code_title].append({
+                'section': a['section_name'], 
+                'id': a['allocation_id']
+            })
+
+        context['allocation_hierarchy_json'] = json.dumps(hierarchy)
+        return super().render_change_form(request, context, add, change, form_url, obj)
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
@@ -131,6 +169,12 @@ class TeacherAdmin(admin.ModelAdmin):
     list_filter = ('school', 'is_coordinator')
     search_fields = ('user__university_id', 'user__full_name')
     autocomplete_fields = ['user', 'school']
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "user":
+            # Only show users who are TEACHERs
+            kwargs["queryset"] = User.objects.filter(role='TEACHER')
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 @admin.register(Grievance)
 class GrievanceAdmin(admin.ModelAdmin):

@@ -1,0 +1,119 @@
+<span id="allocation_drilldown_container" style="display: flex; gap: 10px; margin-bottom: 5px">
+  <select id="select_sem" style="padding: 4px">
+    <option value="">-- Start with Semester --</option>
+  </select>
+  <select id="select_course" style="padding: 4px; display: none">
+    <option value="">-- Select Course --</option>
+  </select>
+  <select id="select_section" style="padding: 4px; display: none">
+    <option value="">-- Pick Section --</option>
+  </select>
+  <small id="drilldown_status" style="color: green; display: none">✓ Matched Allocation</small>
+</span>
+
+<script>
+  (function ($) {
+    $(document).ready(function () {
+      console.log("Drill-down script loaded");
+      // Wait for autocomplete to initialize
+      // The autocomplete widget is complex, but we interact with the related SELECT if present, or just use the ID.
+      // If it's `autocomplete_fields`, it's a select2-like widget. Let's see.
+
+      let dataHierarchy = {};
+
+      // Fetch data
+      $.getJSON("/admin/api/allocations/", function (data) {
+        console.log("Hierarchy data:", data);
+        dataHierarchy = data;
+
+        // Populate Semester
+        const sems = Object.keys(data).sort((a, b) => parseInt(a) - parseInt(b));
+        sems.forEach((sem) => {
+          $("#select_sem").append(new Option(`Semester ${sem}`, sem));
+        });
+      });
+
+      // Event: Semester Changed
+      $("#select_sem").change(function () {
+        const sem = $(this).val();
+        const $course = $("#select_course");
+        const $section = $("#select_section");
+
+        $course.empty().append(new Option("-- Select Course --", "")).hide();
+        $section.empty().append(new Option("-- Pick Section --", "")).hide();
+        $("#drilldown_status").hide();
+
+        if (sem && dataHierarchy[sem]) {
+          const courses = Object.keys(dataHierarchy[sem]).sort();
+          courses.forEach((c) => {
+            $course.append(new Option(c, c));
+          });
+          $course.show();
+        }
+      });
+
+      // Event: Course Changed
+      $("#select_course").change(function () {
+        const sem = $("#select_sem").val();
+        const course = $(this).val();
+        const $section = $("#select_section");
+
+        $section.empty().append(new Option("-- Pick Section --", "")).hide();
+        $("#drilldown_status").hide();
+
+        if (sem && course && dataHierarchy[sem][course]) {
+          const sections = dataHierarchy[sem][course];
+          sections.forEach((sec) => {
+            $section.append(new Option(`Section ${sec.section}`, sec.id)); // Value is Allocation ID
+          });
+          $section.show();
+        }
+      });
+
+      // Event: Section Changed -> Update actual field
+      $("#select_section").change(function () {
+        const allocId = $(this).val();
+        if (allocId) {
+          // Find the target field. Typically id_allocation for ForeignKey "allocation"
+          // For autocomplete, it's a select with some select2 magic.
+          const $target = $("#id_allocation");
+
+          if ($target.length) {
+            // Update value
+            $target.val(allocId).trigger("change");
+
+            // If it's a select2, refresh it (Django admin uses Select2)
+            // Or if it's raw text input?
+
+            // For Autocomplete widget:
+            // It usually has a hidden select. We might need to fetch the label separately?
+            // But if we just set value, Django might accept on save.
+            // Let's try setting value and triggering change.
+
+            // Also update label for visual feedback?
+            // Or maybe inject the option if it doesn't exist?
+            if (!$target.find(`option[value='${allocId}']`).length) {
+              // Add temporary option so UI shows strict selection
+              const label = `${$("#select_course").val()} - Section ${$(this).find("option:selected").text().replace("Section ", "")}`;
+              $target.append(new Option(label, allocId, true, true));
+            }
+            $target.val(allocId).trigger("change");
+
+            $("#drilldown_status").show();
+          } else {
+            console.error("Target field #id_allocation not found");
+          }
+        }
+      });
+
+      // Insert Widget above current field
+      const wrapper = $(".field-allocation div.related-widget-wrapper");
+      if (wrapper.length) {
+        $("#allocation_drilldown_container").insertBefore(wrapper);
+      } else {
+        // Fallback
+        $(".field-allocation div").prepend($("#allocation_drilldown_container"));
+      }
+    });
+  })(django.jQuery);
+</script>

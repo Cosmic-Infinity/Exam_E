@@ -65,7 +65,7 @@ Action: Django adds 5,000 tasks to Redis. Celery workers pick them up one by one
 
 # 5. Admin & Analytics
 
-**Dashboard**: A custom Django Admin dashboard (`/admin/dashboard/`) provides real-time statistics:
+**Dashboard**: A custom Django Admin dashboard (`/admin/stats/`) provides real-time statistics:
 - **Grievance Analytics**: Visualize complaints per course/section.
 - **Score Distribution**: Histograms of student performance.
 - **Drill-down**: Click on charts to view specific students and their exam papers.

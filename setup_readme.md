@@ -48,7 +48,23 @@ docker compose logs -f backend
 Bash
 # Enter the Postgres shell inside the container
 docker exec -it docker-db-1 psql -U postgres -d exam_e
-📂 File Structure Requirements
+
+## 5. Accessing the Application
+
+Once the containers are running, you can access the services at:
+
+- **Backend Admin Panel**: [http://localhost:8000/admin/](http://localhost:8000/admin/)  
+  _Use this to manage users, courses, and exams._
+
+- **Statistics Dashboard**: [http://localhost:8000/admin/stats/](http://localhost:8000/admin/stats/)  
+  _View charts for grievances and score distributions._
+
+- **Database Direct Access**: `localhost:5433`  
+  _Connection details: User=`postgres`, Password=`postgres`, DB=`exam_e`_
+
+---
+
+## 📂 File Structure Requirements
 For the builds to succeed, ensure the following exists:
 
 ./backend/manage.py

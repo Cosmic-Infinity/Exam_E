@@ -43,8 +43,6 @@
   }
 </style>
 
-<h1>Statistics Dashboard</h1>
-
 <div class="filters">
   <label for="courseFilter">Select Course:</label>
   <select id="courseFilter" onchange="updateCharts()">
@@ -105,7 +103,7 @@
 
   // 1. Grievances
   function fetchGrievances(course) {
-    let url = "/admin/dashboard/api/grievances/";
+    let url = "/admin/stats/api/grievances/";
 
     let query = "";
     if (course) query = `?course_code=${course}`;
@@ -148,7 +146,7 @@
 
   // 2. Scores
   function fetchScores(course) {
-    let url = `/admin/dashboard/api/scores/?course_code=${course || ""}`;
+    let url = `/admin/stats/api/scores/?course_code=${course || ""}`;
     fetch(url)
       .then((res) => res.json())
       .then((data) => {
@@ -189,7 +187,7 @@
   }
 
   function loadStudents(course, min, max, label) {
-    let url = `/admin/dashboard/api/students/?course_code=${course || ""}&min=${min}&max=${max}`;
+    let url = `/admin/stats/api/students/?course_code=${course || ""}&min=${min}&max=${max}`;
     fetch(url)
       .then((res) => res.json())
       .then((data) => {

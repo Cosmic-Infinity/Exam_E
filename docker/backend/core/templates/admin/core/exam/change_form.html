@@ -1,0 +1,120 @@
+{% extends "admin/change_form.html" %} {% load static %} {% block admin_change_form_document_ready %} {{ block.super }}
+<div id="allocation_drilldown_container" style="display: flex; gap: 10px; margin-bottom: 8px; align-items: center; background: #f8f8f8; padding: 10px; border: 1px solid #ddd; border-radius: 4px">
+  <strong>Filters:</strong>
+  <select id="select_sem" style="padding: 4px; min-width: 120px">
+    <option value="">-- Semester --</option>
+  </select>
+  <select id="select_course" style="padding: 4px; display: none; min-width: 150px">
+    <option value="">-- Course --</option>
+  </select>
+  <select id="select_section" style="padding: 4px; display: none; min-width: 120px">
+    <option value="">-- Section --</option>
+  </select>
+</div>
+
+<script>
+  (function ($) {
+    $(document).ready(function () {
+      // Logic to construct the selector flow
+      const $target = $("#id_allocation");
+      const $container = $("#allocation_drilldown_container");
+
+      // Place it before the field
+      if ($target.length) {
+        // Check if it's select2 (standard django autocomplete)
+        const $wrapper = $target.closest(".related-widget-wrapper");
+        if ($wrapper.length) {
+          $container.insertBefore($wrapper);
+        } else {
+          $container.insertBefore($target);
+        }
+      } else {
+        // Fallback for when the field might be readonly or different
+        $(".field-allocation div").prepend($container);
+      }
+
+      let dataHierarchy = {{ allocation_hierarchy_json|default:"{}"|safe }};
+
+      // Populate Semesters
+      const sems = Object.keys(dataHierarchy).sort((a, b) => parseInt(a) - parseInt(b));
+      $("#select_sem").empty().append(new Option("-- Semester --", ""));
+      sems.forEach((sem) => {
+        $("#select_sem").append(new Option(`Semester ${sem}`, sem));
+      });
+
+      // Event: Semester Changed
+      $("#select_sem").change(function () {
+        const sem = $(this).val();
+        const $course = $("#select_course");
+        const $section = $("#select_section");
+
+        $course.empty().append(new Option("-- Course --", "")).hide();
+        $section.empty().append(new Option("-- Section --", "")).hide();
+
+        if (sem && dataHierarchy[sem]) {
+          const courses = Object.keys(dataHierarchy[sem]).sort();
+          courses.forEach((c) => {
+            $course.append(new Option(c, c));
+          });
+          $course.show();
+        }
+      });
+
+      // Event: Course Changed
+      $("#select_course").change(function () {
+        const sem = $("#select_sem").val();
+        const course = $(this).val();
+        const $section = $("#select_section");
+
+        $section.empty().append(new Option("-- Section --", "")).hide();
+
+        if (sem && course && dataHierarchy[sem][course]) {
+          const sections = dataHierarchy[sem][course];
+          sections.forEach((sec) => {
+            // sec is object {section: "A", id: 123}
+            $section.append(new Option(`Section ${sec.section}`, sec.id));
+          });
+          $section.show();
+        }
+      });
+
+      // Event: Section Changed -> Update actual field
+      $("#select_section").change(function () {
+        const allocId = $(this).val();
+        if (allocId) {
+          const $target = $("#id_allocation");
+          if ($target.length) {
+            // Construct label for the Autocomplete UI
+            const sem = $("#select_sem").val();
+            const courseText = $("#select_course").val(); // "CS101 - Title"
+            const secText = $(this).find("option:selected").text(); // "Section A"
+            const fullLabel = `${courseText} - ${secText.replace("Section ", "")}`;
+
+            // If using Select2 (Django 2.0+ autocomplete), we need to append the option
+            if ($target.hasClass("admin-autocomplete")) {
+              // Create option if it doesn't exist
+              if ($target.find(`option[value='${allocId}']`).length === 0) {
+                const newOption = new Option(fullLabel, allocId, true, true);
+                $target.append(newOption);
+              }
+              $target.val(allocId).trigger("change");
+
+              // Select2 dispatch
+              // Django's select2 implementation might require specific trigger
+              $target.trigger({
+                type: "select2:select",
+                params: {
+                  data: { id: allocId, text: fullLabel },
+                },
+              });
+            } else {
+              // Standard select
+              $target.val(allocId).trigger("change");
+            }
+          }
+        }
+      });
+    });
+  })(django.jQuery);
+</script>
+{% endblock %}

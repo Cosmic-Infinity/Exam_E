@@ -49,6 +49,7 @@ class Stream(models.Model):
 class UserManager(BaseUserManager):
     use_in_migrations = True
 
+<<<<<<< Updated upstream
     def _create_user(self, university_id, password, **extra_fields):
         """
         Create and save a user with the given university_id and password.
@@ -66,30 +67,55 @@ class UserManager(BaseUserManager):
         return self._create_user(university_id, password, **extra_fields)
 
     def create_superuser(self, university_id, password, **extra_fields):
+=======
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError('The Email must be set')
+        email = self.normalize_email(email)
+
+        user = self.model(email=email, **extra_fields)
+        if password:
+            user.set_password(password)
+        else:
+            user.set_unusable_password()
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, password=None, **extra_fields):
+>>>>>>> Stashed changes
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
-        extra_fields.setdefault('role', 'ADMIN')
+        
+        # Default to COORDINATOR for superusers as ADMIN role is removed
+        extra_fields.setdefault('role', 'COORDINATOR')
 
         if extra_fields.get('is_staff') is not True:
             raise ValueError('Superuser must have is_staff=True.')
         if extra_fields.get('is_superuser') is not True:
             raise ValueError('Superuser must have is_superuser=True.')
 
+<<<<<<< Updated upstream
         # Add default admin details if not provided
         extra_fields.setdefault('full_name', 'Dev Admin')
         extra_fields.setdefault('email', 'admin@exam-e.local')
 
         return self._create_user(university_id, password, **extra_fields)
+=======
+        return self.create_user(email, password=password, **extra_fields)
+>>>>>>> Stashed changes
 
 
 class User(AbstractBaseUser, PermissionsMixin):
     id = models.AutoField(primary_key=True)
     university_id = models.CharField(max_length=20, unique=True)
     full_name = models.CharField(max_length=100)
+<<<<<<< Updated upstream
     email = models.EmailField(max_length=254, null=True, blank=True)
     password = models.CharField(max_length=128, db_column='password_hash')
+=======
+    email = models.EmailField(max_length=100, unique=True)
+>>>>>>> Stashed changes
     ROLE_CHOICES = (
-        ('ADMIN', 'Admin'),
         ('COORDINATOR', 'Coordinator'),
         ('TEACHER', 'Teacher'),
         ('STUDENT', 'Student'),
@@ -104,8 +130,8 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     objects = UserManager()
 
-    USERNAME_FIELD = 'university_id'
-    REQUIRED_FIELDS = ['full_name']
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['full_name', 'university_id']
 
     class Meta:
         db_table = 'users'
@@ -142,6 +168,12 @@ class Teacher(models.Model):
 
     def __str__(self):
         return f"Teacher Profile: {self.user.university_id}"
+
+class DataImport(models.Model):
+    class Meta:
+        managed = False  # No database table
+        verbose_name = "Data Import Tool"
+        verbose_name_plural = "Data Import Tool"
 
 class Course(models.Model):
     course_code = models.CharField(max_length=15, primary_key=True)

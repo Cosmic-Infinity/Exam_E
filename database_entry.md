@@ -2,32 +2,34 @@
 
 This document outlines the workflows for populating the `Exam_E` database, specifically tailored for a university administration model where students are pre-enrolled and exam papers are digitized centrally.
 
-## 1. Initial Setup (Admin / Scripts)
+## 1. Initial Setup (Admin Dashboard)
 
-_These tables form the structural backbone and must be populated first. Order matters._
+_The "Data Import Tool" in the Django Admin Panel replaces command-line scripts for most data entry tasks._
 
-| Order  | Table                     | What to Feed                                | How to Feed                                                                                                                       |
-| :----- | :------------------------ | :------------------------------------------ | :-------------------------------------------------------------------------------------------------------------------------------- |
-| **1.** | **schools** & **streams** | `school_code`, `stream_name`, `degree_type` | **`scripts/import_academic_data.py --founders Data/schools_streams.csv`** <br> Loads the official list of University Departments. |
-| **2.** | **courses**               | `course_code`, `title`, `credits`           | **`scripts/import_academic_data.py --courses Data/courses.csv`** <br> Loads the Course Catalog.                                   |
-| **3.** | **teachers**              | `emp_id`, `name`, `specialization`          | **`scripts/import_academic_data.py --teachers Data/teachers.csv`** <br> Creates Users & Teacher Profiles.                         |
-| **4.** | **users** & **students**  | `university_id` (Roll No), `full_name`      | **`scripts/import_students.py`** (Bulk CSV Import) <br> Link students to the existing streams.                                    |
-| **5.** | **academic_sessions**     | `label` (e.g., "Spring 2026")               | **Auto-generated** by Allocation Import (next step).                                                                              |
-| **6.** | **course_allocations**    | `course_code`, `teacher_id`, `session`      | **`scripts/import_academic_data.py --allocations Data/allocations.csv`** <br> The "Master Schedule".                              |
+### Data Import Order & Requirements
 
-**3. Mass Enrollment Workflows**
+The following table details the necessary CSV columns for each data type. **Bold fields are MANDATORY** for the system to function correctly in production.
 
-```bash
-python scripts/bulk_enroll.py --csv Data/enrollments.csv --session "Spring 2026"
-```
+| Order  | Data Type                 | Required Columns                                                                 | Description & Critical Notes                                                                 |
+| :----- | :------------------------ | :------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------- |
+| **1.** | **Students**              | **Roll No**, **Name**, **Stream**, **Degree**, **Section**, **School Code**      | Creates User & Student profiles. **School Code** (e.g., CSE) is vital to link the stream correctly. |
+| **2.** | **Teachers**              | **Emp ID**, **Name**, **Email**, **School Code**                                 | Creates User & Teacher profiles. **Emp ID** becomes the login ID.                            |
+| **3.** | **Courses**               | **Course Code**, **Title**, **Credits**, **Type**                                | Defines the catalog. **Type** must be `CORE`, `PE`, or `OE`.                                 |
+| **4.** | **Allocations**           | **Course Code**, **Teacher ID**, **Session**, **Section**, **Semester**          | **The Master Schedule**. Maps a teacher to a specific class section (e.g., `CS101` Section `A`). |
+| **5.** | **Enrollments**           | **Roll No**, **Course Code**, **Session**, **Section**                           | Maps students to allocations. **Must match** the Section used in Allocations.                |
 
-- **Format**: CSV with `Roll No`, `Subject Code`, `Section`, `Type` (Optional).
-- **Logic**: Enrolls student into the allocation matching Subject + Section + Session. `Type` defaults to 'REGULAR' (e.g., use 'BACKLOG' for re-exams).
-- **Works for**: Both core courses and electives.
+> **Important**:
+> *   **School Code in Students CSV**: While the importer can guess the school from the stream name, it is **strongly recommended** to provide the `School Code` column (e.g., `CSE`, `MECH`) explicitly to prevent data integrity issues.
+> *   **Session Creation**: The importer automatically creates new Academic Sessions (e.g., "2024-2025") if they don't exist in the system.
+
+### Handling Multiple Sections
+If a course (e.g., `CS32003`) has multiple sections (e.g., `HPC1` to `HPC9`), simply ensure your CSVs are specific:
+1.  **Allocation**: Create 9 rows, one for each section (`HPC1`...`HPC9`) checking against the Teacher ID.
+2.  **Enrollment**: Specify the exact section (`HPC1`) for each student in the `Section` column.
 
 ---
 
-## 4. Exam Configuration (Per Session)
+## 2. Exam Configuration (Per Session)
 
 _Before papers can be uploaded, the "Exam Event" must be created._
 

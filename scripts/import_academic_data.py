@@ -66,8 +66,8 @@ def import_teachers(conn, filepath):
                 # Password hash placeholder
                 cur.execute(
                     """
-                    INSERT INTO users (university_id, full_name, email, password_hash, role)
-                    VALUES (%s, %s, %s, 'hashed_placeholder', 'TEACHER')
+                    INSERT INTO users (university_id, full_name, email, role)
+                    VALUES (%s, %s, %s, 'TEACHER')
                     ON CONFLICT (university_id) DO UPDATE SET full_name = EXCLUDED.full_name
                     RETURNING id
                     """,

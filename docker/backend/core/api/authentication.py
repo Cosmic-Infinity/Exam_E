@@ -7,18 +7,25 @@ from rest_framework.exceptions import AuthenticationFailed
 User = get_user_model()
 
 
-class UniversityIDBackend(ModelBackend):
+class EmailBackend(ModelBackend):
     """
-    Authenticates using university_id instead of username.
+    Authenticates using email instead of username.
     Used by django.contrib.auth.authenticate() (e.g., in LoginView).
     """
     def authenticate(self, request, username=None, password=None, **kwargs):
+        if username is None:
+            username = kwargs.get(User.USERNAME_FIELD)
+        
         try:
-            user = User.objects.get(university_id=username)
+            # Look up user by email (User.USERNAME_FIELD is 'email')
+            user = User.objects.get(email=username)
             if user.check_password(password):
                 return user
         except User.DoesNotExist:
-            return None
+            # Run the default password hasher once to reduce the timing
+            # difference between an existing and a nonexistent user (#20760).
+            User().set_password(password)
+        return None
 
 
 class CookieJWTAuthentication(JWTAuthentication):

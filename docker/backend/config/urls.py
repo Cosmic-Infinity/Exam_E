@@ -1,8 +1,8 @@
 from django.contrib import admin
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
-from core import views
-from core.views_auth import LoginView, LogoutView, CustomTokenObtainPairView, MeView, CookieTokenRefreshView, ChangePasswordView
+from core.api import stats as views
+from core.api.auth import LoginView, LogoutView, CustomTokenObtainPairView, MeView, CookieTokenRefreshView, ChangePasswordView
 
 urlpatterns = [
     # ── Django admin ─────────────────────────────────────
@@ -16,7 +16,6 @@ urlpatterns = [
     path('api/auth/login/',             LoginView.as_view(),              name='login'),
     path('api/auth/logout/',            LogoutView.as_view(),             name='logout'),
     path('api/auth/refresh/',           CookieTokenRefreshView.as_view(), name='cookie_token_refresh'),
-    path('api/auth/password/change/',   ChangePasswordView.as_view(),     name='password_change'),
 
     # ── Header-based JWT (access + refresh in response body) ──
     # Returns { access, refresh, university_id, full_name, role }

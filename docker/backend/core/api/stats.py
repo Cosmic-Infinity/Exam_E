@@ -2,7 +2,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.db.models import Count, Avg, F
-from .models import Grievance, ExamPaper, CourseAllocation, User, Exam
+from ..models import Grievance, ExamPaper, CourseAllocation, User, Exam
 
 @staff_member_required
 def stats_dashboard(request):

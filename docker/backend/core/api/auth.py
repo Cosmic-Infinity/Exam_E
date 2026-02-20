@@ -11,7 +11,7 @@ from django.utils.decorators import method_decorator
 from django.conf import settings
 
 from .serializers import CustomTokenObtainPairSerializer, UserMeSerializer
-from .tasks import send_password_changed_email
+from ..tasks import send_password_changed_email
 
 # ── cookie config (single source of truth: settings.SIMPLE_JWT) ──────────────
 _JWT = settings.SIMPLE_JWT
@@ -25,7 +25,7 @@ _COOKIE_SAMESITE = _JWT.get('AUTH_COOKIE_SAMESITE', 'Lax')
 class LoginView(APIView):
     """
     POST /api/auth/login/
-    Body: { "university_id": "...", "password": "..." }
+    Body: { "email": "...", "password": "..." }
     Returns: { message, role, university_id, full_name }
              + sets HttpOnly access_token & refresh_token cookies.
     """
@@ -34,16 +34,28 @@ class LoginView(APIView):
 
     @method_decorator(ratelimit(key='ip', rate='5/m', block=True))
     def post(self, request):
-        university_id = request.data.get('university_id')
+        email = request.data.get('email')
+        university_id = request.data.get('university_id') # Backward compatibility attempted? No, let's force expected behavior.
+        
+        # If the user tries to send university_id, maybe we should map it to email if possible?
+        # But the requirement says "university email id is SUPPOSED TO BE the login id".
+        # So we expect email.
+        
+        # However, to be nice during migration, if email is missing but university_id is present, we could check if university_id looks like an email.
+        if not email and university_id and '@' in university_id:
+             email = university_id
+
         password = request.data.get('password')
 
-        if not university_id or not password:
+        if not email or not password:
             return Response(
-                {'error': 'university_id and password are required'},
+                {'error': 'email and password are required'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        user = authenticate(request, username=university_id, password=password)
+        # authenticate() expects 'username' kwarg which maps to USERNAME_FIELD usually,
+        # but our custom backend or ModelBackend handles it.
+        user = authenticate(request, username=email, password=password)
 
         if user is None or not user.is_active:
             return Response(

@@ -1,9 +1,14 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.db.models import F
+from django.utils.crypto import get_random_string
+from django.shortcuts import render
+from django.urls import path
 import json
-from .models import Exam, CourseAllocation, AcademicSession, School, User, Stream, Course, Enrollment, ExamPaper, Student, Teacher, Grievance
-from .forms import ExamForm, UserCreationForm, UserChangeForm
+from .models import Exam, CourseAllocation, AcademicSession, School, User, Stream, Course, Enrollment, ExamPaper, Student, Teacher, Grievance, DataImport
+from .forms import ExamForm, UserCreationForm, UserChangeForm, CSVImportForm
+from .tasks import send_credentials_email
+from .services import importer
 
 
 @admin.register(AcademicSession)
@@ -36,15 +41,15 @@ class UserAdmin(BaseUserAdmin):
     form         = UserChangeForm
     add_form     = UserCreationForm
 
-    list_display  = ('university_id', 'full_name', 'role', 'is_active', 'is_staff', 'is_verified')
+    list_display  = ('university_id', 'email', 'full_name', 'role', 'is_active', 'is_staff', 'is_verified')
     list_filter   = ('role', 'is_active', 'is_staff', 'is_verified')
     search_fields = ('university_id', 'full_name', 'email')
-    ordering      = ('university_id',)
+    ordering      = ('email',)
     filter_horizontal = ('groups', 'user_permissions')
 
     fieldsets = (
-        (None,            {'fields': ('university_id', 'password')}),
-        ('Personal info', {'fields': ('full_name', 'email', 'role')}),
+        (None,            {'fields': ('email', 'university_id', 'password')}),
+        ('Personal info', {'fields': ('full_name', 'role')}),
         ('Permissions',   {'fields': ('is_active', 'is_staff', 'is_superuser',
                                       'is_verified', 'groups', 'user_permissions')}),
         ('Dates',         {'fields': ('last_login', 'date_joined')}),
@@ -53,13 +58,40 @@ class UserAdmin(BaseUserAdmin):
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('university_id', 'full_name', 'email', 'role',
+            'fields': ('email', 'university_id', 'full_name', 'role',
                        'password1', 'password2',
                        'is_active', 'is_staff', 'is_superuser'),
         }),
     )
 
     readonly_fields = ('last_login', 'date_joined')
+    actions = ['generate_and_email_credentials']
+
+    def generate_and_email_credentials(self, request, queryset):
+        """
+        Generates a random password for selected users, sets it,
+        and sends an email with the new credentials.
+        """
+        if not request.user.is_superuser:
+            self.message_user(request, "Only superusers can perform this action.", level='error')
+            return
+
+        count = 0
+        for user in queryset:
+            # Generate a secure 12-char alphanumeric password
+            plain_password = get_random_string(length=12)
+            
+            # Set the password (hashes it)
+            user.set_password(plain_password)
+            user.save()
+            
+            # Send the email with the PLAIN password
+            send_credentials_email.delay(user.pk, plain_password)
+            count += 1
+            
+        self.message_user(request, f"New credentials generated and emailed to {count} users.")
+    
+    generate_and_email_credentials.short_description = "Generate passwords & email credentials"
 
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
@@ -211,4 +243,61 @@ class GrievanceAdmin(admin.ModelAdmin):
     list_filter = ('status',)
     search_fields = ('paper__enrollment__student__university_id',)
     autocomplete_fields = ['paper', 'assigned_coordinator']
+
+
+@admin.register(DataImport)
+class DataImportAdmin(admin.ModelAdmin):
+    change_list_template = "admin/csv_import.html"
+
+    def changelist_view(self, request, extra_context=None):
+        form = CSVImportForm()
+        result = None
+        
+        if request.method == 'POST':
+            form = CSVImportForm(request.POST, request.FILES)
+            if form.is_valid():
+                import_type = form.cleaned_data['import_type']
+                csv_file = request.FILES['csv_file']
+                
+                try:
+                    if import_type == 'school_stream':
+                        result = importer.import_schools_streams(csv_file)
+                    elif import_type == 'student':
+                        result = importer.import_students(csv_file)
+                    elif import_type == 'teacher':
+                        result = importer.import_teachers(csv_file)
+                    elif import_type == 'course':
+                        result = importer.import_courses(csv_file)
+                    elif import_type == 'allocation':
+                        result = importer.import_allocations(csv_file)
+                    elif import_type == 'enrollment':
+                        result = importer.import_enrollments(csv_file)
+                        
+                    if result:
+                        level = 'success' if not result.get('errors') else 'warning'
+                        self.message_user(request, result['message'], level=level)
+                except Exception as e:
+                    self.message_user(request, f"Fatal Error: {str(e)}", level='error')
+                    result = {'errors': [str(e)], 'message': 'Import Failed'}
+
+        context = {
+            **self.admin_site.each_context(request),
+            'opts': self.model._meta,
+            'form': form,
+            'result': result,
+            'title': 'Bulk Data Import'
+        }
+        return render(request, "admin/csv_import.html", context)
+
+    def has_add_permission(self, request):
+        return False
+        
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+        
+    def has_view_permission(self, request, obj=None):
+        return True
 

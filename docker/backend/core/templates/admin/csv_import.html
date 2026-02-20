@@ -1,0 +1,321 @@
+{% extends "admin/base_site.html" %} {% load i18n admin_urls static %} {% block content %}
+<div id="content-main">
+  <h1>Bulk Data Import</h1>
+
+  {% if result %}
+  <div class="result-box" style="margin-bottom: 20px; padding: 15px; background: #e8f5e9; border: 1px solid #c8e6c9; border-radius: 4px">
+    <h3>{{ result.message }}</h3>
+    {% if result.errors %}
+    <ul style="color: #c62828">
+      {% for err in result.errors %}
+      <li>{{ err }}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p style="color: #2e7d32">Upload successful with no errors!</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <fieldset class="module aligned">
+      <div class="form-row"> {{ form.as_p }} </div>
+    </fieldset>
+    <div class="submit-row">
+      <input type="submit" value="Upload & Import" class="default" name="_save" />
+    </div>
+  </form>
+
+  <style>
+    .help-section {
+      margin-top: 30px;
+      background: #f8f9fa;
+      padding: 25px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .help-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+      gap: 30px;
+    }
+    .schema-card {
+      background: white;
+      padding: 0;
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .schema-header {
+      padding: 15px 20px;
+      text-transform: uppercase;
+      font-size: 14px;
+      font-weight: 700;
+      color: white;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    }
+    .table-responsive {
+      overflow-x: auto;
+      flex-grow: 1;
+    }
+    .schema-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      font-size: 13px;
+    }
+    .schema-table th {
+      background: #f8f9fa;
+      color: #5f6368;
+      font-weight: 600;
+      text-align: left;
+      padding: 12px 15px;
+      border-bottom: 2px solid #e0e0e0;
+      white-space: nowrap;
+    }
+    .schema-table td {
+      padding: 10px 15px;
+      border-bottom: 1px solid #f0f0f0;
+      color: #333;
+    }
+    .schema-table tr:last-child td {
+      border-bottom: none;
+    }
+    .schema-table tr:nth-child(even) {
+      background-color: #fcfcfc;
+    }
+
+    /* Color Themes */
+    .theme-blue .schema-header {
+      background: #3498db;
+    }
+    .theme-green .schema-header {
+      background: #27ae60;
+    }
+    .theme-purple .schema-header {
+      background: #9b59b6;
+    }
+    .theme-orange .schema-header {
+      background: #e67e22;
+    }
+    .theme-red .schema-header {
+      background: #e74c3c;
+    }
+    .theme-gray .schema-header {
+      background: #7f8c8d;
+    }
+  </style>
+
+  <div class="help-section">
+    <h2 style="margin-bottom: 25px; color: #333; font-size: 20px; border-bottom: 2px solid #e9ecef; padding-bottom: 12px">Expected CSV Formats</h2>
+
+    <div class="help-grid">
+      <!-- Schools -->
+      <div class="schema-card theme-blue">
+        <div class="schema-header">1. Schools & Streams</div>
+        <div class="table-responsive">
+          <table class="schema-table">
+            <thead>
+              <tr>
+                <th>School Name</th>
+                <th>School Code</th>
+                <th>Stream Name</th>
+                <th>Degree Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>School of Computer Engg</td>
+                <td>SCS</td>
+                <td>Computer Science</td>
+                <td>B.TECH</td>
+              </tr>
+              <tr>
+                <td>School of Electronics</td>
+                <td>SEE</td>
+                <td>Electronics & TC</td>
+                <td>B.TECH</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Students -->
+      <div class="schema-card theme-green">
+        <div class="schema-header">2. Students</div>
+        <div class="table-responsive">
+          <table class="schema-table">
+            <thead>
+              <tr>
+                <th>Roll No</th>
+                <th>Name</th>
+                <th>Stream</th>
+                <th>Degree</th>
+                <th>Section</th>
+                <th>School Code</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>2305123</td>
+                <td>John Doe</td>
+                <td>CSE</td>
+                <td>B.TECH</td>
+                <td>CS-A</td>
+                <td>SCS</td>
+              </tr>
+              <tr>
+                <td>2305124</td>
+                <td>Jane Smith</td>
+                <td>IT</td>
+                <td>B.TECH</td>
+                <td>IT-B</td>
+                <td>SCS</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Teachers -->
+      <div class="schema-card theme-purple">
+        <div class="schema-header">3. Teachers</div>
+        <div class="table-responsive">
+          <table class="schema-table">
+            <thead>
+              <tr>
+                <th>Emp ID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>School Code</th>
+                <th>Specialization</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>T1001</td>
+                <td>Prof. Smith</td>
+                <td>smith@kiit.ac.in</td>
+                <td>SCS</td>
+                <td>AI/ML</td>
+              </tr>
+              <tr>
+                <td>T1002</td>
+                <td>Dr. Jones</td>
+                <td>jones@kiit.ac.in</td>
+                <td>SEE</td>
+                <td>VLSI</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Courses -->
+      <div class="schema-card theme-orange">
+        <div class="schema-header">4. Courses</div>
+        <div class="table-responsive">
+          <table class="schema-table">
+            <thead>
+              <tr>
+                <th>Course Code</th>
+                <th>Title</th>
+                <th>Credits</th>
+                <th>Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>CS1001</td>
+                <td>Data Structures</td>
+                <td>4</td>
+                <td>THEORY</td>
+              </tr>
+              <tr>
+                <td>CS1002</td>
+                <td>Algorithms Lab</td>
+                <td>2</td>
+                <td>LAB</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Allocations -->
+      <div class="schema-card theme-red">
+        <div class="schema-header">5. Allocations</div>
+        <div class="table-responsive">
+          <table class="schema-table">
+            <thead>
+              <tr>
+                <th>Course Code</th>
+                <th>Teacher ID</th>
+                <th>Session</th>
+                <th>Section</th>
+                <th>Semester</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>CS1001</td>
+                <td>T1001</td>
+                <td>Autumn 2023</td>
+                <td>CS-A</td>
+                <td>3</td>
+              </tr>
+              <tr>
+                <td>CS1002</td>
+                <td>T1002</td>
+                <td>Autumn 2023</td>
+                <td>CS-B</td>
+                <td>3</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Enrollments -->
+      <div class="schema-card theme-gray">
+        <div class="schema-header">6. Enrollments</div>
+        <div class="table-responsive">
+          <table class="schema-table">
+            <thead>
+              <tr>
+                <th>Roll No</th>
+                <th>Course Code</th>
+                <th>Session</th>
+                <th>Section</th>
+                <th>Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>2305123</td>
+                <td>CS1001</td>
+                <td>Autumn 2023</td>
+                <td>CS-A</td>
+                <td>REGULAR</td>
+              </tr>
+              <tr>
+                <td>2305124</td>
+                <td>CS1002</td>
+                <td>Autumn 2023</td>
+                <td>CS-B</td>
+                <td>BACKLOG</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

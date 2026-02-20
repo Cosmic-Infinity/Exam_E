@@ -1,0 +1,14 @@
+Course Code,Title,Credits,Type
+CS101,Introduction to Programming,3,CORE
+CS102,Data Structures,4,CORE
+CS103,Algorithms,4,CORE
+CS104,Database Management Systems,3,CORE
+CS105,Operating Systems,3,CORE
+EC201,Digital Electronics,3,CORE
+EC202,Analog Circuits,4,CORE
+ME301,Thermodynamics,3,CORE
+ME302,Fluid Mechanics,4,CORE
+CS201,Machine Learning,3,PE
+CS202,Artificial Intelligence,3,PE
+CS203,Web Development,3,OE
+EC203,Signals and Systems,3,CORE

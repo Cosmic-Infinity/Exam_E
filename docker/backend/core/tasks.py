@@ -85,3 +85,45 @@ def send_welcome_email(self, user_id: int):
     except Exception as exc:
         logger.error('Failed to send welcome email to user %s: %s', user_id, exc)
         raise self.retry(exc=exc)
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=30)
+def send_credentials_email(self, user_id: int, plain_password: str):
+    """
+    Sends an email with the new login credentials (including plaintext password).
+    This is triggered by the admin bulk password generation action.
+    """
+    User = get_user_model()
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        logger.warning('send_credentials_email: user %s not found', user_id)
+        return
+
+    subject = 'Exam-E: Your Login Credentials'
+    message = (
+        f'Hi {user.full_name},\n\n'
+        'Your login credentials for Exam-E have been generated/reset by the administrator.\n\n'
+        f'Login ID: {user.email}\n'
+        f'University ID: {user.university_id}\n'
+        f'Password: {plain_password}\n\n'
+        'Please keep these credentials safe.\n\n'
+        'Exam-E Team'
+    )
+    
+    if not user.email:
+        logger.warning('send_credentials_email: User %s has no email address.', user_id)
+        return
+
+    try:
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            fail_silently=False,
+        )
+        logger.info('Credentials email sent to user %s (%s)', user_id, user.email)
+    except Exception as exc:
+        logger.error('Failed to send credentials email to user %s: %s', user_id, exc)
+        raise self.retry(exc=exc)

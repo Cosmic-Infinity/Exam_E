@@ -1,4 +1,8 @@
-# 1. The Core Philosophy
+# 🎓 Exam Evaluation System (Exam_E)
+
+> **Quick Start**: Go to [SETUP_AND_RUN.md](SETUP_AND_RUN.md) for first-boot instructions.
+
+## 1. The Core Philosophy
 
 "Optimize for Speed & Security, Not Raw Compute." Since you are a small team with a hard deadline, choose tools that handle the heavy lifting (Admin panels, Auth, Security) for you. Do not reinvent the wheel.
 
@@ -91,16 +95,16 @@ POST /api/token/refresh/      → header-based token refresh
 
 ## Roles
 
-Every user has one of four roles. Each API view can be locked to a role using a permission class:
+Every user has one of three roles. Each API view can be locked to a role using a permission class:
 
 | Role | Permission class | Access |
 |---|---|---|
-| `ADMIN` | `IsAdmin` | Full system access |
 | `COORDINATOR` | `IsCoordinator` | Staff-level access |
 | `TEACHER` | `IsTeacher` | Teaching-related views |
 | `STUDENT` | `IsStudent` | Student-facing views |
-| ADMIN or COORDINATOR | `IsAdminOrCoordinator` | Combined |
-| ADMIN or TEACHER | `IsAdminOrTeacher` | Combined |
+| COORDINATOR or TEACHER | `IsCoordOrTeacher` | Combined |
+
+*(Note: System Administrators are superusers with full access but do not use a specific 'ADMIN' role application-side.)*
 
 ## Token Details
 
@@ -147,14 +151,14 @@ After `docker-compose up --build`:
 # Apply Django migrations (creates token blacklist tables etc.)
 docker-compose exec backend python manage.py migrate
 
-# Seed the database: backfill auth flags from legacy roles + create a dev admin
+# Seed the database: create a dev admin
 docker-compose exec backend python manage.py seed_passwords \
     --create-dev-admin \
-    --admin-id ADMIN001 \
+    --admin-email admin@exam-e.local \
     --admin-password admin1234
 ```
 
-Then open `http://localhost:8000/admin/` and log in with `ADMIN001` / `admin1234`.
+Then open `http://localhost:8000/admin/` and log in with `admin@exam-e.local` / `admin1234`.
 
 ## What Is NOT Done Yet
 

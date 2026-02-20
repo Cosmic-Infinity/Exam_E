@@ -1,0 +1,11 @@
+Emp ID,Name,Email,School Code,Specialization
+T001,Dr. Amit Kumar,amit.kumar@example.com,CSE,Machine Learning
+T002,Prof. Sneha Das,sneha.das@example.com,CSE,Data Analytics
+T003,Prof. Rajeev Singh,rajeev.singh@example.com,ECE,VLSI
+T004,Dr. Kavita Mishra,kavita.mishra@example.com,CSE,Algorithms
+T005,Mr. Vikram Joshi,vikram.joshi@example.com,MECH,Thermodynamics
+T006,Ms. Neha Sharma,neha.sharma@example.com,CSE,Software Engineering
+T007,Dr. Rahul Gupta,rahul.gupta@example.com,ECE,Embedded Systems
+T008,Prof. Anil Mehta,anil.mehta@example.com,MECH,Fluid Dynamics
+T009,Mrs. Seema Verma,seema.verma@example.com,CSE,Artificial Intelligence
+T010,Mr. Sandeep Roy,sandeep.roy@example.com,ECE,Signal Processing

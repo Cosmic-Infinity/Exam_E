@@ -142,16 +142,15 @@ def import_students(csv_file_path):
                     user_id = user_res[0]
                 else:
                     email = f"{roll_no}@kiit.ac.in"
-                    password_hash = "pbkdf2_sha256$..." 
                     
                     try:
                         cur.execute(
                             """
-                            INSERT INTO users (university_id, full_name, email, password_hash, role)
-                            VALUES (%s, %s, %s, %s, 'STUDENT')
+                            INSERT INTO users (university_id, full_name, email, role)
+                            VALUES (%s, %s, %s, 'STUDENT')
                             RETURNING id
                             """,
-                            (roll_no, full_name, email, password_hash)
+                            (roll_no, full_name, email)
                         )
                         user_id = cur.fetchone()[0]
                     except psycopg2.errors.UniqueViolation:

@@ -7,11 +7,12 @@ User = get_user_model()
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """
-    Extends the default simplejwt serializer so that the /api/token/ response
-    includes university_id, full_name, and role alongside the access/refresh tokens.
-    Also accepts 'university_id' as the login field (not 'username').
+    Extends the default simplejwt serializer to include user profile fields
+    (university_id, full_name, role) in the response.
+    Accepts 'email' as the login field.
     """
-    username_field = User.USERNAME_FIELD  # 'university_id'
+    username_field = User.USERNAME_FIELD  # 'email'
+
 
     def validate(self, attrs):
         data = super().validate(attrs)  # adds 'access' and 'refresh' keys

@@ -375,28 +375,20 @@ CREATE TABLE public.users (
     university_id character varying(30) NOT NULL,
     full_name character varying(100) NOT NULL,
     email character varying(100) NOT NULL,
-    password_hash text NOT NULL,
     role character varying(20),
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT users_role_check CHECK (((role)::text = ANY ((ARRAY['STUDENT'::character varying, 'TEACHER'::character varying, 'COORDINATOR'::character varying, 'ADMIN'::character varying])::text[])))
+    password character varying(128) DEFAULT '!invalid'::character varying NOT NULL,
+    last_login timestamp with time zone,
+    is_superuser boolean DEFAULT false NOT NULL,
+    is_active boolean DEFAULT true NOT NULL,
+    is_staff boolean DEFAULT false NOT NULL,
+    is_verified boolean DEFAULT false NOT NULL,
+    date_joined timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT users_role_check CHECK (((role)::text = ANY ((ARRAY['STUDENT'::character varying, 'TEACHER'::character varying, 'COORDINATOR'::character varying])::text[])))
 );
 
 
 ALTER TABLE public.users OWNER TO postgres;
-
--- ── Django auth columns (added for AbstractBaseUser compatibility) ────────────
--- These are idempotent: safe to re-run on an existing DB.
-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS password          VARCHAR(128)             NOT NULL DEFAULT '!invalid';
-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS last_login        TIMESTAMP WITH TIME ZONE          DEFAULT NULL;
-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_superuser      BOOLEAN                  NOT NULL DEFAULT FALSE;
-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_active         BOOLEAN                  NOT NULL DEFAULT TRUE;
-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_staff          BOOLEAN                  NOT NULL DEFAULT FALSE;
-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_verified       BOOLEAN                  NOT NULL DEFAULT FALSE;
-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS date_joined       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW();
--- Set is_staff/is_superuser from legacy role column for existing rows
-UPDATE public.users SET is_superuser = TRUE, is_staff = TRUE WHERE role = 'ADMIN';
-UPDATE public.users SET is_staff = TRUE WHERE role = 'COORDINATOR';
--- ─────────────────────────────────────────────────────────────────────────────
 
 --
 -- Name: users_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
@@ -525,6 +517,14 @@ ALTER TABLE ONLY public.courses
 
 ALTER TABLE ONLY public.enrollments
     ADD CONSTRAINT enrollments_pkey PRIMARY KEY (enrollment_id);
+
+
+--
+-- Name: exams exams_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.exams
+    ADD CONSTRAINT exams_pkey PRIMARY KEY (exam_id);
 
 
 --

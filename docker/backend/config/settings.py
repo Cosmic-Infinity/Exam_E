@@ -107,7 +107,8 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'core.User'
 AUTHENTICATION_BACKENDS = [
-    'core.authentication.UniversityIDBackend',
+    'django.contrib.auth.backends.ModelBackend', # Fallback
+    'core.api.authentication.EmailBackend',
 ]
 
 from datetime import timedelta
@@ -115,7 +116,7 @@ from datetime import timedelta
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         # Cookie-based first (used by LoginView), then header-based as fallback
-        'core.authentication.CookieJWTAuthentication',
+        'core.api.authentication.CookieJWTAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (

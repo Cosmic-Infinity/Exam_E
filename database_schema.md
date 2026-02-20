@@ -13,16 +13,16 @@ This document outlines the PostgreSQL schema used for the University Paper Evalu
 
 ## 1. users
 
-The central identity table. All actors (Students, Teachers, Admins) are stored here.
+The central identity table. All actors (Students, Teachers, Coordinators) are stored here. Note: System Administrators (Superusers) are also stored here but rely on `is_staff`/`is_superuser` flags rather than a specific role.
 
-| Attribute       | Type         | Source            | Description                                                                                                                                          |
-| :-------------- | :----------- | :---------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`            | Integer (PK) | **DB Auto-Gen**   | **User ID**. The master key for any person in the system. <br> _Type: Serial / Auto-Increment_                                                       |
-| `university_id` | Varchar(30)  | **Manual Input**  | **Official ID**. The ID printed on ID cards. This must be provided during registration. <br> _Example (Student): `2305128`_ <br> _Unique Constraint_ |
-| `email`         | Varchar(100) | **Manual Input**  | Login credential. <br> _Unique Constraint_                                                                                                           |
-| `password_hash` | Text         | **App Generated** | Hashed string. DB stores the result, Application generates it.                                                                                       |
-| `role`          | Varchar(20)  | **Manual Input**  | Permissions level. <br> _Values: `'STUDENT'`, `'TEACHER'`, `'ADMIN'`_                                                                                |
-| `created_at`    | Timestamp    | **DB Default**    | Timestamp. <br> _Default: `CURRENT_TIMESTAMP`_                                                                                                       |
+| Attribute       | Type         | Source            | Description                                                                                                                                              |
+| :-------------- | :----------- | :---------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`            | Integer (PK) | **DB Auto-Gen**   | **User ID**. The master key for any person in the system. <br> _Type: Serial / Auto-Increment_                                                           |
+| `university_id` | Varchar(30)  | **Manual Input**  | **Official ID**. The ID printed on ID cards. This must be provided during registration. <br> _Example (Student): `2305128`_ <br> _Unique Constraint_     |
+| `email`         | Varchar(100) | **Manual Input**  | **Login credential**. The primary identifier for authentication. <br> _Unique Constraint_                                                                |
+| `password`      | Varchar(128) | **App Generated** | Standard Django password hash (PBKDF2/Argon2). <br> _Default: `!invalid`_                                                                                |
+| `role`          | Varchar(20)  | **Manual Input**  | Permissions level. <br> _Values: `'STUDENT'`, `'TEACHER'`, `'COORDINATOR'`_                                              |
+| `created_at`    | Timestamp    | **DB Default**    | Timestamp. <br> _Default: `CURRENT_TIMESTAMP`_                                                                                                           |
 
 ## 2. schools
 
@@ -118,15 +118,15 @@ The catalog of subjects (Metadata only).
 
 **"The Answer Sheet"**. Connects to an `enrollment`, not just a user.
 
-| Attribute           | Type         | Source                  | Description                                          |
-| :------------------ | :----------- | :---------------------- | :--------------------------------------------------- |
-| `paper_id`          | Integer (PK) | **DB Auto-Gen**         | **Paper ID**.                                        |
-| `enrollment_id`     | Integer (FK) | **Digitization Script** | **Context**. Extracted from folder/filename mapping. |
+| Attribute           | Type         | Source                  | Description                                            |
+| :------------------ | :----------- | :---------------------- | :----------------------------------------------------- |
+| `paper_id`          | Integer (PK) | **DB Auto-Gen**         | **Paper ID**.                                          |
+| `enrollment_id`     | Integer (FK) | **Digitization Script** | **Context**. Extracted from folder/filename mapping.   |
 | `exam_id`           | Integer (FK) | **App Logic**           | **Exam Event**. Links to the specific exam definition. |
-| `file_path`         | Text         | **Digitization Script** | System path to the file.                             |
-| `marks_json`        | JSONB        | **App (Teacher)**       | Detailed scores. <br> _Nullable_                     |
-| `total_score`       | Numeric      | **App (Teacher)**       | Result. <br> _Nullable_                              |
-| `evaluation_status` | Varchar(20)  | **DB Default**          | Workflow state. <br> _Default: `'PENDING'`_          |
+| `file_path`         | Text         | **Digitization Script** | System path to the file.                               |
+| `marks_json`        | JSONB        | **App (Teacher)**       | Detailed scores. <br> _Nullable_                       |
+| `total_score`       | Numeric      | **App (Teacher)**       | Result. <br> _Nullable_                                |
+| `evaluation_status` | Varchar(20)  | **DB Default**          | Workflow state. <br> _Default: `'PENDING'`_            |
 
 ## 11. grievances
 

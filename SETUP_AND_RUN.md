@@ -56,6 +56,11 @@ The PostgreSQL database is configured to **automatically import** the schema fro
 
 The database starts empty (no users). You must create a "Superuser" to access the Admin Panel.
 
+0. Migrate
+   ```bash
+   docker compose -f docker-compose.yml exec backend python manage.py migrate
+   ```
+
 1. Run the creation command inside the backend container:
    ```bash
    docker compose exec backend python manage.py createsuperuser

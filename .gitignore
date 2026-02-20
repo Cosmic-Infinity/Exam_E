@@ -23,6 +23,7 @@ backend/venv/
 backend/.venv/
 backend/media/
 backend/static_root/
+docker/backend/staticfiles
 
 # --- OS Specific ---
 .DS_Store

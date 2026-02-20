@@ -49,25 +49,6 @@ class Stream(models.Model):
 class UserManager(BaseUserManager):
     use_in_migrations = True
 
-<<<<<<< Updated upstream
-    def _create_user(self, university_id, password, **extra_fields):
-        """
-        Create and save a user with the given university_id and password.
-        """
-        if not university_id:
-            raise ValueError('The given university_id must be set')
-        user = self.model(university_id=university_id, **extra_fields)
-        user.set_password(password)
-        user.save(using=self._db)
-        return user
-
-    def create_user(self, university_id, password=None, **extra_fields):
-        extra_fields.setdefault('is_staff', False)
-        extra_fields.setdefault('is_superuser', False)
-        return self._create_user(university_id, password, **extra_fields)
-
-    def create_superuser(self, university_id, password, **extra_fields):
-=======
     def create_user(self, email, password=None, **extra_fields):
         if not email:
             raise ValueError('The Email must be set')
@@ -82,7 +63,6 @@ class UserManager(BaseUserManager):
         return user
 
     def create_superuser(self, email, password=None, **extra_fields):
->>>>>>> Stashed changes
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         
@@ -94,27 +74,14 @@ class UserManager(BaseUserManager):
         if extra_fields.get('is_superuser') is not True:
             raise ValueError('Superuser must have is_superuser=True.')
 
-<<<<<<< Updated upstream
-        # Add default admin details if not provided
-        extra_fields.setdefault('full_name', 'Dev Admin')
-        extra_fields.setdefault('email', 'admin@exam-e.local')
-
-        return self._create_user(university_id, password, **extra_fields)
-=======
         return self.create_user(email, password=password, **extra_fields)
->>>>>>> Stashed changes
 
 
 class User(AbstractBaseUser, PermissionsMixin):
     id = models.AutoField(primary_key=True)
     university_id = models.CharField(max_length=20, unique=True)
     full_name = models.CharField(max_length=100)
-<<<<<<< Updated upstream
-    email = models.EmailField(max_length=254, null=True, blank=True)
-    password = models.CharField(max_length=128, db_column='password_hash')
-=======
     email = models.EmailField(max_length=100, unique=True)
->>>>>>> Stashed changes
     ROLE_CHOICES = (
         ('COORDINATOR', 'Coordinator'),
         ('TEACHER', 'Teacher'),

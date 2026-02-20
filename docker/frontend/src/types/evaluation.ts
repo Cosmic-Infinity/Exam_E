@@ -44,7 +44,15 @@ export const SUBJECTS: Subject[] = [
   { code: "CS3003", name: "Database Management Systems" },
   { code: "CS3004", name: "Computer Networks" },
   { code: "CS3005", name: "Software Engineering" },
+  { code: "CS3006", name: "Web Development" },
+  { code: "CS3007", name: "Artificial Intelligence" },
+  { code: "CS3008", name: "Cloud Computing" },
+  { code: "CS3009", name: "Mobile Application Development" },
+  { code: "CS3010", name: "Cybersecurity" },
   { code: "MA2001", name: "Discrete Mathematics" },
+  { code: "MA2002", name: "Linear Algebra" },
+  { code: "EC2001", name: "Digital Electronics" },
+  { code: "ME2001", name: "Engineering Mathematics" },
 ];
 
 export const SUBJECT_MAP: Record<string, string> = Object.fromEntries(

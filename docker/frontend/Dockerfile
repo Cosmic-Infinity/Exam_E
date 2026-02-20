@@ -1,5 +1,5 @@
-# Step 1: Use a lightweight Node image
-FROM node:18-alpine
+# Step 1: Use a lightweight Node image (Node 22 LTS)
+FROM node:22-alpine
 
 # Step 2: Set the working directory
 WORKDIR /app
@@ -7,8 +7,8 @@ WORKDIR /app
 # Step 3: Copy package files
 COPY package*.json ./
 
-# Step 4: Install dependencies
-RUN npm install
+# Step 4: Install dependencies with legacy peer deps flag for compatibility
+RUN npm install --legacy-peer-deps
 
 # Step 5: Copy the rest of your frontend code
 COPY . .

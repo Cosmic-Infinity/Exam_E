@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { useUserSession } from "@/context/UserSessionContext";
 import ThemeToggle from "@/components/ThemeToggle";
 
 const Login = () => {
@@ -8,16 +9,24 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { setUser } = useUserSession();
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
+    // TODO: Replace this mock with actual API call to backend /api/auth/login/
     setTimeout(() => {
       if (email.endsWith("@faculty.kiit.ac.in")) {
+        // Extract faculty ID from email
+        const facultyId = email.split("@")[0];
+        setUser({ universityId: facultyId, role: "faculty", fullName: "Faculty User" });
         toast.success("Welcome, Faculty!");
         navigate("/dashboard/faculty");
       } else if (email.endsWith("@kiit.ac.in")) {
+        // Extract roll number from email (format: rollno@kiit.ac.in)
+        const rollNo = email.split("@")[0];
+        setUser({ universityId: rollNo, role: "student", fullName: "Student" });
         toast.success("Welcome, Student!");
         navigate("/dashboard/student");
       } else {

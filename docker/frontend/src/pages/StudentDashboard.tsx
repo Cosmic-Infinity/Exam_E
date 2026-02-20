@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { useUserSession } from "@/context/UserSessionContext";
 import { getStudentResults, areResultsPublished } from "@/services/evaluationService";
 import { RecheckStatus, StudentResult } from "@/types/evaluation";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -24,24 +25,32 @@ const recheckConfig: Record<RecheckStatus, { label: string; className: string }>
   },
 };
 
-const ROLL_NO = "230547";
-
 const StudentDashboard = () => {
   const navigate = useNavigate();
+  const { user, logout } = useUserSession();
+  
+  if (!user) {
+    navigate("/");
+    return null;
+  }
+  
+  const rollNo = user.universityId;
+  
   const [results, setResults] = useState<StudentResult[]>([]);
   const [selectedCode, setSelectedCode] = useState("");
   const published = areResultsPublished();
 
   useEffect(() => {
-    const data = getStudentResults(ROLL_NO);
+    const data = getStudentResults(rollNo);
     setResults(data);
-  }, []);
+  }, [rollNo]);
 
   const selected = results.find((r) => r.subjectCode === selectedCode);
 
   const handleViewAnswerSheet = () => {
     if (!selectedCode) return;
-    navigate(`/evaluation/${selectedCode.toLowerCase()}?role=student&roll=${ROLL_NO}`);
+    // No roll number in URL - it's fetched from authenticated user session context
+    navigate(`/evaluation/${selectedCode.toLowerCase()}?role=student`);
   };
 
   const handleDownload = (type: "question-paper" | "answer-key") => {
@@ -55,6 +64,7 @@ const StudentDashboard = () => {
 
   const handleLogout = () => {
     toast.dismiss();
+    logout();
     toast.success("Logged out successfully");
     navigate("/");
   };
@@ -64,8 +74,8 @@ const StudentDashboard = () => {
       <header className="border-b border-border px-6 py-3 flex items-center justify-between">
         <div>
           <h1 className="text-base font-semibold text-foreground">
-            Welcome, Aryan{" "}
-            <span className="font-mono text-sm text-muted-foreground">(Roll: {ROLL_NO})</span>
+            Welcome, {user.fullName}{" "}
+            <span className="font-mono text-sm text-muted-foreground">(ID: {rollNo})</span>
           </h1>
         </div>
         <div className="flex items-center gap-3">

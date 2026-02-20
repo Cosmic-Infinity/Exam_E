@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
+import { useUserSession } from "@/context/UserSessionContext";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -85,8 +86,16 @@ const EvaluationViewer = () => {
   const [searchParams] = useSearchParams();
   const role = searchParams.get("role") || "student";
   const mode = searchParams.get("mode") || "graded";
-  const rollNo = searchParams.get("roll") || "230547";
   const navigate = useNavigate();
+  const { user } = useUserSession();
+
+  // Security: Get user ID from session context, not from URL
+  // Backend verifies user has access to this data
+  if (!user) {
+    navigate("/");
+    return null;
+  }
+  const rollNo = user.universityId;
 
   const isFaculty = role === "faculty";
   const isFresh = mode === "fresh";

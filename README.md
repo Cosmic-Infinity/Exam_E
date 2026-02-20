@@ -72,3 +72,96 @@ Action: Django adds 5,000 tasks to Redis. Celery workers pick them up one by one
 
 **Exam Builder**: A visual drag-and-drop interface within the Admin panel allows Coordinators to define complex exam structures (Sections, Questions, Parts) without writing raw JSON.
 
+
+# 6. Authentication — Current Implementation
+
+## How It Works
+
+Users log in with their **university ID + password** (not email). On successful login, two secure HttpOnly cookies are set — an access token (15 min) and a refresh token (1 day). The React frontend never sees the raw tokens; they travel only via cookies.
+
+```
+POST /api/auth/login/         → sets access_token + refresh_token cookies
+POST /api/auth/logout/        → blacklists refresh token, clears cookies
+POST /api/auth/refresh/       → issues a new access_token from the refresh cookie
+POST /api/auth/password/change/ → change password (logged-in users only)
+GET  /api/me/                 → returns logged-in user's profile
+POST /api/token/              → header-based JWT login (Postman / mobile)
+POST /api/token/refresh/      → header-based token refresh
+```
+
+## Roles
+
+Every user has one of four roles. Each API view can be locked to a role using a permission class:
+
+| Role | Permission class | Access |
+|---|---|---|
+| `ADMIN` | `IsAdmin` | Full system access |
+| `COORDINATOR` | `IsCoordinator` | Staff-level access |
+| `TEACHER` | `IsTeacher` | Teaching-related views |
+| `STUDENT` | `IsStudent` | Student-facing views |
+| ADMIN or COORDINATOR | `IsAdminOrCoordinator` | Combined |
+| ADMIN or TEACHER | `IsAdminOrTeacher` | Combined |
+
+## Token Details
+
+| Setting | Value |
+|---|---|
+| Access token lifetime | 15 minutes |
+| Refresh token lifetime | 1 day |
+| Token rotation | Enabled — old refresh token is blacklisted on every refresh |
+| Storage | HttpOnly cookies (not localStorage) |
+| Custom claims in payload | `university_id`, `full_name`, `role` |
+
+## Security Settings
+
+| Setting | Dev | Production |
+|---|---|---|
+| `SECRET_KEY` | Set via env var — app refuses to start without it | Same |
+| `DEBUG` | `DEBUG=1` via docker-compose | `DEBUG=0` |
+| `COOKIE_SECURE` | `0` (HTTP) | `1` (HTTPS only) |
+| `HTTPS redirect` | Off | On (`SECURE_SSL_REDIRECT`) |
+| `HSTS` | Off | 1 year, subdomains + preload |
+| `CORS` | `http://localhost:3000` | Set via `CORS_ALLOWED_ORIGINS` env var |
+| Login rate limit | 5 attempts / minute / IP | Same |
+
+## Admin Panel
+
+The Django admin (`/admin/`) supports full user management:
+- Create users with hashed passwords via the **Add User** form
+- Edit roles, flags (`is_active`, `is_staff`, `is_verified`) and group permissions
+- Password field is read-only with a link to the built-in change-password form
+
+## Background Email (Celery)
+
+Password-change events trigger an async Celery task that emails the user.
+A welcome email task exists for new account creation.
+
+- **Dev**: emails print to the terminal (console backend)
+- **Production**: set `EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` env vars to switch to SMTP
+
+## First-Time Setup
+
+After `docker-compose up --build`:
+
+```bash
+# Apply Django migrations (creates token blacklist tables etc.)
+docker-compose exec backend python manage.py migrate
+
+# Seed the database: backfill auth flags from legacy roles + create a dev admin
+docker-compose exec backend python manage.py seed_passwords \
+    --create-dev-admin \
+    --admin-id ADMIN001 \
+    --admin-password admin1234
+```
+
+Then open `http://localhost:8000/admin/` and log in with `ADMIN001` / `admin1234`.
+
+## What Is NOT Done Yet
+
+| Missing feature | Notes |
+|---|---|
+| **Password reset by email** | "Forgot password?" flow — generates a time-limited token, emails a reset link |
+| **Email verification** | `is_verified` field exists in the DB but nothing sets it to `True` yet |
+| **Logout from all devices** | Logout currently only invalidates the current session's refresh token |
+| **React frontend auth** | Login page, auth context, protected routes, role-based dashboards, silent refresh interceptor — all 0% built |
+

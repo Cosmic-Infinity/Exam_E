@@ -41,11 +41,11 @@ services:
 
   celery:
     build: ./backend
-    command: celery -A core worker -l info
+    command: celery -A config worker -l info
     volumes:
       - ./backend:/app
     depends_on:
-      - backend
+      - db
       - redis
     environment:
       - DEBUG=1
@@ -61,14 +61,17 @@ services:
       - COOKIE_SECURE=0
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     volumes:
       - ./frontend:/app
       - /app/node_modules
     ports:
-      - "8080:8080"
+      - "3000:3000"
     environment:
-      - VITE_API_BASE_URL=http://backend:8000
+      - VITE_API_BASE_URL=http://localhost:8000
+    command: npm run dev
     stdin_open: true
     tty: true
 
@@ -77,8 +80,10 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - backend
-      - frontend
+      backend:
+        condition: service_started
+      frontend:
+        condition: service_started
 
 volumes:
   postgres_data:

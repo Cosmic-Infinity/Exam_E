@@ -49,17 +49,21 @@ class Stream(models.Model):
 class UserManager(BaseUserManager):
     use_in_migrations = True
 
-    def create_user(self, university_id, full_name=None, email=None, password=None, **extra_fields):
+    def _create_user(self, university_id, password, **extra_fields):
+        """
+        Create and save a user with the given university_id and password.
+        """
         if not university_id:
-            raise ValueError('The university_id must be set')
-        email = self.normalize_email(email)
-        user = self.model(university_id=university_id, full_name=full_name or '', email=email, **extra_fields)
-        if password:
-            user.set_password(password)
-        else:
-            user.set_unusable_password()
+            raise ValueError('The given university_id must be set')
+        user = self.model(university_id=university_id, **extra_fields)
+        user.set_password(password)
         user.save(using=self._db)
         return user
+
+    def create_user(self, university_id, password=None, **extra_fields):
+        extra_fields.setdefault('is_staff', False)
+        extra_fields.setdefault('is_superuser', False)
+        return self._create_user(university_id, password, **extra_fields)
 
     def create_superuser(self, university_id, password, **extra_fields):
         extra_fields.setdefault('is_staff', True)
@@ -71,7 +75,11 @@ class UserManager(BaseUserManager):
         if extra_fields.get('is_superuser') is not True:
             raise ValueError('Superuser must have is_superuser=True.')
 
-        return self.create_user(university_id, password=password, **extra_fields)
+        # Add default admin details if not provided
+        extra_fields.setdefault('full_name', 'Dev Admin')
+        extra_fields.setdefault('email', 'admin@exam-e.local')
+
+        return self._create_user(university_id, password, **extra_fields)
 
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -79,6 +87,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     university_id = models.CharField(max_length=20, unique=True)
     full_name = models.CharField(max_length=100)
     email = models.EmailField(max_length=254, null=True, blank=True)
+    password = models.CharField(max_length=128, db_column='password_hash')
     ROLE_CHOICES = (
         ('ADMIN', 'Admin'),
         ('COORDINATOR', 'Coordinator'),

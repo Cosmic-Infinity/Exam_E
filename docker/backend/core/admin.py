@@ -1,18 +1,22 @@
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.db.models import F
 import json
 from .models import Exam, CourseAllocation, AcademicSession, School, User, Stream, Course, Enrollment, ExamPaper, Student, Teacher, Grievance
-from .forms import ExamForm
+from .forms import ExamForm, UserCreationForm, UserChangeForm
+
 
 @admin.register(AcademicSession)
 class AcademicSessionAdmin(admin.ModelAdmin):
     list_display = ('label', 'is_active')
     search_fields = ('label',)
 
+
 @admin.register(School)
 class SchoolAdmin(admin.ModelAdmin):
     list_display = ('code', 'name')
     search_fields = ('code', 'name')
+
 
 @admin.register(Stream)
 class StreamAdmin(admin.ModelAdmin):
@@ -21,16 +25,41 @@ class StreamAdmin(admin.ModelAdmin):
     search_fields = ('name',)
     autocomplete_fields = ['school']
 
-# User admin is required for autocomplete_fields in other admins to work
+
 @admin.register(User)
-class UserAdmin(admin.ModelAdmin):
-    list_display = ('university_id', 'full_name', 'role', 'is_active')
-    search_fields = ('university_id', 'full_name')
-    list_filter = ('role',)
-    
-    # Hide from main dashboard if desired, but must be registered
-    def has_module_permission(self, request):
-        return False
+class UserAdmin(BaseUserAdmin):
+    """
+    Full UserAdmin — supports creating users with hashed passwords,
+    editing existing users, and the built-in password-change form.
+    Required for autocomplete_fields in other admins to work.
+    """
+    form         = UserChangeForm
+    add_form     = UserCreationForm
+
+    list_display  = ('university_id', 'full_name', 'role', 'is_active', 'is_staff', 'is_verified')
+    list_filter   = ('role', 'is_active', 'is_staff', 'is_verified')
+    search_fields = ('university_id', 'full_name', 'email')
+    ordering      = ('university_id',)
+    filter_horizontal = ('groups', 'user_permissions')
+
+    fieldsets = (
+        (None,            {'fields': ('university_id', 'password')}),
+        ('Personal info', {'fields': ('full_name', 'email', 'role')}),
+        ('Permissions',   {'fields': ('is_active', 'is_staff', 'is_superuser',
+                                      'is_verified', 'groups', 'user_permissions')}),
+        ('Dates',         {'fields': ('last_login', 'date_joined')}),
+    )
+
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('university_id', 'full_name', 'email', 'role',
+                       'password1', 'password2',
+                       'is_active', 'is_staff', 'is_superuser'),
+        }),
+    )
+
+    readonly_fields = ('last_login', 'date_joined')
 
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):

@@ -6,3 +6,7 @@ redis
 gunicorn
 uvicorn
 python-dotenv
+djangorestframework
+djangorestframework-simplejwt
+django-cors-headers
+django-ratelimit

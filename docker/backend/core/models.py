@@ -1,4 +1,7 @@
 from django.db import models
+from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
+from django.contrib.auth.models import PermissionsMixin
+from django.utils import timezone
 
 class AcademicSession(models.Model):
     session_id = models.AutoField(primary_key=True)
@@ -43,45 +46,64 @@ class Stream(models.Model):
     def __str__(self):
         return f"{self.name} ({self.degree_type})"
 
-class User(models.Model):
+class UserManager(BaseUserManager):
+    use_in_migrations = True
+
+    def create_user(self, university_id, full_name=None, email=None, password=None, **extra_fields):
+        if not university_id:
+            raise ValueError('The university_id must be set')
+        email = self.normalize_email(email)
+        user = self.model(university_id=university_id, full_name=full_name or '', email=email, **extra_fields)
+        if password:
+            user.set_password(password)
+        else:
+            user.set_unusable_password()
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, university_id, password, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('role', 'ADMIN')
+
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError('Superuser must have is_staff=True.')
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError('Superuser must have is_superuser=True.')
+
+        return self.create_user(university_id, password=password, **extra_fields)
+
+
+class User(AbstractBaseUser, PermissionsMixin):
     id = models.AutoField(primary_key=True)
     university_id = models.CharField(max_length=20, unique=True)
     full_name = models.CharField(max_length=100)
-    email = models.CharField(max_length=100, null=True, blank=True)
-    role = models.CharField(max_length=20)
-    password_hash = models.CharField(max_length=255)
-    # is_active is not in DB schema for users table. 
-    # But Django Admin might need it. We can add a property or field if we migrate DB.
-    # Since we use managed=False, we must match DB.
-    # However, for Auth, Django expects is_active.
-    # We will remove it for now to fix the crash, but this User model 
-    # might not work well as a Standard Django User without it.
-    # Recommendation: Add is_active column to users table in DB.
-    
+    email = models.EmailField(max_length=254, null=True, blank=True)
+    ROLE_CHOICES = (
+        ('ADMIN', 'Admin'),
+        ('COORDINATOR', 'Coordinator'),
+        ('TEACHER', 'Teacher'),
+        ('STUDENT', 'Student'),
+    )
+
+    role = models.CharField(max_length=20,choices=ROLE_CHOICES,default='STUDENT')
+    is_active = models.BooleanField(default=True)
+    is_staff = models.BooleanField(default=False)
+    is_verified = models.BooleanField(default=False)
+
+    date_joined = models.DateTimeField(default=timezone.now)
+
+    objects = UserManager()
+
+    USERNAME_FIELD = 'university_id'
+    REQUIRED_FIELDS = ['full_name']
+
     class Meta:
-        managed = False
         db_table = 'users'
+        managed = False
 
     def __str__(self):
         return f"{self.full_name} ({self.university_id})"
-
-    @property
-    def is_active(self):
-        return True
-
-    @property
-    def is_staff(self):
-         return self.role in ['ADMIN', 'COORDINATOR']
-
-    @property
-    def is_superuser(self):
-        return self.role == 'ADMIN'
-
-    def has_perm(self, perm, obj=None):
-        return self.is_staff
-
-    def has_module_perms(self, app_label):
-        return self.is_staff
 
 class Student(models.Model):
     # OneToOne relation to User. DB has user_id as PK and FK.

@@ -384,6 +384,20 @@ CREATE TABLE public.users (
 
 ALTER TABLE public.users OWNER TO postgres;
 
+-- ── Django auth columns (added for AbstractBaseUser compatibility) ────────────
+-- These are idempotent: safe to re-run on an existing DB.
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS password          VARCHAR(128)             NOT NULL DEFAULT '!invalid';
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS last_login        TIMESTAMP WITH TIME ZONE          DEFAULT NULL;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_superuser      BOOLEAN                  NOT NULL DEFAULT FALSE;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_active         BOOLEAN                  NOT NULL DEFAULT TRUE;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_staff          BOOLEAN                  NOT NULL DEFAULT FALSE;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_verified       BOOLEAN                  NOT NULL DEFAULT FALSE;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS date_joined       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW();
+-- Set is_staff/is_superuser from legacy role column for existing rows
+UPDATE public.users SET is_superuser = TRUE, is_staff = TRUE WHERE role = 'ADMIN';
+UPDATE public.users SET is_staff = TRUE WHERE role = 'COORDINATOR';
+-- ─────────────────────────────────────────────────────────────────────────────
+
 --
 -- Name: users_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --

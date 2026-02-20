@@ -1,50 +1,95 @@
-# Welcome to your Lovable project
+# Exam Evaluation System - Frontend
 
-## Project info
+A modern, responsive React application for exam evaluation and student assessment.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Tech Stack
 
-## How can I edit this code?
+- **Framework**: React 18 with TypeScript
+- **Build Tool**: Vite
+- **Styling**: Tailwind CSS
+- **UI Components**: Shadcn/ui (Radix UI)
+- **State Management**: React Query (TanStack Query)
+- **Routing**: React Router v6
 
-There are several ways of editing your application.
+## Development Setup
 
-**Use Lovable**
+### Prerequisites
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+- Node.js 18+ (or 20/22 LTS recommended)
+- npm or yarn
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+### Installation
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+# Navigate to the frontend directory
+cd docker/frontend
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Install dependencies
+npm install
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start the development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The application will be available at `http://localhost:8080`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Available Scripts
 
-**Use GitHub Codespaces**
+```sh
+# Start development server with hot reload
+npm run dev
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
+# Build for production
+npm run build
+
+# Build in development mode
+npm run build:dev
+
+# Run tests
+npm run test
+
+# Run tests in watch mode
+npm test:watch
+
+# Lint code
+npm run lint
+
+# Preview production build
+npm run preview
+```
+
+## Docker
+
+```sh
+# Build and run with Docker Compose
+cd docker
+docker-compose up frontend
+```
+
+The frontend will be accessible at `http://localhost:8080`
+
+## Project Structure
+
+```
+src/
+├── components/     # Reusable UI components
+├── pages/         # Page components
+├── context/       # React Context providers
+├── hooks/         # Custom React hooks
+├── services/      # API services
+├── types/         # TypeScript type definitions
+├── lib/           # Utility functions
+├── test/          # Test setup and utilities
+├── App.tsx        # Main App component
+├── main.tsx       # Entry point
+└── index.css      # Global styles
+```
+
+## Features
+
+- Student Dashboard
+- Faculty Dashboard
+- Evaluation Viewer
+- Responsive Design
+- Dark/Light Theme Support
+- Real-time Updates with React Query

@@ -17,6 +17,7 @@ import {
 } from "@/services/evaluationService";
 import { MarksRow, SUBJECT_MAP, createEmptyMarks, computeTotal } from "@/types/evaluation";
 import ThemeToggle from "@/components/ThemeToggle";
+import { getCachedPage, cachePages } from "@/lib/cacheManager";
 
 // Generate pages 1-30 to support realistic answer sheet scenarios
 const PAGES = Array.from({ length: 30 }, (_, i) => i + 1);
@@ -105,6 +106,43 @@ const AnswerSheetImage = ({ page, subjectCode, rollNo }: { page: number; subject
   );
 };
 
+// Thumbnail component for next pages preview
+const PageThumbnail = ({ 
+  page, 
+  subjectCode, 
+  rollNo, 
+  onClick,
+  isLoading = false 
+}: { 
+  page: number; 
+  subjectCode: string; 
+  rollNo: string; 
+  onClick: () => void;
+  isLoading?: boolean;
+}) => {
+  return (
+    <button
+      onClick={onClick}
+      disabled={isLoading}
+      className="relative group flex-1 h-28 rounded-none border border-border/40 bg-card/50 hover:bg-card hover:border-primary/30 transition-all overflow-hidden cursor-pointer hover:shadow-md disabled:opacity-50"
+    >
+      <div className="w-full h-full scale-75-origin-top-left" style={{ transform: "scale(0.3)", transformOrigin: "top left", pointerEvents: "none" }}>
+        <AnswerSheetImage page={page} subjectCode={subjectCode} rollNo={rollNo} />
+      </div>
+      {/* Overlay label */}
+      <div className="absolute inset-0 flex items-end justify-center pb-0.5 bg-gradient-to-t from-black/60 to-transparent">
+        <p className="text-[8px] font-mono font-semibold text-white">Page {page}</p>
+      </div>
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background/40">
+          <div className="w-3 h-3 rounded-full border border-primary border-t-transparent animate-spin" />
+        </div>
+      )}
+    </button>
+  );
+};
+
+
 const EvaluationViewer = () => {
   const { subjectId } = useParams();
   const [searchParams] = useSearchParams();
@@ -132,6 +170,10 @@ const EvaluationViewer = () => {
   const [marks, setMarks] = useState<MarksRow[]>(createEmptyMarks());
   const [grievanceText, setGrievanceText] = useState("");
   const [scriptGrievance, setScriptGrievance] = useState<{ text: string; date: string } | null>(null);
+
+  // Thumbnail pages state
+  const [nextPageThumbnails, setNextPageThumbnails] = useState<number[]>([]);
+  const [loadingThumbnails, setLoadingThumbnails] = useState(false);
 
   // Preview dropdown
   const [previewDropdownOpen, setPreviewDropdownOpen] = useState(false);
@@ -184,6 +226,48 @@ const EvaluationViewer = () => {
       }
     }
   }, [rollNo, subjectId]);
+
+  // Fetch and cache next 3 pages when active page changes
+  useEffect(() => {
+    const fetchAndCacheNextPages = async () => {
+      const nextPages = [];
+      for (let i = 1; i <= 3; i++) {
+        const pageNum = activePage + i;
+        if (pageNum <= PAGES.length) {
+          nextPages.push(pageNum);
+        }
+      }
+
+      if (nextPages.length > 0) {
+        setLoadingThumbnails(true);
+        setNextPageThumbnails(nextPages);
+        
+        try {
+          // Simulate fetching pages from backend and cache them
+          // In a real scenario, these would come from an API
+          const pagesToCache = nextPages.map(pageNum => ({
+            page: pageNum,
+            imageBlob: new Blob() // Placeholder - in real app, this comes from backend
+          }));
+          
+          // Cache the pages for later preview
+          if (pagesToCache.length > 0) {
+            await cachePages(subjectCode, pagesToCache).catch(err => {
+              console.log("Cache operation note:", err);
+            });
+          }
+        } catch (error) {
+          console.error("Error caching next pages:", error);
+        } finally {
+          setLoadingThumbnails(false);
+        }
+      } else {
+        setNextPageThumbnails([]);
+      }
+    };
+
+    fetchAndCacheNextPages();
+  }, [activePage, subjectCode]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -940,6 +1024,33 @@ const EvaluationViewer = () => {
                       <div className="pt-2 text-center">
                         <span className="text-[10px] text-muted-foreground">— End of {activePreview === "question-paper" ? "Question Paper" : "Answer Key"} —</span>
                       </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Next Pages Thumbnails - Faculty Mode Only */}
+              {isFaculty && nextPageThumbnails.length > 0 && (
+                <div className="px-1 py-0 border-b border-border shrink-0">
+                  <div className="rounded border border-border/60 bg-background/40 overflow-hidden">
+                    <div className="p-0 flex gap-0">
+                      {nextPageThumbnails.map((pageNum) => (
+                        <PageThumbnail
+                          key={pageNum}
+                          page={pageNum}
+                          subjectCode={subjectCode}
+                          rollNo={rollNo}
+                          onClick={() => {
+                            setActivePage(pageNum);
+                            // Scroll to top of right panel
+                            const scrollContainer = document.querySelector('[class*="flex-col"]');
+                            if (scrollContainer) {
+                              scrollContainer.scrollTop = 0;
+                            }
+                          }}
+                          isLoading={loadingThumbnails}
+                        />
+                      ))}
                     </div>
                   </div>
                 </div>

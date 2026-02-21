@@ -138,6 +138,33 @@ export async function clearCache(subjectCode: string): Promise<void> {
   });
 }
 
+// Batch cache multiple pages efficiently
+export async function cachePages(
+  subjectCode: string,
+  pages: Array<{ page: number; imageBlob: Blob }>
+): Promise<void> {
+  const database = await initializeDB();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(STORE_NAME, "readwrite");
+    const store = transaction.objectStore(STORE_NAME);
+
+    pages.forEach(({ page, imageBlob }) => {
+      const id = `${subjectCode}-${page}`;
+      const cachedPage: CachedPage = {
+        id,
+        subjectCode,
+        page,
+        imageData: imageBlob,
+        timestamp: Date.now(),
+      };
+      store.put(cachedPage);
+    });
+
+    transaction.onerror = () => reject(transaction.error);
+    transaction.oncomplete = () => resolve();
+  });
+}
+
 // Get total cache size
 export async function getCacheSize(): Promise<number> {
   const database = await initializeDB();

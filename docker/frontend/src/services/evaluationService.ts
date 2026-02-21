@@ -81,7 +81,7 @@ let scripts: AnswerScript[] = [
   { id: "35", rollNo: "2305741", subjectCode: "ME2001", submissionDate: "2025-12-10", status: "pending", hasGrievance: false, marks: createEmptyMarks() },
 ];
 
-let resultsPublished = false;
+let resultsPublished = true;
 
 // ---- Public API ----
 // Replace these with real DB calls when ready.

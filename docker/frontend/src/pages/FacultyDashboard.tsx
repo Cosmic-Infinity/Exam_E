@@ -4,14 +4,11 @@ import { toast } from "sonner";
 import ThemeToggle from "@/components/ThemeToggle";
 import {
   getAllScripts,
-  areResultsPublished,
-  setResultsPublished,
 } from "@/services/evaluationService";
 
 type FilterTab = "all" | "grievances";
 
 const FacultyDashboard = () => {
-  const [publishResults, setPublishResults] = useState(areResultsPublished());
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
   const navigate = useNavigate();
 
@@ -35,17 +32,6 @@ const FacultyDashboard = () => {
     toast.dismiss();
     toast.success("Logged out successfully");
     navigate("/");
-  };
-
-  const handlePublishToggle = () => {
-    const next = !publishResults;
-    setPublishResults(next);
-    setResultsPublished(next);
-    toast.success(
-      next
-        ? "Results published to the Student Portal"
-        : "Results unpublished from the Student Portal"
-    );
   };
 
   const stats = [
@@ -192,28 +178,6 @@ const FacultyDashboard = () => {
 
           {/* Sidebar */}
           <div className="space-y-4">
-            <div className="rounded-xl border border-border bg-card p-5 space-y-4">
-              <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">
-                System Control
-              </h3>
-              <div className="flex items-center justify-between">
-                <label className="text-sm text-muted-foreground leading-snug max-w-[180px]">
-                  Publish Results to Student Portal
-                </label>
-                <button
-                  onClick={handlePublishToggle}
-                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary/50 ${
-                    publishResults ? "bg-primary" : "bg-border"
-                  }`}
-                >
-                  <span
-                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-foreground shadow-lg transform transition duration-200 ease-in-out ${
-                      publishResults ? "translate-x-5" : "translate-x-0"
-                    }`}
-                  />
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       </main>

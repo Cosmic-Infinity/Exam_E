@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
+import JSZip from "jszip";
 import { useUserSession } from "@/context/UserSessionContext";
 import {
   ResizableHandle,
@@ -17,7 +18,8 @@ import {
 import { MarksRow, SUBJECT_MAP, createEmptyMarks, computeTotal } from "@/types/evaluation";
 import ThemeToggle from "@/components/ThemeToggle";
 
-const PAGES = [1, 2, 3, 4, 5, 6, 7, 8];
+// Generate pages 1-30 to support realistic answer sheet scenarios
+const PAGES = Array.from({ length: 30 }, (_, i) => i + 1);
 
 type PreviewType = "question-paper" | "answer-key" | null;
 
@@ -31,6 +33,28 @@ const PAGE_COLORS = [
   "from-slate-800/30 to-indigo-950/30",
   "from-indigo-900/30 to-slate-900/40",
   "from-slate-900/30 to-blue-950/40",
+  "from-blue-950/25 to-indigo-900/35",
+  "from-slate-900/35 to-slate-800/45",
+  "from-indigo-950/28 to-blue-900/38",
+  "from-slate-800/32 to-slate-900/42",
+  "from-blue-900/28 to-indigo-950/38",
+  "from-slate-900/38 to-blue-950/32",
+  "from-indigo-900/35 to-slate-900/45",
+  "from-slate-950/30 to-blue-900/40",
+  "from-blue-950/32 to-slate-900/38",
+  "from-slate-800/35 to-indigo-950/45",
+  "from-indigo-950/35 to-slate-800/45",
+  "from-blue-900/30 to-slate-900/40",
+  "from-slate-900/40 to-blue-950/35",
+  "from-indigo-900/32 to-slate-900/42",
+  "from-slate-800/38 to-blue-900/48",
+  "from-blue-950/35 to-indigo-900/40",
+  "from-slate-900/35 to-slate-800/45",
+  "from-indigo-950/32 to-blue-950/42",
+  "from-slate-950/35 to-slate-800/50",
+  "from-blue-900/32 to-indigo-950/42",
+  "from-slate-800/36 to-slate-900/46",
+  "from-indigo-900/38 to-slate-900/48",
 ];
 
 const AnswerSheetImage = ({ page, subjectCode, rollNo }: { page: number; subjectCode: string; rollNo: string }) => {
@@ -113,6 +137,38 @@ const EvaluationViewer = () => {
   const [previewDropdownOpen, setPreviewDropdownOpen] = useState(false);
   const [activePreview, setActivePreview] = useState<PreviewType>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const previewScrollRef = useRef<HTMLDivElement>(null);
+
+  // Track scroll positions for each preview type independently
+  const [previewScrollPositions, setPreviewScrollPositions] = useState<{
+    "question-paper": number;
+    "answer-key": number;
+  }>({
+    "question-paper": 0,
+    "answer-key": 0,
+  });
+
+  // Answer sheet rotation
+  const [rotation, setRotation] = useState(0);
+
+  // Drawing mode
+  const [drawMode, setDrawMode] = useState<"pencil" | "eraser" | null>(null);
+  const [drawDropdownOpen, setDrawDropdownOpen] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isDrawingRef = useRef(false);
+  const drawDropdownRef = useRef<HTMLDivElement>(null);
+  const drawingsRef = useRef<{ [key: number]: ImageData }>({});
+  const lastPageRef = useRef<number>(1);
+  const answerSheetContainerRef = useRef<HTMLDivElement>(null);
+
+  // Download functionality
+  const [downloadDropdownOpen, setDownloadDropdownOpen] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const downloadDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Pagination container for auto-scroll
+  const paginationContainerRef = useRef<HTMLDivElement>(null);
+  const pageButtonRefs = useRef<{ [key: number]: HTMLButtonElement }>({});
 
   // Recheck accordion
   const [recheckOpen, setRecheckOpen] = useState(false);
@@ -139,6 +195,21 @@ const EvaluationViewer = () => {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  // Auto-scroll pagination container when page changes
+  useEffect(() => {
+    const button = pageButtonRefs.current[activePage];
+    if (button && paginationContainerRef.current) {
+      // Use scrollIntoView with smooth behavior - more reliable for both directions
+      setTimeout(() => {
+        button.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+          inline: "center",
+        });
+      }, 0);
+    }
+  }, [activePage]);
 
   const handleBack = () => {
     navigate(isFaculty ? "/dashboard/faculty" : "/dashboard/student");
@@ -192,8 +263,336 @@ const EvaluationViewer = () => {
   };
 
   const selectPreview = (type: PreviewType) => {
+    // Save current scroll position before switching
+    if (activePreview && previewScrollRef.current) {
+      setPreviewScrollPositions((prev) => ({
+        ...prev,
+        [activePreview]: previewScrollRef.current!.scrollTop,
+      }));
+    }
     setActivePreview(type);
     setPreviewDropdownOpen(false);
+  };
+
+  // Restore scroll position when preview type changes
+  useEffect(() => {
+    if (activePreview && previewScrollRef.current) {
+      // Restore saved scroll position for this preview type
+      setTimeout(() => {
+        if (previewScrollRef.current) {
+          previewScrollRef.current.scrollTop = previewScrollPositions[activePreview];
+        }
+      }, 0);
+    } else if (!activePreview) {
+      // Reset both scroll positions when preview is closed
+      setPreviewScrollPositions({
+        "question-paper": 0,
+        "answer-key": 0,
+      });
+    }
+  }, [activePreview]);
+
+  // Drawing functions
+  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current || !drawMode) return;
+    isDrawingRef.current = true;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  };
+
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current || !drawMode || !isDrawingRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    if (drawMode === "pencil") {
+      ctx.strokeStyle = "rgba(255, 0, 0, 0.8)";
+      ctx.lineWidth = 2;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.lineTo(x, y);
+      ctx.stroke();
+    } else if (drawMode === "eraser") {
+      ctx.clearRect(x - 20, y - 20, 40, 40);
+    }
+  };
+
+  const handleCanvasMouseUp = () => {
+    isDrawingRef.current = false;
+  };
+
+  const handleClearCanvas = () => {
+    if (!canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Also remove from stored drawings for this page
+      delete drawingsRef.current[activePage];
+    }
+  };
+
+  // Close draw dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (drawDropdownRef.current && !drawDropdownRef.current.contains(e.target as Node)) {
+        setDrawDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // Save/restore drawings when page changes
+  useEffect(() => {
+    if (!canvasRef.current) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const container = canvas.parentElement;
+    if (!container) return;
+
+    // Save the drawing from the previous page BEFORE resizing
+    if (lastPageRef.current !== activePage && lastPageRef.current > 0) {
+      try {
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        drawingsRef.current[lastPageRef.current] = imageData;
+      } catch (e) {
+        // Ignore errors in getting image data
+      }
+    }
+
+    // Get stored drawing dimensions
+    const storedDrawing = drawingsRef.current[activePage];
+    const storedWidth = storedDrawing ? storedDrawing.width : 0;
+    const storedHeight = storedDrawing ? storedDrawing.height : 0;
+
+    // Resize canvas for new page
+    const newWidth = container.offsetWidth;
+    const newHeight = container.offsetHeight;
+    canvas.width = newWidth;
+    canvas.height = newHeight;
+
+    // Restore drawing for current page if it exists and dimensions match closely
+    if (storedDrawing && Math.abs(storedWidth - newWidth) < 50 && Math.abs(storedHeight - newHeight) < 50) {
+      try {
+        ctx.putImageData(storedDrawing, 0, 0);
+      } catch (e) {
+        // If dimensions don't match exactly, redraw is not possible, clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    } else if (!storedDrawing) {
+      // Clear canvas for new page with no prior drawings
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // Update last page reference
+    lastPageRef.current = activePage;
+  }, [activePage]);
+
+  // Close download dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (downloadDropdownRef.current && !downloadDropdownRef.current.contains(e.target as Node)) {
+        setDownloadDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // Download single page
+  const handleDownloadSinglePage = async () => {
+    setIsDownloading(true);
+    try {
+      if (!answerSheetContainerRef.current) {
+        toast.error("Failed to capture page");
+        return;
+      }
+
+      // Get the answer sheet element inside the container
+      const element = answerSheetContainerRef.current.querySelector("[class*='bg-gradient']") || 
+                      answerSheetContainerRef.current.firstChild as HTMLElement;
+      
+      if (!element) {
+        toast.error("Answer sheet not found");
+        return;
+      }
+
+      // Create a canvas and draw the HTML element
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      
+      if (!ctx) {
+        toast.error("Failed to create canvas");
+        return;
+      }
+
+      const width = element.offsetWidth || 400;
+      const height = element.offsetHeight || 600;
+      canvas.width = width;
+      canvas.height = height;
+
+      // Draw light background
+      ctx.fillStyle = "#f5f3ff";
+      ctx.fillRect(0, 0, width, height);
+
+      // Draw border
+      ctx.strokeStyle = "#8b5cf6";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(0, 0, width, height);
+
+      // Draw header
+      ctx.fillStyle = "#5b21b6";
+      ctx.font = "bold 14px Arial";
+      ctx.fillText("Answer Sheet", 10, 25);
+      ctx.font = "12px Arial";
+      ctx.fillStyle = "#333";
+      ctx.fillText(`Subject: ${subjectCode} | Roll: ${rollNo}`, 10, 45);
+      ctx.fillText(`Page: ${activePage} of ${PAGES.length}`, 10, 62);
+
+      // Draw some placeholder lines to represent answer content
+      ctx.strokeStyle = "#d4d4d8";
+      ctx.lineWidth = 0.5;
+      for (let i = 0; i < 15; i++) {
+        const y = 80 + i * 30;
+        ctx.beginPath();
+        ctx.moveTo(10, y);
+        ctx.lineTo(width - 10, y);
+        ctx.stroke();
+      }
+
+      // Add timestamp
+      ctx.fillStyle = "#999";
+      ctx.font = "10px Arial";
+      ctx.fillText(`Downloaded: ${new Date().toLocaleString()}`, 10, height - 10);
+
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `${subjectCode}_page_${activePage}_${new Date().getTime()}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          toast.success(`Page ${activePage} downloaded successfully`);
+        }
+      });
+      setDownloadDropdownOpen(false);
+    } catch (error) {
+      toast.error("Download failed");
+      console.error(error);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  // Download full sheet
+  const handleDownloadFullSheet = async () => {
+    setIsDownloading(true);
+    try {
+      toast.success(`Creating ZIP file with all ${PAGES.length} pages...`);
+      const zip = new JSZip();
+      const pagesFolder = zip.folder('pages');
+      
+      for (let page = 1; page <= PAGES.length; page++) {
+        setActivePage(page);
+        
+        // Wait for page to render
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        const element = answerSheetContainerRef.current?.querySelector("[class*='bg-gradient']") ||
+                       answerSheetContainerRef.current?.firstChild as HTMLElement;
+        
+        if (!element) continue;
+
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        if (!ctx) continue;
+
+        const width = element.offsetWidth || 400;
+        const height = element.offsetHeight || 600;
+        canvas.width = width;
+        canvas.height = height;
+
+        ctx.fillStyle = "#f5f3ff";
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.strokeStyle = "#8b5cf6";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(0, 0, width, height);
+
+        ctx.fillStyle = "#5b21b6";
+        ctx.font = "bold 14px Arial";
+        ctx.fillText("Answer Sheet", 10, 25);
+        ctx.font = "12px Arial";
+        ctx.fillStyle = "#333";
+        ctx.fillText(`Subject: ${subjectCode} | Roll: ${rollNo}`, 10, 45);
+        ctx.fillText(`Page: ${page} of ${PAGES.length}`, 10, 62);
+
+        ctx.strokeStyle = "#d4d4d8";
+        ctx.lineWidth = 0.5;
+        for (let i = 0; i < 15; i++) {
+          const y = 80 + i * 30;
+          ctx.beginPath();
+          ctx.moveTo(10, y);
+          ctx.lineTo(width - 10, y);
+          ctx.stroke();
+        }
+
+        ctx.fillStyle = "#999";
+        ctx.font = "10px Arial";
+        ctx.fillText(`Downloaded: ${new Date().toLocaleString()}`, 10, height - 10);
+
+        // Add page to ZIP with sequential naming (01, 02, 03...)
+        await new Promise<void>((resolve) => {
+          canvas.toBlob((blob) => {
+            if (blob && pagesFolder) {
+              const paddedPageNum = String(page).padStart(2, '0');
+              pagesFolder.file(`${subjectCode}_page_${paddedPageNum}.png`, blob);
+            }
+            resolve();
+          }, 'image/png');
+        });
+      }
+      
+      // Generate ZIP and download
+      toast.loading('Generating ZIP file...');
+      const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+      const url = URL.createObjectURL(zipBlob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${subjectCode}_complete_sheet_${new Date().getTime()}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success('Complete answer sheet downloaded as ZIP!');
+      setDownloadDropdownOpen(false);
+    } catch (error) {
+      toast.error("Full download failed");
+      console.error(error);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const totalMarks = computeTotal(marks);
@@ -236,44 +635,190 @@ const EvaluationViewer = () => {
           {/* Left: Answer Sheet as Image */}
           <ResizablePanel defaultSize={55} minSize={35}>
             <div className="h-full flex flex-col bg-card/30">
-              {/* Page nav tabs */}
-              <div className="border-b border-border px-3 py-2 flex items-center gap-1 overflow-x-auto shrink-0">
+              {/* Page nav tabs with horizontal scroll */}
+              <div className="border-b border-border px-3 py-2 shrink-0 flex items-center gap-1">
                 <span className="text-xs text-muted-foreground mr-2 shrink-0">Pages:</span>
-                {PAGES.map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setActivePage(p)}
-                    className={`shrink-0 w-7 h-7 rounded-md text-xs font-mono font-semibold transition-colors ${
-                      activePage === p
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-card text-muted-foreground hover:text-foreground hover:bg-card/80 border border-border"
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ))}
+                <div
+                  ref={paginationContainerRef}
+                  className="flex-1 min-w-0 overflow-x-auto"
+                  style={{
+                    scrollbarWidth: "thin",
+                    scrollbarColor: "hsl(var(--border)) transparent",
+                  }}
+                >
+                  <div className="flex gap-1 pb-0.5">
+                    {PAGES.map((p) => (
+                      <button
+                        key={p}
+                        ref={(el) => {
+                          if (el) pageButtonRefs.current[p] = el;
+                        }}
+                        onClick={() => setActivePage(p)}
+                        className={`shrink-0 w-7 h-7 rounded-md text-xs font-mono font-semibold transition-colors ${
+                          activePage === p
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-card text-muted-foreground hover:text-foreground hover:bg-card/80 border border-border"
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               {/* Answer Sheet Image Viewer */}
-              <div className="flex-1 relative flex items-stretch p-4 gap-2">
+              <div className="flex-1 relative flex items-center justify-center p-4 gap-2 overflow-hidden">
                 <button
                   onClick={handlePrev}
                   disabled={activePage === 1}
-                  className="self-center w-8 h-14 rounded-lg bg-card/80 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card disabled:opacity-30 transition-all shrink-0"
+                  className="absolute left-2 z-20 w-8 h-14 rounded-lg bg-card/80 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card disabled:opacity-30 transition-all shrink-0"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
 
-                <div className="flex-1 min-w-0">
-                  <AnswerSheetImage page={activePage} subjectCode={subjectCode} rollNo={rollNo} />
+                <div className="relative flex items-center justify-center h-full" style={{ maxHeight: "100%", maxWidth: "100%" }} ref={answerSheetContainerRef}>
+                  <div style={{ transform: `rotate(${rotation}deg)` }}>
+                    <AnswerSheetImage page={activePage} subjectCode={subjectCode} rollNo={rollNo} />
+                  </div>
+                  {/* Drawing Canvas Overlay - Always present, cursor/events change based on drawMode */}
+                  <canvas
+                    ref={canvasRef}
+                    onMouseDown={handleCanvasMouseDown}
+                    onMouseMove={handleCanvasMouseMove}
+                    onMouseUp={handleCanvasMouseUp}
+                    onMouseLeave={handleCanvasMouseUp}
+                    className="absolute inset-0 z-10 transition-opacity"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      pointerEvents: drawMode ? "auto" : "none",
+                      cursor: drawMode ? "crosshair" : "default",
+                      backgroundColor: "transparent",
+                      opacity: drawMode ? 1 : 0.5,
+                    }}
+                  />
+                </div>
+
+                {/* Rotation Buttons - Top Right Corner */}
+                <div className="absolute top-2 right-2 z-30 flex flex-col gap-1">
+                  <button
+                    onClick={() => setRotation((r) => (r - 90 + 360) % 360)}
+                    title="Rotate Left (90°)"
+                    className="w-8 h-8 rounded-lg bg-card/80 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
+                  >
+                    ↺
+                  </button>
+                  <button
+                    onClick={() => setRotation((r) => (r + 90) % 360)}
+                    title="Rotate Right (90°)"
+                    className="w-8 h-8 rounded-lg bg-card/80 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
+                  >
+                    ↻
+                  </button>
+
+                  {/* Draw Button with Dropdown */}
+                  <div className="relative" ref={drawDropdownRef}>
+                    <button
+                      onClick={() => setDrawDropdownOpen((o) => !o)}
+                      title={drawMode === "pencil" ? "Pencil - Click to change" : drawMode === "eraser" ? "Eraser - Click to change" : "Draw or Erase - Click to select"}
+                      className={`w-8 h-8 rounded-lg border border-border flex items-center justify-center transition-colors text-lg ${
+                        drawMode
+                          ? "bg-primary/80 text-primary-foreground"
+                          : "bg-card/80 text-muted-foreground hover:text-foreground hover:bg-card"
+                      }`}
+                    >
+                      {drawMode === "pencil" ? "✏️" : drawMode === "eraser" ? "⌫" : "✏️"}
+                    </button>
+
+                    {drawDropdownOpen && (
+                      <div className="absolute right-full mr-1 top-0 z-50 w-32 rounded-lg border border-border bg-card shadow-xl shadow-black/30 overflow-hidden">
+                        <button
+                          onClick={() => {
+                            setDrawMode(drawMode === "pencil" ? null : "pencil");
+                            setDrawDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 text-xs font-medium transition-colors flex items-center gap-2 ${
+                            drawMode === "pencil"
+                              ? "bg-primary/10 text-primary"
+                              : "text-foreground hover:bg-muted/50"
+                          }`}
+                        >
+                          ✏️ Pencil
+                          {drawMode === "pencil" && <span className="ml-auto text-[10px] text-primary">● Active</span>}
+                        </button>
+                        <div className="h-px bg-border" />
+                        <button
+                          onClick={() => {
+                            setDrawMode(drawMode === "eraser" ? null : "eraser");
+                            setDrawDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 text-xs font-medium transition-colors flex items-center gap-2 ${
+                            drawMode === "eraser"
+                              ? "bg-primary/10 text-primary"
+                              : "text-foreground hover:bg-muted/50"
+                          }`}
+                        >
+                          ⌫ Eraser
+                          {drawMode === "eraser" && <span className="ml-auto text-[10px] text-primary">● Active</span>}
+                        </button>
+                        <div className="h-px bg-border" />
+                        <button
+                          onClick={() => {
+                            handleClearCanvas();
+                            setDrawDropdownOpen(false);
+                          }}
+                          className="w-full text-left px-3 py-2 text-xs font-medium text-foreground hover:bg-muted/50 transition-colors"
+                        >
+                          Clear All
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Download Button with Dropdown */}
+                  <div className="relative" ref={downloadDropdownRef}>
+                    <button
+                      onClick={() => setDownloadDropdownOpen((o) => !o)}
+                      disabled={isDownloading}
+                      title="Download answer sheet"
+                      className={`w-8 h-8 rounded-lg border border-border flex items-center justify-center transition-colors ${
+                        isDownloading
+                          ? "bg-primary/50 text-primary-foreground opacity-50 cursor-not-allowed"
+                          : "bg-card/80 text-muted-foreground hover:text-foreground hover:bg-card"
+                      }`}
+                    >
+                      ⬇️
+                    </button>
+
+                    {downloadDropdownOpen && (
+                      <div className="absolute right-full mr-1 top-0 z-50 w-40 rounded-lg border border-border bg-card shadow-xl shadow-black/30 overflow-hidden">
+                        <button
+                          onClick={handleDownloadSinglePage}
+                          disabled={isDownloading}
+                          className="w-full text-left px-3 py-2.5 text-xs font-medium transition-colors flex items-center gap-2 text-foreground hover:bg-muted/50 disabled:opacity-50"
+                        >
+                          📄 This Page Only
+                        </button>
+                        <div className="h-px bg-border" />
+                        <button
+                          onClick={handleDownloadFullSheet}
+                          disabled={isDownloading}
+                          className="w-full text-left px-3 py-2.5 text-xs font-medium transition-colors flex items-center gap-2 text-foreground hover:bg-muted/50 disabled:opacity-50"
+                        >
+                          📦 Full Sheet ({PAGES.length} pages)
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <button
                   onClick={handleNext}
                   disabled={activePage === PAGES.length}
-                  className="self-center w-8 h-14 rounded-lg bg-card/80 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card disabled:opacity-30 transition-all shrink-0"
+                  className="absolute right-2 z-20 w-8 h-14 rounded-lg bg-card/80 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card disabled:opacity-30 transition-all shrink-0"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -303,9 +848,8 @@ const EvaluationViewer = () => {
                   </p>
                 </div>
 
-                {/* Preview Dropdown (student only) */}
-                {role === "student" && (
-                  <div className="relative shrink-0" ref={dropdownRef}>
+                {/* Preview Dropdown */}
+                <div className="relative shrink-0" ref={dropdownRef}>
                     <button
                       onClick={() => setPreviewDropdownOpen((o) => !o)}
                       className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground hover:bg-secondary/80 transition-colors"
@@ -343,8 +887,7 @@ const EvaluationViewer = () => {
                         </button>
                       </div>
                     )}
-                  </div>
-                )}
+                </div>
               </div>
 
               {/* Scrollable Preview Panel (one at a time) */}
@@ -356,14 +899,23 @@ const EvaluationViewer = () => {
                         {activePreview === "question-paper" ? "📋 Question Paper" : "🗝 Answer Key"} — {subjectCode}
                       </h4>
                       <button
-                        onClick={() => setActivePreview(null)}
+                        onClick={() => {
+                          // Save scroll position before closing
+                          if (activePreview && previewScrollRef.current) {
+                            setPreviewScrollPositions((prev) => ({
+                              ...prev,
+                              [activePreview]: previewScrollRef.current!.scrollTop,
+                            }));
+                          }
+                          setActivePreview(null);
+                        }}
                         className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                       >
                         ✕
                       </button>
                     </div>
                     {/* Scrollable document area */}
-                    <div className="h-48 overflow-y-auto p-3 space-y-2">
+                    <div ref={previewScrollRef} className="h-48 overflow-y-auto p-3 space-y-2">
                       {Array.from({ length: 12 }, (_, i) => {
                         const seed = (i * 13 + (activePreview === "answer-key" ? 50 : 20)) % 100;
                         const isHeading = i % 4 === 0;

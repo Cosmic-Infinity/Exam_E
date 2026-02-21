@@ -119,15 +119,11 @@ const StudentDashboard = () => {
 
               <button
                 onClick={handleViewAnswerSheet}
-                disabled={!selectedCode || !published}
+                disabled={!selectedCode}
                 className="w-full rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 View Answer Sheet
               </button>
-
-              {!published && (
-                <p className="text-[11px] text-warning">Results not published yet.</p>
-              )}
 
               {selectedCode && (
                 <p className="text-[11px] text-muted-foreground pt-1 border-t border-border">

@@ -2,6 +2,25 @@
 
 This document outlines the workflows for populating the `Exam_E` database, specifically tailored for a university administration model where students are pre-enrolled and exam papers are digitized centrally.
 
+---
+
+## 🔐 0. Role Configuration in Data Entry
+
+| User Type | `role` | `is_staff` | Description |
+| :--- | :--- | :--- | :--- |
+| **Student** | `STUDENT` | `False` | Application User. |
+| **Teacher** | `TEACHER` | `False` | Standard Faculty. Viewing stats requires Course Coordinator link. |
+| **Course Coordinator** | `TEACHER` | `False` | **Linked to Course via `coordinator_id`**. See below. |
+| **Controller** | `CONTROLLER`| `False` | Faculty with Global Stats View. Can also teach courses. |
+| **System Admin** | `COORDINATOR`| `True` | **Technical Role**. Accesses Django Admin / Data Tools. |
+
+### Assigning Course Coordinators
+The `Course` model now has a `coordinator` field (ForeignKey to User).
+1.  **Via Admin Panel**: Go to `Courses`, select a course, and pick a Teacher from the "Coordinator" dropdown (Controllers also appear here).
+2.  **Via Script**: Ensure the `Course` table is updated with the `user_id` of the teacher in the `coordinator_id` column.
+
+---
+
 ## 1. Initial Setup (Admin Dashboard)
 
 _The "Data Import Tool" in the Django Admin Panel replaces command-line scripts for most data entry tasks._

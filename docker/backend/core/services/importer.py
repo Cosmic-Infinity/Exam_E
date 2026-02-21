@@ -150,6 +150,7 @@ def import_teachers(file_obj):
                         'full_name': name,
                         'email': email,
                         'role': 'TEACHER',
+                        'is_staff': False, # Teachers do not need Admin Panel access
                         'is_active': True
                     }
                 )

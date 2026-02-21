@@ -11,9 +11,9 @@
 
 | Component   | Choice             | Why for your team?                                                                 |
 |-------------|--------------------|------------------------------------------------------------------------------------|
-| Backend     | Python (Django)    | The built-in Admin Interface saves ~30% of dev time. It handles the "Coordinator" roles (viewing students, assigning papers) out-of-the-box. |
-| API Layer   | Django Ninja       | It uses Type Hints (Standard Python 3.6+). It validates data strictness like Java but writes as fast as Python. Highly performant and async-capable. |
-| Frontend    | React (TypeScript) | Essential for the complex "Paper Checking" UI. TypeScript prevents runtime bugs, keeping your "Core CS" strictness alive in the browser. |
+| Backend     | Python (Django)    | The built-in Admin Interface saves ~30% of dev time. It handles the "System Admin" roles (data ingress, user management) out-of-the-box. |
+| API Layer   | Django Ninja/DRF   | It uses Type Hints (Standard Python 3.6+). It validates data strictness like Java but writes as fast as Python. Highly performant. |
+| Frontend    | React (TypeScript) | Essential for the complex "Paper Checking" UI and the "Controller Dashboard". TypeScript prevents runtime bugs. |
 | Database    | PostgreSQL         | The industry standard. Handles concurrent writes/reads better than MySQL. Essential for the complex "random allocation" queries. |
 | Web Server  | Nginx              | CRITICAL. It serves the heavy static images (scanned papers) and protects the slower Python backend from the 5,000 concurrent connections. |
 | Task Queue  | Celery + Redis     | Handles the "Mass Mailing" and "Auto-Distribution" scripts in the background without freezing the student's UI. |
@@ -134,6 +134,9 @@ The Django admin (`/admin/`) supports full user management:
 - Create users with hashed passwords via the **Add User** form
 - Edit roles, flags (`is_active`, `is_staff`, `is_verified`) and group permissions
 - Password field is read-only with a link to the built-in change-password form
+
+UPDATED NOTES: this is an evaluaton system where there is basically a system admin/database admin/django admin (this portal isn't exposed to the web and is meant only for administrative purpose). then there is student (who view their papers, their marks, raise grievances). there is teacher (who checks papers, resolves gievances for their specific course+section combo). there is a coures coordinator for each course, who, besides teaching the course in some section, has an overview of statistics (similar to the one displayed by the admin panel) for his/her specific course, including the drill down (view only) ability. isntead of a global coordiantor, you may have a controller of examination role, who can overview course coordinator style stats, but for all subjects.
+note, the controller themselves can be a teacher who teaches an unrelated subject. managed like this- if teacher, they only have option to mark copes, resolve grievance for their subject, etc. if course coordinator (who is also a teacher) they have added ability to view stats for the course, if controller (who is also a teacher) has added functionaity and can see the stats for all subjects. django admin is the system admin who modies the database from his own panel and isn unrelated in this transactions
 
 ## Background Email (Celery)
 

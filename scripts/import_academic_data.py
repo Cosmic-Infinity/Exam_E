@@ -63,12 +63,14 @@ def import_teachers(conn, filepath):
                 school_id = ensure_school(cur, school_code)
 
                 # 2. Create User
-                # Password hash placeholder
+                # Password hash placeholder. 
+                # Teacher is NOT is_staff. Use Django Admin only for System Admins.
                 cur.execute(
                     """
-                    INSERT INTO users (university_id, full_name, email, role)
-                    VALUES (%s, %s, %s, 'TEACHER')
-                    ON CONFLICT (university_id) DO UPDATE SET full_name = EXCLUDED.full_name
+                    INSERT INTO users (university_id, full_name, email, role, is_staff, is_active)
+                    VALUES (%s, %s, %s, 'TEACHER', FALSE, TRUE)
+                    ON CONFLICT (university_id) DO UPDATE 
+                    SET full_name = EXCLUDED.full_name
                     RETURNING id
                     """,
                     (emp_id, name, email)

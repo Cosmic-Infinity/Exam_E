@@ -76,9 +76,9 @@ The database starts empty (no users). You must create a "Superuser" to access th
 
 | System          | URL                                                              | Description                                        |
 | :-------------- | :--------------------------------------------------------------- | :------------------------------------------------- |
-| **Admin Panel** | [http://localhost:8000/admin](http://localhost:8000/admin)       | Data Entry, User Management, Allocation Drilldowns |
+| **Admin Panel** | [http://localhost:8000/admin](http://localhost:8000/admin)       | **System Admin Only**. Data Entry & User Management. |
 | **API Docs**    | [http://localhost:8000/api/docs](http://localhost:8000/api/docs) | Backend Swagger/OpenAPI Documentation              |
-| **Frontend**    | [http://localhost:3000](http://localhost:3000)                   | Student/Teacher Portal (Under Development)         |
+| **Frontend**    | [http://localhost:3000](http://localhost:3000)                   | **Main App**. Student/Teacher/Controller Portals.  |
 | **Database**    | `localhost:5433`                                                 | Direct SQL Access (See below)                      |
 
 ---

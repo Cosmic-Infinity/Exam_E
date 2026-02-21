@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import ThemeToggle from "@/components/ThemeToggle";
+import { useUserSession } from "@/context/UserSessionContext";
 import {
   getAllScripts,
 } from "@/services/evaluationService";
@@ -11,6 +12,7 @@ type FilterTab = "all" | "grievances";
 const FacultyDashboard = () => {
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
   const navigate = useNavigate();
+  const { user } = useUserSession();
 
   const scripts = getAllScripts();
   const assigned = scripts.length;
@@ -49,6 +51,22 @@ const FacultyDashboard = () => {
           <p className="text-sm text-muted-foreground">Examination Grading Portal</p>
         </div>
         <div className="flex items-center gap-3">
+          {user?.isCourseCoordinator && (
+            <button
+              onClick={() => navigate("/dashboard/statistics")}
+              className="rounded-lg border border-primary bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20 transition-colors"
+            >
+              Statistics
+            </button>
+          )}
+          {user?.isController && (
+            <button
+              onClick={() => navigate("/dashboard/controller-statistics")}
+              className="rounded-lg border border-primary bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20 transition-colors"
+            >
+              Controller Statistics
+            </button>
+          )}
           <ThemeToggle />
           <button
             onClick={handleLogout}

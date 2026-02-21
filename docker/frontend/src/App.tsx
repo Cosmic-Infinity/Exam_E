@@ -8,6 +8,8 @@ import { UserSessionProvider } from "./context/UserSessionContext";
 import Login from "./pages/Login";
 import StudentDashboard from "./pages/StudentDashboard";
 import FacultyDashboard from "./pages/FacultyDashboard";
+import StatisticsPage from "./pages/StatisticsPage";
+import ControllerStatisticsPage from "./pages/ControllerStatisticsPage";
 import EvaluationViewer from "./pages/EvaluationViewer";
 import NotFound from "./pages/NotFound";
 
@@ -25,6 +27,8 @@ const App = () => (
               <Route path="/" element={<Login />} />
               <Route path="/dashboard/student" element={<StudentDashboard />} />
               <Route path="/dashboard/faculty" element={<FacultyDashboard />} />
+              <Route path="/dashboard/statistics" element={<StatisticsPage />} />
+              <Route path="/dashboard/controller-statistics" element={<ControllerStatisticsPage />} />
               <Route path="/evaluation/:subjectId" element={<EvaluationViewer />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

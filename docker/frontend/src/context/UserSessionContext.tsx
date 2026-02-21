@@ -21,6 +21,8 @@ export interface UserSession {
   universityId: string;
   role: "student" | "faculty";
   fullName: string;
+  isCourseCoordinator?: boolean;
+  isController?: boolean;
 }
 
 interface UserSessionContextType {

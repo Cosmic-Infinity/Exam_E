@@ -11,31 +11,52 @@ const Login = () => {
   const navigate = useNavigate();
   const { setUser } = useUserSession();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    // TODO: Replace this mock with actual API call to backend /api/auth/login/
-    setTimeout(() => {
-      if (email.endsWith("@faculty.kiit.ac.in")) {
-        // Extract faculty ID from email
-        const facultyId = email.split("@")[0];
-        setUser({ universityId: facultyId, role: "faculty", fullName: "Faculty User" });
-        toast.success("Welcome, Faculty!");
-        navigate("/dashboard/faculty");
-      } else if (email.endsWith("@kiit.ac.in")) {
-        // Extract roll number from email (format: rollno@kiit.ac.in)
-        const rollNo = email.split("@")[0];
-        setUser({ universityId: rollNo, role: "student", fullName: "Student" });
-        toast.success("Welcome, Student!");
-        navigate("/dashboard/student");
-      } else {
-        toast.error("Access denied. Use your KIIT email address.");
+    try {
+      const response = await fetch("/api/auth/login/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          email: email,
+          password: password,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        toast.error(error.error || "Invalid credentials");
         setLoading(false);
         return;
       }
+
+      const data = await response.json();
+
+      // Convert role from TEACHER to student/faculty
+      const userRole = data.role === "TEACHER" || data.role === "COORDINATOR" || data.role === "CONTROLLER" ? "faculty" : "student";
+      const isController = data.role === "CONTROLLER";
+
+      setUser({
+        universityId: data.university_id,
+        role: userRole,
+        fullName: data.full_name,
+        isCourseCoordinator: data.is_coursecoordinator || false,
+        isController: isController,
+      });
+
+      toast.success(`Welcome, ${userRole === "faculty" ? "Faculty" : "Student"}!`);
+      navigate(userRole === "faculty" ? "/dashboard/faculty" : "/dashboard/student");
+    } catch (error) {
+      console.error("Login error:", error);
+      toast.error("An error occurred. Please try again.");
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   };
 
   return (

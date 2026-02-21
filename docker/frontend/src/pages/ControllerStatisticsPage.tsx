@@ -21,7 +21,7 @@ interface SectionDetail extends SectionStatistics {
 
 const ControllerStatisticsPage = () => {
   const navigate = useNavigate();
-  const { user } = useUserSession();
+  const { user, setUser } = useUserSession();
   const [viewLevel, setViewLevel] = useState<ViewLevel>("semesters");
   const [loading, setLoading] = useState(false);
 
@@ -37,6 +37,17 @@ const ControllerStatisticsPage = () => {
   const [sectionDetailsMap, setSectionDetailsMap] = useState<Map<string, SectionDetail>>(
     new Map()
   );
+
+  // Fetch and set permission flags from backend role on mount
+  useEffect(() => {
+    if (user?.backendRole) {
+      setUser({
+        ...user,
+        isCourseCoordinator: user.backendRole === "COORDINATOR",
+        isController: user.backendRole === "CONTROLLER",
+      });
+    }
+  }, [user?.backendRole]);
 
   // Load semesters on mount
   useEffect(() => {

@@ -39,14 +39,12 @@ const Login = () => {
 
       // Convert role from TEACHER to student/faculty
       const userRole = data.role === "TEACHER" || data.role === "COORDINATOR" || data.role === "CONTROLLER" ? "faculty" : "student";
-      const isController = data.role === "CONTROLLER";
 
       setUser({
         universityId: data.university_id,
         role: userRole,
         fullName: data.full_name,
-        isCourseCoordinator: data.is_coursecoordinator || false,
-        isController: isController,
+        backendRole: data.role, // Store backend role to determine permissions on dashboard
       });
 
       toast.success(`Welcome, ${userRole === "faculty" ? "Faculty" : "Student"}!`);

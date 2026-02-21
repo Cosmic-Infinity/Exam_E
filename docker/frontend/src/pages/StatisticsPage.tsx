@@ -7,19 +7,14 @@ import {
   fetchCourseStatistics,
   fetchAccessibleCourses,
   type SectionStatistics,
+  type GrievanceDetail,
 } from "@/services/statisticsService";
 
-interface SectionDetail extends SectionStatistics {
-  grievanceDetails: Array<{
-    studentId: string;
-    studentName: string;
-    grievanceType: string;
-  }>;
-}
+interface SectionDetail extends SectionStatistics {}
 
 const StatisticsPage = () => {
   const navigate = useNavigate();
-  const { user } = useUserSession();
+  const { user, setUser } = useUserSession();
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
@@ -30,6 +25,18 @@ const StatisticsPage = () => {
   const [sectionDetailsMap, setSectionDetailsMap] = useState<
     Map<string, SectionDetail>
   >(new Map());
+
+  // Fetch and set permission flags from backend role on mount
+  useEffect(() => {
+    if (user?.backendRole) {
+      const isCourseCoordinator = user.backendRole === "COORDINATOR";
+      setUser({
+        ...user,
+        isCourseCoordinator,
+        isController: user.backendRole === "CONTROLLER",
+      });
+    }
+  }, [user?.backendRole]);
 
   // Fetch accessible courses on mount
   useEffect(() => {

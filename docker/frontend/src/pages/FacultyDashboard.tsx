@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -11,8 +11,35 @@ type FilterTab = "all" | "grievances";
 
 const FacultyDashboard = () => {
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const { user } = useUserSession();
+  const { user, setUser } = useUserSession();
+
+  // Fetch and set permission flags from backend role on mount
+  useEffect(() => {
+    const fetchPermissions = async () => {
+      try {
+        // Determine permissions based on backend role
+        if (user?.backendRole) {
+          const isCourseCoordinator = user.backendRole === "COORDINATOR";
+          const isController = user.backendRole === "CONTROLLER";
+          
+          // Update user session with permissions
+          setUser({
+            ...user,
+            isCourseCoordinator,
+            isController,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching permissions", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPermissions();
+  }, [user?.backendRole]);
 
   const scripts = getAllScripts();
   const assigned = scripts.length;

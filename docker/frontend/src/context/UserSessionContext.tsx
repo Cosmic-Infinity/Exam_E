@@ -21,8 +21,9 @@ export interface UserSession {
   universityId: string;
   role: "student" | "faculty";
   fullName: string;
-  isCourseCoordinator?: boolean;
-  isController?: boolean;
+  backendRole?: string; // Stores original backend role (TEACHER, COORDINATOR, CONTROLLER, STUDENT)
+  isCourseCoordinator?: boolean; // Determined on dashboard load, not at login
+  isController?: boolean; // Determined on dashboard load, not at login
 }
 
 interface UserSessionContextType {

@@ -77,9 +77,9 @@ The database starts empty (no users). You must create a "Superuser" to access th
 | System          | URL                                                              | Description                                        |
 | :-------------- | :--------------------------------------------------------------- | :------------------------------------------------- |
 | **Admin Panel** | [http://localhost:8000/admin](http://localhost:8000/admin)       | **System Admin Only**. Data Entry & User Management. |
-| **API Docs**    | [http://localhost:8000/api/docs](http://localhost:8000/api/docs) | Backend Swagger/OpenAPI Documentation              |
-| **Frontend**    | [http://localhost:3000](http://localhost:3000)                   | **Main App**. Student/Teacher/Controller Portals.  |
-| **Database**    | `localhost:5433`                                                 | Direct SQL Access (See below)                      |
+| **API Docs**    | See `API_DOCS.md` file                                           | Backend API Documentation (No live Swagger UI yet) |
+| **Frontend**    | [http://localhost:8080](http://localhost:8080)                   | **Main App**. Student/Teacher/Controller Portals.  |
+| **Database**    | `localhost:5433`                                                 | Direct SQL Access (Use DBeaver/PgAdmin, not browser) |
 
 ---
 

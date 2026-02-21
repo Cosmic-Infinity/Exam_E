@@ -17,7 +17,11 @@ The application uses a **Hierarchical Role System**.
 3.  **`CONTROLLER`** (Controller of Examination):
     - **Superset of Teacher**: Has all the capabilities of a Teacher (can teach courses, grade papers).
     - **Global View**: Has global read-only access to the Statistics Dashboard for **all courses**.
-4.  **`COORDINATOR`**: Legacy role for System Admins.
+    - **API Access**: Can access all Teacher APIs (via `IsTeacher` permission) and all Statistics APIs.
+
+### Note on System Administration
+
+There is no dedicated "System Admin" role in the frontend application. System administration (user management, database configuration) is handled exclusively via the **Django Admin Panel** (`/admin`) by users with the `is_staff` and `is_superuser` flags. These users do not interact with the exam evaluation workflow directly.
 
 ### Django Flags
 
@@ -194,9 +198,103 @@ Fetches the full details of a specific paper, including the file path to the sca
       { "q_no": 1, "parts": [1, 1, 1, 1, 1] },
       { "q_no": 2, "parts": [2, 3] }
     ],
-    "exam_total_marks": 30
+## 3. Statistics APIs (Controller & Coordinators)
+
+These APIs power the dashboards for Controllers (global view) and Course Coordinators (course-specific view).
+
+### `GET /api/stats/dashboard/data/`
+
+Returns the list of courses accessible to the current user for the dashboard dropdown.
+
+- **Auth Required**: Yes
+- **Role Required**: `CONTROLLER`, `COORDINATOR`, or `TEACHER` (assigned as coordinator)
+- **Output (200 OK)**:
+  ```json
+  {
+    "courses": [
+      { "course_code": "CS302", "title": "Database Management Systems" },
+      { "course_code": "CS401", "title": "Artificial Intelligence" }
+    ]
   }
   ```
+
+### `GET /api/stats/subjects/`
+
+Returns a high-level overview of all subjects the user has access to, including checking progress.
+
+- **Auth Required**: Yes
+- **Input**: None
+- **Output (200 OK)**:
+  ```json
+  {
+    "subjects": [
+      {
+        "course_code": "CS302",
+        "title": "DBMS",
+        "total_students": 120,
+        "checked": 45,
+        "pending": 75,
+        "grievances": 2
+      }
+    ]
+  }
+  ```
+
+### `GET /api/stats/sections/?course_code={code}`
+
+Drills down into a specific course to show progress per section.
+
+- **Auth Required**: Yes
+- **Input**: `course_code` (query param)
+- **Output (200 OK)**:
+  ```json
+  {
+    "sections": [
+      {
+        "allocation_id": 10,
+        "section_name": "A",
+        "teacher__full_name": "Dr. Smith",
+        "total_students": 60,
+        "checked": 60,
+        "pending": 0,
+        "grievances": 0
+      }
+    ]
+  }
+  ```
+
+### `GET /api/stats/scores/?course_code={code}`
+
+Returns histogram data for score distribution.
+
+- **Auth Required**: Yes
+- **Input**: `course_code` (optional query param)
+- **Output (200 OK)**:
+  ```json
+  {
+    "distribution": [0, 2, 5, 10, 20, 15, 5, 2, 1, 0],
+    "labels": ["0-10", "10-20", ... "90-100"],
+    "meta": { "count": 60, "avg": 45.5 }
+  }
+  ```
+
+### `GET /api/stats/grievances/?course_code={code}`
+
+Returns grievance statistics.
+
+- **Auth Required**: Yes
+- **Input**: `course_code` (optional query param)
+- **Output (200 OK)**:
+  ```json
+  {
+    "chart_data": [
+      { "label": "A", "count": 5 },
+      { "label": "B", "count": 2 }
+    ],
+    "label_type": "Section"
+  }
+  ```
+
 
 ### `PUT /api/teacher/paper/{paper_id}/`
 
@@ -345,6 +443,50 @@ Returns the list of courses the user is authorized to view stats for.
 - **Output**:
   ```json
   { "courses": [{ "course_code": "CS101", "title": "Intro to CS" }] }
+  ```
+
+### `GET /api/stats/subjects/`
+
+Returns all subjects for the current active semester with their evaluation progress.
+
+- **Auth**: `CONTROLLER`, `COORDINATOR`, or `TEACHER` (if course coordinator).
+- **Output**:
+  ```json
+  {
+    "subjects": [
+      {
+        "course_code": "CS101",
+        "title": "Intro to CS",
+        "total_students": 500,
+        "checked": 400,
+        "pending": 100,
+        "grievances": 5
+      }
+    ]
+  }
+  ```
+
+### `GET /api/stats/sections/`
+
+Returns sections for a specific course with their evaluation progress.
+
+- **Auth**: `CONTROLLER`, `COORDINATOR`, or `TEACHER` (if course coordinator).
+- **Query Params**: `course_code` (Required).
+- **Output**:
+  ```json
+  {
+    "sections": [
+      {
+        "allocation_id": 1,
+        "section_name": "Section A",
+        "teacher__full_name": "Jane Doe",
+        "total_students": 50,
+        "checked": 40,
+        "pending": 10,
+        "grievances": 2
+      }
+    ]
+  }
   ```
 
 ### `GET /api/stats/grievances/`

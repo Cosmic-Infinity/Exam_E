@@ -21,7 +21,7 @@ The central identity table. All actors (Students, Teachers, Coordinators) are st
 | `university_id` | Varchar(30)  | **Manual Input**  | **Official ID**. The ID printed on ID cards. This must be provided during registration. <br> _Example (Student): `2305128`_ <br> _Unique Constraint_     |
 | `email`         | Varchar(100) | **Manual Input**  | **Login credential**. The primary identifier for authentication. <br> _Unique Constraint_                                                                |
 | `password`      | Varchar(128) | **App Generated** | Standard Django password hash (PBKDF2/Argon2). <br> _Default: `!invalid`_                                                                                |
-| `role`          | Varchar(20)  | **Manual Input**  | Permissions level. <br> _Values: `'STUDENT'`, `'TEACHER'`, `'COORDINATOR'`_                                              |
+| `role`          | Varchar(20)  | **Manual Input**  | Permissions level. <br> _Values: `'STUDENT'`, `'TEACHER'`, `'CONTROLLER'`_ <br> _Note: Course Coordinators are Teachers linked to a formatted Course; they do not have a separate role value._ |
 | `created_at`    | Timestamp    | **DB Default**    | Timestamp. <br> _Default: `CURRENT_TIMESTAMP`_                                                                                                           |
 
 ## 2. schools
@@ -66,7 +66,7 @@ Extension of the `users` table containing faculty specifics.
 | `user_id`        | Integer (PK, FK) | **Manual/Script** | **Link to User**. Same value as `users.id`.                      |
 | `school_id`      | Integer (FK)     | **Manual/Script** | **Department**. Which school (`schools.school_id`) employs them? |
 | `specialization` | Varchar(100)     | **Manual Input**  | Expertise.                                                       |
-| `is_coordinator` | Boolean          | **Manual Input**  | **Privilege Flag**. <br> _Default: `false`_                      |
+| `is_coordinator` | Boolean          | **Manual Input**  | **Privilege Flag**. Indicates if the teacher has any administrative course coordination duties. <br> _Default: `false`_ |
 
 ## 6. academic_sessions
 
@@ -85,6 +85,7 @@ The catalog of subjects (Metadata only).
 | Attribute     | Type             | Source           | Description                                                                                                          |
 | :------------ | :--------------- | :--------------- | :------------------------------------------------------------------------------------------------------------------- |
 | `course_code` | Varchar(15) (PK) | **Manual Input** | **Subject Code**. The universal ID for a subject. <br> _Note: This is NOT auto-generated. You must provide `CS302`._ |
+| `coordinator` | Integer (FK)     | **Manual Input** | **Coordinator**. Link to a Teacher (`users.user_id`) who manages this course. <br> _Nullable_ |
 | `title`       | Varchar(100)     | **Manual Input** | Book name.                                                                                                           |
 | `credits`     | Integer          | **Manual Input** | Cost. <br> _Default: `4`_                                                                                            |
 | `course_type` | Varchar(20)      | **Manual Input** | Category. <br> _Constraint: Must be `CORE`, `PE`, or `OE`._                                                          |

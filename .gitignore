@@ -24,6 +24,7 @@ backend/.venv/
 backend/media/
 backend/static_root/
 docker/backend/staticfiles
+docker/backend/core/api/__pycache__
 
 # --- OS Specific ---
 .DS_Store

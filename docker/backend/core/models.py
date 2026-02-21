@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
 from django.utils import timezone
+from django.utils.html import mark_safe
 
 class AcademicSession(models.Model):
     session_id = models.AutoField(primary_key=True)
@@ -83,16 +84,32 @@ class User(AbstractBaseUser, PermissionsMixin):
     full_name = models.CharField(max_length=100)
     email = models.EmailField(max_length=100, unique=True)
     ROLE_CHOICES = (
-        ('COORDINATOR', 'Coordinator'), # Legacy/System Admin
-        ('CONTROLLER', 'Controller of Examination'), # New Global Viewer
+        ('COORDINATOR', 'System Administrator'), # Backend Admin only
+        ('CONTROLLER', 'Controller of Examination'), # Global Viewer
         ('TEACHER', 'Teacher'),
         ('STUDENT', 'Student'),
     )
 
-    role = models.CharField(max_length=20,choices=ROLE_CHOICES,default='STUDENT')
+    role = models.CharField(
+        max_length=20,
+        choices=ROLE_CHOICES,
+        default='STUDENT',
+        help_text=mark_safe(
+            '<div style="background-color: #fff3cd; color: #856404; padding: 10px; border: 1px solid #ffeeba; border-radius: 4px; margin-top: 5px;">'
+            '<strong>FOR COURSE COORDINATORS:</strong> Select <em>Teacher</em> here.<br>'
+            'Then go to the <strong>Courses</strong> menu to assign them as a coordinator.'
+            '</div>'
+        )
+    )
     is_active = models.BooleanField(default=True)
-    is_staff = models.BooleanField(default=False)
-    is_verified = models.BooleanField(default=False)
+    is_staff = models.BooleanField(
+        default=False,
+        help_text="(Built-in Django) ⚠️ ADMIN PANEL ACCESS. Check strictly for System Administrators. Students/Teachers must be UNCHECKED."
+    )
+    is_superuser = models.BooleanField(
+        default=False,
+        help_text="(Built-in Django) ⚠️ GOD MODE. Grants full permission to modify ANY data. Check strictly for Main System Admin."
+    )
 
     date_joined = models.DateTimeField(default=timezone.now)
 

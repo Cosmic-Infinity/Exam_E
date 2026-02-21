@@ -99,7 +99,8 @@ Every user has one of three roles. Each API view can be locked to a role using a
 
 | Role | Permission class | Access |
 |---|---|---|
-| `COORDINATOR` | `IsCoordinator` | Staff-level access |
+| `COORDINATOR` | `IsCoordinator` | System Admin access (User management, Config) |
+| `CONTROLLER` | `IsController` | Global statistics view + Teacher capabilities |
 | `TEACHER` | `IsTeacher` | Teaching-related views |
 | `STUDENT` | `IsStudent` | Student-facing views |
 | COORDINATOR or TEACHER | `IsCoordOrTeacher` | Combined |
@@ -132,11 +133,9 @@ Every user has one of three roles. Each API view can be locked to a role using a
 
 The Django admin (`/admin/`) supports full user management:
 - Create users with hashed passwords via the **Add User** form
-- Edit roles, flags (`is_active`, `is_staff`, `is_verified`) and group permissions
-- Password field is read-only with a link to the built-in change-password form
-
-UPDATED NOTES: this is an evaluaton system where there is basically a system admin/database admin/django admin (this portal isn't exposed to the web and is meant only for administrative purpose). then there is student (who view their papers, their marks, raise grievances). there is teacher (who checks papers, resolves gievances for their specific course+section combo). there is a coures coordinator for each course, who, besides teaching the course in some section, has an overview of statistics (similar to the one displayed by the admin panel) for his/her specific course, including the drill down (view only) ability. isntead of a global coordiantor, you may have a controller of examination role, who can overview course coordinator style stats, but for all subjects.
-note, the controller themselves can be a teacher who teaches an unrelated subject. managed like this- if teacher, they only have option to mark copes, resolve grievance for their subject, etc. if course coordinator (who is also a teacher) they have added ability to view stats for the course, if controller (who is also a teacher) has added functionaity and can see the stats for all subjects. django admin is the system admin who modies the database from his own panel and isn unrelated in this transactions
+  - Edit roles, flags (`is_active`, `is_staff`) and group permissions
+UPDATED NOTES: this is an evaluaton system where there is basically a system admin/database admin/django admin (this portal isn't exposed to the web and is meant only for administrative purpose. do not accomodate for this in api or frontend, as this is unrelated to the frontend's functionality, and if the db is up, this sysadmin role already exists). There is student (who view their papers, their marks, raise grievances). there is teacher (who checks papers, resolves gievances for their specific course+section combo). there is a coures coordinator for each course, who, besides teaching the course in some section, has an overview of statistics (similar to the one statistics of django admin panel, but recreated in the frontend by api served data) for his/her specific course, including the drill down (view only) ability. there is a controller of examination role, who can overview course coordinator style stats, but for all subjects.
+note, the controller themselves can be a teacher who teaches an unrelated subject. managed like this- if teacher, they only have option to mark copes, resolve grievance for their subject, etc. if course coordinator (who is also a teacher) they have added ability to view stats for the course, if controller (who is also a teacher) has added functionaity and can see the stats for all subjects.
 
 ## Background Email (Celery)
 
@@ -167,8 +166,7 @@ Then open `http://localhost:8000/admin/` and log in with `admin@exam-e.local` / 
 
 | Missing feature | Notes |
 |---|---|
-| **Password reset by email** | "Forgot password?" flow — generates a time-limited token, emails a reset link |
-| **Email verification** | `is_verified` field exists in the DB but nothing sets it to `True` yet |
+
 | **Logout from all devices** | Logout currently only invalidates the current session's refresh token |
 | **React frontend auth** | Login page, auth context, protected routes, role-based dashboards, silent refresh interceptor — all 0% built |
 

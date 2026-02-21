@@ -14,7 +14,7 @@ def _get_accessible_courses(user):
     - Controller: All courses.
     - Course Coordinator (Teacher): Only courses they coordinate.
     """
-    if user.is_staff or user.role == 'CONTROLLER' or user.role == 'COORDINATOR':
+    if user.role == 'CONTROLLER':
         return Course.objects.all()
     elif user.role == 'TEACHER':
         # Teachers can only view stats if they are explicitly assigned as the coordinator
@@ -165,3 +165,44 @@ def stats_students_in_range(request):
         })
         
     return Response({'students': students})
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def stats_subjects(request):
+    """
+    API: Returns all subjects with their evaluation progress.
+    """
+    courses = _get_accessible_courses(request.user)
+    
+    courses_with_stats = courses.annotate(
+        total_students=Count('courseallocation__enrollment', distinct=True),
+        checked=Count('courseallocation__enrollment__exampaper', filter=Q(courseallocation__enrollment__exampaper__evaluation_status='COMPLETED'), distinct=True),
+        pending=Count('courseallocation__enrollment__exampaper', filter=~Q(courseallocation__enrollment__exampaper__evaluation_status='COMPLETED'), distinct=True),
+        grievances=Count('courseallocation__enrollment__exampaper__grievance', distinct=True)
+    ).values('course_code', 'title', 'total_students', 'checked', 'pending', 'grievances')
+    
+    return Response({'subjects': list(courses_with_stats)})
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def stats_sections(request):
+    """
+    API: Returns sections for a specific course with their evaluation progress.
+    """
+    course_code = request.GET.get('course_code')
+    if not course_code:
+        return Response({'error': 'course_code is required'}, status=400)
+        
+    if not _get_accessible_courses(request.user).filter(course_code=course_code).exists():
+        return Response({'error': 'Not authorized for this course'}, status=403)
+        
+    allocations = CourseAllocation.objects.filter(course=course_code)
+    
+    sections_with_stats = allocations.annotate(
+        total_students=Count('enrollment', distinct=True),
+        checked=Count('enrollment__exampaper', filter=Q(enrollment__exampaper__evaluation_status='COMPLETED'), distinct=True),
+        pending=Count('enrollment__exampaper', filter=~Q(enrollment__exampaper__evaluation_status='COMPLETED'), distinct=True),
+        grievances=Count('enrollment__exampaper__grievance', distinct=True)
+    ).values('allocation_id', 'section_name', 'teacher__full_name', 'total_students', 'checked', 'pending', 'grievances')
+    
+    return Response({'sections': list(sections_with_stats)})

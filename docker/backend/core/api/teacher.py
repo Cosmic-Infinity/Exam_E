@@ -7,13 +7,13 @@ from core.api.teacher_serializers import CourseAllocationSerializer, ExamSeriali
 
 class IsTeacher(permissions.BasePermission):
     """
-    Custom permission to only allow teachers, coordinators or controllers to access the view.
+    Custom permission to only allow teachers or controllers to access the view.
     """
     def has_permission(self, request, view):
         return bool(
             request.user and 
             request.user.is_authenticated and 
-            request.user.role in ['TEACHER', 'COORDINATOR', 'CONTROLLER']
+            request.user.role in ['TEACHER', 'CONTROLLER']
         )
 
 class TeacherAllocationListView(generics.ListAPIView):

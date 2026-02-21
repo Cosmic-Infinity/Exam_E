@@ -9,6 +9,8 @@ from core.api.student import StudentEnrollmentListView, StudentPaperListView, St
 urlpatterns = [
     # ── Django admin ─────────────────────────────────────
     path('api/stats/dashboard/data/', views.stats_dashboard_data, name='stats_dashboard_data'),
+    path('api/stats/subjects/', views.stats_subjects, name='stats_subjects'),
+    path('api/stats/sections/', views.stats_sections, name='stats_sections'),
     path('admin/stats/', views.stats_dashboard, name='stats_dashboard'), # HTML View
     path('api/stats/grievances/', views.stats_grievances, name='stats_grievances'),
     path('api/stats/scores/', views.stats_scores, name='stats_scores'),

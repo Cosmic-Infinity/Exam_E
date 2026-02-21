@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from core.models import Course, CourseAllocation, AcademicSession, Exam
+from core.models import Course, CourseAllocation, AcademicSession, Exam, ExamPaper
 
 class CourseSerializer(serializers.ModelSerializer):
     class Meta:

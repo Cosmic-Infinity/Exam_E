@@ -83,7 +83,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     full_name = models.CharField(max_length=100)
     email = models.EmailField(max_length=100, unique=True)
     ROLE_CHOICES = (
-        ('COORDINATOR', 'Coordinator'),
+        ('COORDINATOR', 'Coordinator'), # Legacy/System Admin
+        ('CONTROLLER', 'Controller of Examination'), # New Global Viewer
         ('TEACHER', 'Teacher'),
         ('STUDENT', 'Student'),
     )
@@ -127,7 +128,8 @@ class Teacher(models.Model):
     user = models.OneToOneField(User, on_delete=models.DO_NOTHING, primary_key=True, db_column='user_id', related_name='teacher_profile')
     school = models.ForeignKey(School, on_delete=models.DO_NOTHING, null=True, blank=True)
     specialization = models.CharField(max_length=100, null=True, blank=True)
-    is_coordinator = models.BooleanField(default=False)
+    # Controller capabilities are handled by User.role == 'CONTROLLER'
+    is_coordinator = models.BooleanField(default=False) # Legacy flag, use Course.coordinator field
 
     class Meta:
         managed = False
@@ -151,6 +153,8 @@ class Course(models.Model):
         ('PE', 'Professional Elective'),
         ('OE', 'Open Elective'),
     ])
+    # Link to the Teacher who coordinates this course
+    coordinator = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='coordinated_courses', limit_choices_to={'role': 'TEACHER'})
 
     class Meta:
         managed = False

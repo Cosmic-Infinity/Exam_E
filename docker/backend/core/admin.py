@@ -95,9 +95,16 @@ class UserAdmin(BaseUserAdmin):
 
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
-    list_display = ('course_code', 'title', 'credits', 'course_type')
-    search_fields = ('course_code', 'title')
+    list_display = ('course_code', 'title', 'credits', 'course_type', 'coordinator')
+    search_fields = ('course_code', 'title', 'coordinator__full_name')
     list_filter = ('course_type',)
+    autocomplete_fields = ['coordinator']
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "coordinator":
+            # Only allow selecting Teachers as coordinators (Controllers are also teachers)
+            kwargs["queryset"] = User.objects.filter(role__in=['TEACHER', 'CONTROLLER'])
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 @admin.register(CourseAllocation)
 class CourseAllocationAdmin(admin.ModelAdmin):

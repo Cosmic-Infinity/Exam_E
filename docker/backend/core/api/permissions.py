@@ -11,12 +11,13 @@ class IsCoordinator(BasePermission):
 
 
 class IsTeacher(BasePermission):
-    """Allows access only to users with role TEACHER."""
-    message = 'Teacher role required.'
+    """Allows access to TEACHER or CONTROLLER (since Controllers are also Teachers)."""
+    message = 'Teacher or Controller role required.'
 
     def has_permission(self, request, view):
         return bool(request.user and request.user.is_authenticated
-                    and request.user.role == 'TEACHER')
+                    and request.user.role in ('TEACHER', 'CONTROLLER'))
+
 
 
 class IsStudent(BasePermission):
@@ -29,9 +30,9 @@ class IsStudent(BasePermission):
 
 
 class IsCoordOrTeacher(BasePermission):
-    """Allows access to COORDINATOR or TEACHER."""
-    message = 'Coordinator or Teacher role required.'
+    """Allows access to COORDINATOR, TEACHER, or CONTROLLER."""
+    message = 'Coordinator, Teacher, or Controller role required.'
 
     def has_permission(self, request, view):
         return bool(request.user and request.user.is_authenticated
-                    and request.user.role in ('COORDINATOR', 'TEACHER'))
+                    and request.user.role in ('COORDINATOR', 'TEACHER', 'CONTROLLER'))

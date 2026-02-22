@@ -82,13 +82,13 @@ Defines time periods for the university.
 
 The catalog of subjects (Metadata only).
 
-| Attribute     | Type             | Source           | Description                                                                                                          |
-| :------------ | :--------------- | :--------------- | :------------------------------------------------------------------------------------------------------------------- |
-| `course_code` | Varchar(15) (PK) | **Manual Input** | **Subject Code**. The universal ID for a subject. <br> _Note: This is NOT auto-generated. You must provide `CS302`._ |
-| `coordinator` | Integer (FK)     | **Manual Input** | **Coordinator**. Link to a Teacher (`users.user_id`) who manages this course. <br> _Nullable_ |
-| `title`       | Varchar(100)     | **Manual Input** | Book name.                                                                                                           |
-| `credits`     | Integer          | **Manual Input** | Cost. <br> _Default: `4`_                                                                                            |
-| `course_type` | Varchar(20)      | **Manual Input** | Category. <br> _Constraint: Must be `CORE`, `PE`, or `OE`._                                                          |
+| Attribute        | Type             | Source           | Description                                                                                                          |
+| :--------------- | :--------------- | :--------------- | :------------------------------------------------------------------------------------------------------------------- |
+| `course_code`    | Varchar(15) (PK) | **Manual Input** | **Subject Code**. The universal ID for a subject. <br> _Note: This is NOT auto-generated. You must provide `CS302`._ |
+| `coordinator_id` | Integer (FK)     | **Manual Input** | **Coordinator**. Link to a Teacher (`users.id`) who manages this course. <br> _Nullable_                             |
+| `title`          | Varchar(100)     | **Manual Input** | Book name.                                                                                                           |
+| `credits`        | Integer          | **Manual Input** | Cost. <br> _Default: `4`_                                                                                            |
+| `course_type`    | Varchar(20)      | **Manual Input** | Category. <br> _Constraint: Must be `CORE`, `PE`, or `OE`._                                                          |
 
 ## 8. course_allocations
 

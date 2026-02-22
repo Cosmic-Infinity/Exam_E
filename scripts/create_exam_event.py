@@ -14,11 +14,11 @@ import json
 
 # Database Configuration
 DB_CONFIG = {
-    "dbname": "exam_e",
-    "user": "postgres",
-    "password": "postgres",
-    "host": "localhost",
-    "port": "5433"
+    "dbname": os.getenv("DATABASE_NAME", "exam_e"),
+    "user": os.getenv("DATABASE_USER", "postgres"),
+    "password": os.getenv("DATABASE_PASSWORD", "postgres"),
+    "host": os.getenv("DATABASE_HOST", "localhost"),
+    "port": os.getenv("DATABASE_PORT", "5433")
 }
 
 def connect_db():

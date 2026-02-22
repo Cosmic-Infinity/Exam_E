@@ -104,6 +104,7 @@ CREATE TABLE public.courses (
     title character varying(100) NOT NULL,
     credits integer DEFAULT 4,
     course_type character varying(20),
+    coordinator_id integer,
     CONSTRAINT courses_course_type_check CHECK (((course_type)::text = ANY ((ARRAY['CORE'::character varying, 'PE'::character varying, 'OE'::character varying])::text[])))
 );
 

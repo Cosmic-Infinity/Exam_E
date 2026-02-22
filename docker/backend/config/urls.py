@@ -1,5 +1,5 @@
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 from rest_framework_simplejwt.views import TokenRefreshView
 from core.api import stats as views
 from core.api.auth import LoginView, LogoutView, CustomTokenObtainPairView, MeView, CookieTokenRefreshView, ChangePasswordView
@@ -15,6 +15,7 @@ urlpatterns = [
     path('api/stats/grievances/', views.stats_grievances, name='stats_grievances'),
     path('api/stats/scores/', views.stats_scores, name='stats_scores'),
     path('api/stats/students/', views.stats_students_in_range, name='stats_students'),
+    path('admin/core/', include('core.admin_urls')),
     path('admin/', admin.site.urls),
 
     # ── Cookie-based auth (used by React frontend) ────────

@@ -4,6 +4,7 @@ from django.db.models import F
 from django.utils.crypto import get_random_string
 from django.shortcuts import render
 from django.urls import path
+from django import forms
 import json
 from .models import Exam, CourseAllocation, AcademicSession, School, User, Stream, Course, Enrollment, ExamPaper, Student, Teacher, Grievance, DataImport
 from .forms import ExamForm, UserCreationForm, UserChangeForm, CSVImportForm
@@ -237,11 +238,88 @@ class TeacherAdmin(admin.ModelAdmin):
     search_fields = ('user__university_id', 'user__full_name')
     autocomplete_fields = ['user', 'school']
 
+    def get_form(self, request, obj=None, **kwargs):
+        # We need to manually set the form attribute for the ModelAdmin usage
+        # This wrapper is needed because `self.form` above is referencing the class directly
+        # Django expects `form` attribute on ModelAdmin or `get_form` return type
+        defaults = {}
+        if self.form is None:
+             defaults['form'] = self.TeacherAdminForm
+        defaults.update(kwargs)
+        return super().get_form(request, obj, **defaults)
+
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "user":
             # Only show users who are TEACHERs
             kwargs["queryset"] = User.objects.filter(role='TEACHER')
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    # ---------------------------------------------------------
+    # CUSTOM LOGIC TO ASSIGN COORDINATOR
+    # ---------------------------------------------------------
+
+    class TeacherAdminForm(forms.ModelForm):
+        coordinated_course = forms.ModelChoiceField(
+            queryset=Course.objects.all(),
+            required=False,
+            label="Assign as Coordinator for Course",
+            help_text="If 'Is Coordinator' is checked, you MUST select a course here. This will set this teacher as the coordinator for the selected course."
+        )
+
+        class Meta:
+            model = Teacher
+            fields = '__all__'
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            # Find the course this teacher is already coordinating
+            if self.instance and self.instance.pk:
+                try:
+                    # User is the related object
+                    current_coordinated_courses = Course.objects.filter(coordinator=self.instance.user)
+                    if current_coordinated_courses.exists():
+                        self.fields['coordinated_course'].initial = current_coordinated_courses.first()
+                except Exception:
+                    pass
+
+        def clean(self):
+            cleaned_data = super().clean()
+            is_coordinator = cleaned_data.get('is_coordinator')
+            course = cleaned_data.get('coordinated_course')
+
+            # VALIDATION RULE: If checked, must pick a course
+            if is_coordinator and not course:
+                self.add_error('coordinated_course', "You marked this teacher as a Coordinator. You must select which course they coordinate.")
+            
+            return cleaned_data
+
+    form = TeacherAdminForm
+
+    def save_model(self, request, obj, form, change):
+        # 1. Save the Teacher model (updates is_coordinator flag)
+        super().save_model(request, obj, form, change)
+        
+        # 2. Handle the Course update
+        is_coordinator = form.cleaned_data.get('is_coordinator')
+        new_course = form.cleaned_data.get('coordinated_course')
+        
+        # We need the User object linked to this Teacher
+        user_instance = obj.user
+        
+        if is_coordinator and new_course:
+            # A. Remove this teacher from any OTHER courses they might be coordinating
+            #    This ensures 1 teacher -> 1 course (if that's the rule), or just avoids stale data
+            Course.objects.filter(coordinator=user_instance).exclude(pk=new_course.pk).update(coordinator=None)
+            
+            # B. Assign them to the NEW course
+            new_course.coordinator = user_instance
+            new_course.save()
+            
+            # self.message_user(request, f"Successfully assigned {user_instance.full_name} as coordinator for {new_course.title}.")
+            
+        elif not is_coordinator:
+            # If they are NOT a coordinator anymore, remove them from ANY course
+            Course.objects.filter(coordinator=user_instance).update(coordinator=None)
 
 @admin.register(Grievance)
 class GrievanceAdmin(admin.ModelAdmin):

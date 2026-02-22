@@ -46,39 +46,41 @@ You should see `backend`, `frontend`, `db`, `nginx`, `redis`, and `celery` all w
 
 ## 3. Database Initialization
 
-### Automatic Schema Import
+### Automatic Setup (The "Zero-Touch" Boot)
 
-The PostgreSQL database is configured to **automatically import** the schema from `docker/init_db.sql` on the very first boot.
+The system is configured to **automatically initialize** everything on the first boot:
+- **Database Schema**: Imported from `docker/init_db.sql`.
+- **Migrations**: Automatic execution of Django migrations.
+- **Superuser**: Created automatically (Credentials below).
+- **Data Seeding**: Automatic import of all CSV files from the `Data/` folder (Schools, Streams, Teachers, Courses, Students, and Enrollments).
 
-- You **DO NOT** need to run any manual SQL scripts unless you are resetting an existing database without nuking the volume.
+### Default Superuser Credentials (SYSTEM ADMIN)
 
-### Setting up the Admin User (Critical for First Boot)
-
-The database starts empty (no users). You must create a "Superuser" to access the Admin Panel.
-
-0. Migrate
-   ```bash
-   docker compose -f docker-compose.yml exec backend python manage.py migrate
-   ```
-
-1. Run the creation command inside the backend container:
-   ```bash
-   docker compose exec backend python manage.py createsuperuser
-   ```
-2. Follow the prompts:
-   - **Username**: `admin` (or your preference)
-   - **Email**: `admin@uni.edu`
-   - **Password**: (Set a strong password)
+| Attribute | Value |
+| :--- | :--- |
+| **Email** | `admin@kiit.ac.in` |
+| **Password** | `admin` |
+| **University ID** | `0000` |
 
 ---
 
-## 4. Accessing the System
+## 4. Manual Administration
+
+While the system is automated, you can manually trigger commands if needed.
+
+### Creating a Manual Superuser
+If you need an additional admin:
+```bash
+docker compose exec backend python manage.py createsuperuser
+```
+
+### Accessing the System
 
 | System          | URL                                                              | Description                                        |
 | :-------------- | :--------------------------------------------------------------- | :------------------------------------------------- |
 | **Admin Panel** | [http://localhost:8000/admin](http://localhost:8000/admin)       | **System Admin Only**. Data Entry & User Management. |
 | **API Docs**    | See `API_DOCS.md` file                                           | Backend API Documentation (No live Swagger UI yet) |
-| **Frontend**    | [http://localhost:8080](http://localhost:8080)                   | **Main App**. Student/Teacher/Controller Portals.  |
+| **Frontend**    | [http://localhost:3000](http://localhost:3000)                   | **Main App**. Student/Teacher/Portal.              |
 | **Database**    | `localhost:5433`                                                 | Direct SQL Access (Use DBeaver/PgAdmin, not browser) |
 
 ---

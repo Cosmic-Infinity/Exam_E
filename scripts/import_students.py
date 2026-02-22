@@ -4,17 +4,18 @@ Bulk Import Script for Students.
 """
 import csv
 import psycopg2
+from psycopg2 import errors
 import os
 import sys
 import argparse
 
-# Database Configuration (Default to Docker setup)
+# Database Configuration from Environment Variables
 DB_CONFIG = {
-    "dbname": "exam_e",
-    "user": "postgres",
-    "password": "postgres",
-    "host": "localhost",
-    "port": "5433"  # Default port mapped in docker-compose
+    "dbname": os.getenv("DATABASE_NAME", "exam_e"),
+    "user": os.getenv("DATABASE_USER", "postgres"),
+    "password": os.getenv("DATABASE_PASSWORD", "postgres"),
+    "host": os.getenv("DATABASE_HOST", "db"),
+    "port": os.getenv("DATABASE_PORT", "5432")
 }
 
 def connect_db():
@@ -28,12 +29,15 @@ def connect_db():
 
 def ensure_school(cur, school_name, school_code):
     """Ensure a school exists, return its ID."""
-    cur.execute("SELECT school_id FROM schools WHERE name = %s", (school_name,))
+    # Use TRIM and ILIKE/UPPER to be more robust against data inconsistencies
+    cur.execute("SELECT school_id FROM schools WHERE TRIM(name) ILIKE TRIM(%s)", (school_name,))
     res = cur.fetchone()
     if res:
         return res[0]
     
-    # Generate unique code if duplicate
+    # Generate unique code if duplicate code exists, but if name exists above, we'd have returned.
+    # If the INSERT fails on NAME, we should stop trying to change CODE.
+    original_name = school_name
     original_code = school_code
     suffix = 1
     while True:
@@ -43,10 +47,24 @@ def ensure_school(cur, school_name, school_code):
                 (school_name, school_code)
             )
             return cur.fetchone()[0]
-        except psycopg2.errors.UniqueViolation:
+        except errors.UniqueViolation as e:
             cur.connection.rollback()
+            # If the error is about the NAME, don't loop forever changing the code.
+            if 'name' in str(e).lower():
+                # Try fetching again to be sure
+                cur.execute("SELECT school_id FROM schools WHERE TRIM(name) ILIKE TRIM(%s)", (school_name,))
+                res = cur.fetchone()
+                if res: return res[0]
+                # If still not found, we have a real DB issue, but let's break to avoid logs flood.
+                print(f"CRITICAL: Failed to insert or find school '{school_name}'")
+                return None
+            
+            # If error is on CODE, then suffix and retry
             school_code = f"{original_code}{suffix}"
             suffix += 1
+            if suffix > 100: # Safety break
+                print(f"CRITICAL: Infinite loop detected for school code generation: {original_code}")
+                return None
 
 def ensure_stream(cur, stream_name, degree_type, school_id):
     """Ensure a stream exists, return its ID."""

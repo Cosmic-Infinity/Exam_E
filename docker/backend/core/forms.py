@@ -3,7 +3,7 @@ from django.forms.widgets import Widget
 from django.template.loader import render_to_string
 from django.utils.safestring import mark_safe
 import json
-from .models import Exam, User
+from .models import Exam, User, School, Stream
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 
 class ExamSchemaWidget(Widget):
@@ -59,3 +59,38 @@ class CSVImportForm(forms.Form):
     ], help_text="Select the type of data you are uploading.")
     
     csv_file = forms.FileField(help_text="Upload a standard CSV file with headers matching the type.")
+
+class PasswordFilterForm(forms.Form):
+    school = forms.ModelChoiceField(
+        queryset=School.objects.all(), 
+        required=False,
+        empty_label="All Schools",
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    stream = forms.CharField(
+        required=False,
+        label="Stream",
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    section = forms.CharField(
+        max_length=10, 
+        required=False, 
+        label="Section (e.g., A, B)",
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    semester = forms.IntegerField(
+        required=False, 
+        label="Semester",
+        widget=forms.NumberInput(attrs={'class': 'form-control'})
+    )
+    password_algorithm = forms.ChoiceField(
+        required=False,
+        choices=[
+            ('numeric_8', '8 Random Digits'),
+            ('alnum_10', '10 Alphanumeric Characters'),
+            ('uuid_12', '12 Character UUID Snippet'),
+        ],
+        label="Password Generation Algorithm",
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        initial='numeric_8'
+    )

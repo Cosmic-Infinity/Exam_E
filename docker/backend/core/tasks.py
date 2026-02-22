@@ -9,6 +9,9 @@ Available tasks:
     send_welcome_email(user_id)
 """
 import logging
+import string
+import random
+import uuid
 from celery import shared_task
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
@@ -127,3 +130,46 @@ def send_credentials_email(self, user_id: int, plain_password: str):
     except Exception as exc:
         logger.error('Failed to send credentials email to user %s: %s', user_id, exc)
         raise self.retry(exc=exc)
+
+
+def _generate_password(algorithm: str) -> str:
+    """Helper to generate a password based on the chosen algorithm."""
+    if algorithm == 'numeric_8':
+        return ''.join(random.choices(string.digits, k=8))
+    elif algorithm == 'alnum_10':
+        chars = string.ascii_letters + string.digits
+        return ''.join(random.choices(chars, k=10))
+    elif algorithm == 'uuid_12':
+        return str(uuid.uuid4())[:12]
+    else:
+        # Default to a reasonably secure password
+        chars = string.ascii_letters + string.digits
+        return ''.join(random.choices(chars, k=10))
+
+
+@shared_task(bind=True)
+def generate_and_email_passwords_task(self, user_ids: list[int], algorithm: str):
+    """
+    Generates new passwords for a list of users and sends them via email.
+    This is a parent task that calls sub-tasks for each user.
+    """
+    User = get_user_model()
+    logger.info(f"Starting bulk password generation for {len(user_ids)} users with algorithm '{algorithm}'.")
+
+    for user_id in user_ids:
+        try:
+            user = User.objects.get(pk=user_id)
+            new_password = _generate_password(algorithm)
+            user.set_password(new_password)
+            user.save(update_fields=['password'])
+            
+            # Queue the email sending task
+            send_credentials_email.delay(user_id=user.id, plain_password=new_password)
+            logger.info(f"Successfully generated password and queued email for user {user_id}.")
+
+        except User.DoesNotExist:
+            logger.warning(f"generate_and_email_passwords_task: User with ID {user_id} not found. Skipping.")
+        except Exception as e:
+            logger.error(f"An error occurred for user {user_id} in generate_and_email_passwords_task: {e}")
+    
+    logger.info("Finished bulk password generation task.")

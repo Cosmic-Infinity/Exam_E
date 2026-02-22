@@ -19,6 +19,8 @@ services:
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - ./backend:/app
+      - ../scripts:/app/scripts
+      - ../Data:/app/Data
     ports:
       - "8000:8000"
     depends_on:
@@ -44,6 +46,8 @@ services:
     command: celery -A config worker -l info
     volumes:
       - ./backend:/app
+      - ../scripts:/app/scripts
+      - ../Data:/app/Data
     depends_on:
       - db
       - redis

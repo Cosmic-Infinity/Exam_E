@@ -15,9 +15,35 @@ This document outlines the workflows for populating the `Exam_E` database, speci
 | **System Admin** | `COORDINATOR`| `True` | **Technical Role**. Accesses Django Admin / Data Tools. |
 
 ### Assigning Course Coordinators
-The `Course` model now has a `coordinator` field (ForeignKey to User).
-1.  **Via Admin Panel**: Go to `Courses`, select a course, and pick a Teacher from the "Coordinator" dropdown (Controllers also appear here).
+The `Course` model has a `coordinator_id` field (ForeignKey to User).
+1.  **Via Admin Panel**: Go to `Teachers`, select a teacher, and check "Is Coordinator". You **must** then select the course they manage in the "Assign as Coordinator for Course" dropdown. This will automatically update the `Course` table's `coordinator_id`.
 2.  **Via Script**: Ensure the `Course` table is updated with the `user_id` of the teacher in the `coordinator_id` column.
+
+---
+
+## 🛠 Technical Guide: How to Run the Imports
+
+The system now runs these imports **automatically** on startup inside the Docker container (`entrypoint.sh`). If you need to re-run them manually, use the following commands inside the `backend` container:
+
+```bash
+# 1. Base Data (Schools, Streams)
+python scripts/import_academic_data.py --founders Data/schools_streams.csv
+
+# 2. Faculty & Catalog
+python scripts/import_academic_data.py --teachers Data/teachers.csv
+python scripts/import_academic_data.py --courses Data/courses.csv
+
+# 3. Schedule (Allocations)
+python scripts/import_academic_data.py --allocations Data/allocations.csv
+
+# 4. Students (Batch files)
+for f in Data/2301.csv Data/2302.csv Data/2303.csv Data/2304.csv Data/2305.csv; do
+    python scripts/import_students.py "$f"
+done
+
+# 5. Enrollments (Linking Students to Classes)
+python scripts/bulk_enroll.py --csv Data/enrollments.csv --session "Spring 2026"
+```
 
 ---
 

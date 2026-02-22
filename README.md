@@ -145,28 +145,29 @@ A welcome email task exists for new account creation.
 - **Dev**: emails print to the terminal (console backend)
 - **Production**: set `EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` env vars to switch to SMTP
 
-## First-Time Setup
+## First-Time Setup (Nuke & Boot)
 
-After `docker-compose up --build`:
+The system is now **fully automated**. 
 
-```bash
-# Apply Django migrations (creates token blacklist tables etc.)
-docker-compose exec backend python manage.py migrate
+1. **Clean Start**: To reset everything (schema, data, and users):
+   ```bash
+   docker compose down -v
+   ```
+2. **Build and Start**:
+   ```bash
+   docker compose up --build
+   ```
 
-# Seed the database: create a dev admin
-docker-compose exec backend python manage.py seed_passwords \
-    --create-dev-admin \
-    --admin-email admin@exam-e.local \
-    --admin-password admin1234
-```
+Wait for the terminal to finish the import logs. You can then log in to the admin panel with:
+- **Email**: `admin@kiit.ac.in`
+- **Password**: `admin`
 
-Then open `http://localhost:8000/admin/` and log in with `admin@exam-e.local` / `admin1234`.
+---
 
 ## What Is NOT Done Yet
 
 | Missing feature | Notes |
 |---|---|
-
 | **Logout from all devices** | Logout currently only invalidates the current session's refresh token |
-| **React frontend auth** | Login page, auth context, protected routes, role-based dashboards, silent refresh interceptor — all 0% built |
+| **React frontend auth** | Auth context, protected routes, and silent refresh logic are currently being integrated |
 

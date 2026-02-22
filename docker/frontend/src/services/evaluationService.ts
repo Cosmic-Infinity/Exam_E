@@ -65,6 +65,18 @@ type StudentPaperDetail = {
   evaluation_status: "PENDING" | "IN_PROGRESS" | "COMPLETED";
   question_paper_schema?: unknown;
 };
+type StudentEnrollmentItem = {
+  enrollment_id: number;
+  allocation: {
+    allocation_id: number;
+    course: {
+      course_code: string;
+      title: string;
+    };
+  };
+  enrollment_type: string;
+  status: string;
+};
 
 type PaperMeta = {
   id: string;
@@ -135,6 +147,10 @@ async function fetchStudentPapersInternal(): Promise<StudentPaperListItem[]> {
   return (await AuthService.get("/student/papers/")) as StudentPaperListItem[];
 }
 
+async function fetchStudentEnrollmentsInternal(): Promise<StudentEnrollmentItem[]> {
+  return (await AuthService.get("/student/enrollments/")) as StudentEnrollmentItem[];
+}
+
 async function resolveStudentPaperBySubject(subjectCode: string) {
   const papers = await fetchStudentPapersInternal();
   return papers.find(
@@ -150,8 +166,10 @@ export async function getAllScripts(): Promise<AnswerScript[]> {
 /** Lookup by roll + subject for viewer compatibility */
 export async function getScript(
   rollNo: string,
-  subjectCode: string
+  subjectCode: string,
+  role: "student" | "faculty" = "student"
 ): Promise<AnswerScript | undefined> {
+
   // 1) Try cached metadata
   const key = cacheKey(rollNo, subjectCode);
   const cached = paperMetaCache.get(key);
@@ -172,6 +190,8 @@ export async function getScript(
   }
 
   // 2) Try teacher discovery
+// 2) Try teacher discovery only for faculty
+if (role === "faculty") {
   try {
     const teacherScripts = await fetchTeacherScriptsInternal();
     const found = teacherScripts.find(
@@ -197,6 +217,7 @@ export async function getScript(
   } catch {
     // ignore and fallback to student path
   }
+}
 
   // 3) Student fallback
   const p = await resolveStudentPaperBySubject(subjectCode);
@@ -269,15 +290,32 @@ export async function rejectGrievance(
 
 /** Student results from backend (no hardcoded subjects) */
 export async function getStudentResults(_rollNo: string): Promise<StudentResult[]> {
-  const papers = await fetchStudentPapersInternal();
+  const [enrollments, papers] = await Promise.all([
+    fetchStudentEnrollmentsInternal(),
+    fetchStudentPapersInternal(),
+  ]);
 
-  return papers.map((p) => ({
-    subjectCode: p.exam.course_code,
-    subjectName: p.exam.course_title || p.exam.course_code,
-    marks: p.evaluation_status === "COMPLETED" ? (p.total_score ?? 0) : null,
-    recheckStatus: "not-submitted",
-  }));
+  const papersByCourse = new Map<string, StudentPaperListItem>();
+  for (const p of papers) {
+    papersByCourse.set(p.exam.course_code.toLowerCase(), p);
+  }
+
+  return enrollments.map((enr) => {
+    const subjectCode = enr.allocation.course.course_code;
+    const paper = papersByCourse.get(subjectCode.toLowerCase());
+
+    return {
+      subjectCode,
+      subjectName: enr.allocation.course.title || subjectCode,
+      marks:
+        paper && paper.evaluation_status === "COMPLETED"
+          ? (paper.total_score ?? 0)
+          : null,
+      recheckStatus: "not-submitted",
+    };
+  });
 }
+
 
 /** Backend releases completed papers; keep always true in current UI contract */
 export function areResultsPublished(): boolean {

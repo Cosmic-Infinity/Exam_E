@@ -217,15 +217,35 @@ const EvaluationViewer = () => {
   const [missingType, setMissingType] = useState<"pages" | "complete" | null>(null);
   const [missingPages, setMissingPages] = useState("");
 
-  useEffect(() => {
-    const script = getScript(rollNo, subjectId || "");
-    if (script) {
+ useEffect(() => {
+  let active = true;
+
+  const loadScript = async () => {
+    try {
+      const script = await getScript(rollNo, subjectId || "", role);
+      if (!active || !script) return;
+
       setMarks(script.marks);
       if (script.hasGrievance && script.grievanceText) {
-        setScriptGrievance({ text: script.grievanceText, date: script.grievanceDate || "" });
+        setScriptGrievance({
+          text: script.grievanceText,
+          date: script.grievanceDate || "",
+        });
       }
+    } catch (err) {
+      console.error("Failed to load script:", err);
+      toast.error("Unable to load answer sheet for this subject.");
+      navigate("/dashboard/student");
     }
-  }, [rollNo, subjectId]);
+  };
+
+  loadScript();
+
+  return () => {
+    active = false;
+  };
+}, [rollNo, subjectId, role, navigate]);
+
 
   // Fetch and cache next 3 pages when active page changes
   useEffect(() => {

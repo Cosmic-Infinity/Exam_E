@@ -13,7 +13,9 @@ const FacultyDashboard = () => {
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const { user, setUser } = useUserSession();
+  const { user, setUser, logout } = useUserSession();
+
+
 
   // Fetch and set permission flags from backend role on mount
   useEffect(() => {
@@ -41,16 +43,40 @@ const FacultyDashboard = () => {
     fetchPermissions();
   }, [user?.backendRole]);
 
-  const scripts = getAllScripts();
-  const assigned = scripts.length;
-  const graded = scripts.filter((s) => s.status === "graded").length;
-  const ungraded = scripts.filter((s) => s.status === "pending").length;
-  const grievanceCount = scripts.filter((s) => s.hasGrievance).length;
+  const [scripts, setScripts] = useState<any[]>([]);
 
-  const filteredScripts =
-    activeFilter === "grievances"
-      ? scripts.filter((s) => s.hasGrievance)
-      : scripts;
+useEffect(() => {
+  let active = true;
+
+  const loadScripts = async () => {
+    try {
+      const data = await Promise.resolve(getAllScripts());
+      if (active) setScripts(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Failed to load scripts:", error);
+      if (active) setScripts([]);
+      toast.error("Failed to load scripts");
+    }
+  };
+
+  loadScripts();
+
+  return () => {
+    active = false;
+  };
+}, []);
+
+const safeScripts = Array.isArray(scripts) ? scripts : [];
+const assigned = safeScripts.length;
+const graded = safeScripts.filter((s) => s.status === "graded").length;
+const ungraded = safeScripts.filter((s) => s.status === "pending").length;
+const grievanceCount = safeScripts.filter((s) => s.hasGrievance).length;
+
+const filteredScripts =
+  activeFilter === "grievances"
+    ? safeScripts.filter((s) => s.hasGrievance)
+    : safeScripts;
+
 
   const handleEvaluate = (rollNo: string, subjectCode: string, status: string, hasGrievance: boolean) => {
     const mode = hasGrievance ? "grievance" : status === "pending" ? "fresh" : "graded";

@@ -40,12 +40,33 @@ const StudentDashboard = () => {
   const [selectedCode, setSelectedCode] = useState("");
   const published = areResultsPublished();
 
-  useEffect(() => {
-    const data = getStudentResults(rollNo);
-    setResults(data);
-  }, [rollNo]);
+ useEffect(() => {
+  let active = true;
 
-  const selected = results.find((r) => r.subjectCode === selectedCode);
+  const loadResults = async () => {
+    try {
+      const data = await getStudentResults(rollNo);
+      if (active) {
+        setResults(Array.isArray(data) ? data : []);
+      }
+    } catch (error) {
+      console.error("Failed to load student results:", error);
+      if (active) setResults([]);
+      toast.error("Failed to load results");
+    }
+  };
+
+  loadResults();
+
+  return () => {
+    active = false;
+  };
+}, [rollNo]);
+
+ const selected = Array.isArray(results)
+  ? results.find((r) => r.subjectCode === selectedCode)
+  : undefined;
+
 
   const handleViewAnswerSheet = () => {
     if (!selectedCode) return;

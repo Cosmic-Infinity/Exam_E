@@ -1,6 +1,6 @@
 ---
 
-## 🚫 The "Keep it Clean" .gitignore
+##  The "Keep it Clean" .gitignore
 
 Create a file named `.gitignore` in your **root folder**. This prevents 100MB+ of junk and sensitive passwords from hitting your Git repo.
 

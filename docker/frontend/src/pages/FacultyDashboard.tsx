@@ -57,11 +57,12 @@ const FacultyDashboard = () => {
     navigate(`/evaluation/${subjectCode.toLowerCase()}?role=faculty&mode=${mode}&roll=${rollNo}`);
   };
 
-  const handleLogout = () => {
-    toast.dismiss();
-    toast.success("Logged out successfully");
-    navigate("/");
-  };
+ const handleLogout = async () => {
+  toast.dismiss();
+  await logout();
+  toast.success("Logged out successfully");
+  navigate("/");
+};
 
   const stats = [
     { label: "Scripts Assigned", value: assigned, color: "text-primary" },

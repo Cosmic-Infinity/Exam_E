@@ -1,22 +1,4 @@
-// ==========================================
-// Mock evaluation service.
-//
-// TO CONNECT TO YOUR REAL DATABASE:
-// Replace the function bodies with actual
-// API/database calls. The function signatures
-// and return types stay the same.
-//
-// SECURITY NOTES:
-// ✓ User identity stored in UserSessionContext
-//   (NOT in URL parameters)
-// ✓ Backend (Django) handles real authentication
-// ✓ Frontend only manages session state via UserSessionContext
-// ✓ Backend APIs MUST validate:
-//   - Students can only access their own data
-//   - Faculty can only access papers assigned to them
-// ✓ Use HTTP-only JWT cookies (set by backend)
-// ==========================================
-
+import AuthService from "@/services/authService";
 import {
   AnswerScript,
   StudentResult,
@@ -25,167 +7,284 @@ import {
   computeTotal,
 } from "@/types/evaluation";
 
-// ---- In-memory mock store ----
+type TeacherAllocation = {
+  allocation_id: number;
+  course: { course_code: string; title: string };
+};
 
-const GRADED_MARKS: MarksRow[] = [
-  { q: "Q1", parts: { a: "2", b: "3", c: "5", d: "4", e: "-" } },
-  { q: "Q2", parts: { a: "4", b: "-", c: "3", d: "2", e: "5" } },
-  { q: "Q3", parts: { a: "5", b: "4", c: "-", d: "3", e: "2" } },
-  { q: "Q4", parts: { a: "-", b: "2", c: "4", d: "5", e: "3" } },
-  { q: "Q5", parts: { a: "3", b: "5", c: "2", d: "-", e: "4" } },
-];
+type TeacherExam = {
+  exam_id: number;
+  exam_type: string;
+};
 
-function cloneMarks(m: MarksRow[]): MarksRow[] {
-  return m.map((r) => ({ ...r, parts: { ...r.parts } }));
-}
+type TeacherPaperListItem = {
+  paper_id: number;
+  student_university_id: string;
+  student_name: string;
+  total_score: number | null;
+  evaluation_status: "PENDING" | "IN_PROGRESS" | "COMPLETED";
+};
 
-let scripts: AnswerScript[] = [
-  { id: "1", rollNo: "230501", subjectCode: "CS3001", submissionDate: "2025-12-10", status: "pending", hasGrievance: false, marks: createEmptyMarks() },
-  { id: "2", rollNo: "230512", subjectCode: "CS3002", submissionDate: "2025-12-11", status: "pending", hasGrievance: false, marks: createEmptyMarks() },
-  { id: "3", rollNo: "230523", subjectCode: "CS3003", submissionDate: "2025-12-10", status: "graded", hasGrievance: false, marks: cloneMarks(GRADED_MARKS) },
-  { id: "4", rollNo: "230534", subjectCode: "CS3001", submissionDate: "2025-12-12", status: "pending", hasGrievance: false, marks: createEmptyMarks() },
-  { id: "5", rollNo: "230545", subjectCode: "CS3004", submissionDate: "2025-12-11", status: "graded", hasGrievance: true, grievanceText: "I believe Q3 part (c) was marked incorrectly. My approach using dynamic programming is valid as per the textbook reference on page 247.", grievanceDate: "2025-12-15 14:32", marks: cloneMarks(GRADED_MARKS) },
-  { id: "6", rollNo: "230547", subjectCode: "CS3002", submissionDate: "2025-12-12", status: "graded", hasGrievance: true, grievanceText: "Q2 part (b) was left unevaluated but I have written a valid solution.", grievanceDate: "2025-12-16 09:15", marks: cloneMarks(GRADED_MARKS) },
-  { id: "7", rollNo: "230558", subjectCode: "CS3005", submissionDate: "2025-12-10", status: "graded", hasGrievance: false, marks: cloneMarks(GRADED_MARKS) },
-  { id: "8", rollNo: "230569", subjectCode: "CS3003", submissionDate: "2025-12-11", status: "pending", hasGrievance: false, marks: createEmptyMarks() },
-  
-  // Student 230547 (Current logged-in student) - All subjects
-  { id: "9", rollNo: "230547", subjectCode: "CS3001", submissionDate: "2025-12-10", status: "graded", hasGrievance: false, marks: cloneMarks(GRADED_MARKS) },
-  { id: "10", rollNo: "230547", subjectCode: "CS3003", submissionDate: "2025-12-10", status: "graded", hasGrievance: false, marks: cloneMarks(GRADED_MARKS) },
-  { id: "11", rollNo: "230547", subjectCode: "CS3004", submissionDate: "2025-12-11", status: "pending", hasGrievance: false, marks: createEmptyMarks() },
-  { id: "12", rollNo: "230547", subjectCode: "CS3005", submissionDate: "2025-12-10", status: "graded", hasGrievance: false, marks: cloneMarks(GRADED_MARKS) },
-  { id: "13", rollNo: "230547", subjectCode: "MA2001", submissionDate: "2025-12-12", status: "graded", hasGrievance: false, marks: cloneMarks(GRADED_MARKS) },
-  { id: "14", rollNo: "230547", subjectCode: "CS3006", submissionDate: "2025-12-11", status: "graded", hasGrievance: false, marks: cloneMarks(GRADED_MARKS) },
-  { id: "15", rollNo: "230547", subjectCode: "CS3007", submissionDate: "2025-12-13", status: "graded", hasGrievance: true, grievanceText: "I used an alternative approach for the neural network optimization that should be accepted.", grievanceDate: "2025-12-17 10:45", marks: cloneMarks(GRADED_MARKS) },
-  { id: "16", rollNo: "230547", subjectCode: "CS3008", submissionDate: "2025-12-09", status: "graded", hasGrievance: false, marks: cloneMarks(GRADED_MARKS) },
-  { id: "17", rollNo: "230547", subjectCode: "CS3009", submissionDate: "2025-12-14", status: "pending", hasGrievance: false, marks: createEmptyMarks() },
-  { id: "18", rollNo: "230547", subjectCode: "CS3010", submissionDate: "2025-12-08", status: "graded", hasGrievance: false, marks: cloneMarks(GRADED_MARKS) },
-  { id: "19", rollNo: "230547", subjectCode: "MA2002", submissionDate: "2025-12-12", status: "graded", hasGrievance: false, marks: cloneMarks(GRADED_MARKS) },
-  { id: "20", rollNo: "230547", subjectCode: "EC2001", submissionDate: "2025-12-11", status: "graded", hasGrievance: false, marks: cloneMarks(GRADED_MARKS) },
-  { id: "21", rollNo: "230547", subjectCode: "ME2001", submissionDate: "2025-12-10", status: "pending", hasGrievance: false, marks: createEmptyMarks() },
-  
-  // Student 2305741 (Current logged-in student) - All subjects
-  { id: "22", rollNo: "2305741", subjectCode: "CS3001", submissionDate: "2025-12-10", status: "graded", hasGrievance: false, marks: cloneMarks(GRADED_MARKS) },
-  { id: "23", rollNo: "2305741", subjectCode: "CS3002", submissionDate: "2025-12-11", status: "graded", hasGrievance: false, marks: cloneMarks(GRADED_MARKS) },
-  { id: "24", rollNo: "2305741", subjectCode: "CS3003", submissionDate: "2025-12-10", status: "graded", hasGrievance: false, marks: cloneMarks(GRADED_MARKS) },
-  { id: "25", rollNo: "2305741", subjectCode: "CS3004", submissionDate: "2025-12-11", status: "pending", hasGrievance: false, marks: createEmptyMarks() },
-  { id: "26", rollNo: "2305741", subjectCode: "CS3005", submissionDate: "2025-12-10", status: "graded", hasGrievance: false, marks: cloneMarks(GRADED_MARKS) },
-  { id: "27", rollNo: "2305741", subjectCode: "CS3006", submissionDate: "2025-12-11", status: "graded", hasGrievance: false, marks: cloneMarks(GRADED_MARKS) },
-  { id: "28", rollNo: "2305741", subjectCode: "CS3007", submissionDate: "2025-12-13", status: "graded", hasGrievance: true, grievanceText: "I believe the grading for Q4 was too strict. The approach I used is valid.", grievanceDate: "2025-12-17 11:20", marks: cloneMarks(GRADED_MARKS) },
-  { id: "29", rollNo: "2305741", subjectCode: "CS3008", submissionDate: "2025-12-09", status: "graded", hasGrievance: false, marks: cloneMarks(GRADED_MARKS) },
-  { id: "30", rollNo: "2305741", subjectCode: "CS3009", submissionDate: "2025-12-14", status: "pending", hasGrievance: false, marks: createEmptyMarks() },
-  { id: "31", rollNo: "2305741", subjectCode: "CS3010", submissionDate: "2025-12-08", status: "graded", hasGrievance: false, marks: cloneMarks(GRADED_MARKS) },
-  { id: "32", rollNo: "2305741", subjectCode: "MA2001", submissionDate: "2025-12-12", status: "graded", hasGrievance: false, marks: cloneMarks(GRADED_MARKS) },
-  { id: "33", rollNo: "2305741", subjectCode: "MA2002", submissionDate: "2025-12-12", status: "graded", hasGrievance: false, marks: cloneMarks(GRADED_MARKS) },
-  { id: "34", rollNo: "2305741", subjectCode: "EC2001", submissionDate: "2025-12-11", status: "graded", hasGrievance: false, marks: cloneMarks(GRADED_MARKS) },
-  { id: "35", rollNo: "2305741", subjectCode: "ME2001", submissionDate: "2025-12-10", status: "pending", hasGrievance: false, marks: createEmptyMarks() },
-];
+type TeacherPaperDetail = {
+  paper_id: number;
+  student_university_id: string;
+  student_name: string;
+  file_path: string;
+  marks_json: unknown;
+  total_score: number | null;
+  evaluation_status: "PENDING" | "IN_PROGRESS" | "COMPLETED";
+};
 
-let resultsPublished = true;
-
-// ---- Public API ----
-// Replace these with real DB calls when ready.
-
-/** Get all scripts (faculty view) */
-export function getAllScripts(): AnswerScript[] {
-  return scripts.map((s) => ({ ...s, marks: cloneMarks(s.marks) }));
-}
-
-/** Get a specific script by roll + subject */
-export function getScript(rollNo: string, subjectCode: string): AnswerScript | undefined {
-  const s = scripts.find(
-    (s) => s.rollNo === rollNo && s.subjectCode.toLowerCase() === subjectCode.toLowerCase()
-  );
-  return s ? { ...s, marks: cloneMarks(s.marks) } : undefined;
-}
-
-/** Save marks for a script (faculty action) */
-export function saveMarks(rollNo: string, subjectCode: string, marks: MarksRow[]): void {
-  const idx = scripts.findIndex(
-    (s) => s.rollNo === rollNo && s.subjectCode.toLowerCase() === subjectCode.toLowerCase()
-  );
-  if (idx !== -1) {
-    scripts[idx].marks = cloneMarks(marks);
-    scripts[idx].status = "graded";
-  }
-}
-
-/** Submit a grievance (student action) */
-export function submitGrievance(rollNo: string, subjectCode: string, text: string): void {
-  const idx = scripts.findIndex(
-    (s) => s.rollNo === rollNo && s.subjectCode.toLowerCase() === subjectCode.toLowerCase()
-  );
-  if (idx !== -1) {
-    scripts[idx].hasGrievance = true;
-    scripts[idx].grievanceText = text;
-    scripts[idx].grievanceDate = new Date().toISOString().slice(0, 16).replace("T", " ");
-  }
-}
-
-/** Accept grievance — faculty updates marks and clears grievance */
-export function acceptGrievance(rollNo: string, subjectCode: string, updatedMarks: MarksRow[]): void {
-  const idx = scripts.findIndex(
-    (s) => s.rollNo === rollNo && s.subjectCode.toLowerCase() === subjectCode.toLowerCase()
-  );
-  if (idx !== -1) {
-    scripts[idx].marks = cloneMarks(updatedMarks);
-    scripts[idx].hasGrievance = false;
-    scripts[idx].grievanceText = undefined;
-    scripts[idx].grievanceDate = undefined;
-  }
-}
-
-/** Reject grievance — clears grievance flag, marks stay */
-export function rejectGrievance(rollNo: string, subjectCode: string): void {
-  const idx = scripts.findIndex(
-    (s) => s.rollNo === rollNo && s.subjectCode.toLowerCase() === subjectCode.toLowerCase()
-  );
-  if (idx !== -1) {
-    scripts[idx].hasGrievance = false;
-    scripts[idx].grievanceText = undefined;
-    scripts[idx].grievanceDate = undefined;
-  }
-}
-
-/** Get student results for a specific roll number */
-export function getStudentResults(rollNo: string): StudentResult[] {
-  const subjectNames: Record<string, string> = {
-    CS3001: "Data Structures & Algorithms",
-    CS3002: "Operating Systems",
-    CS3003: "Database Management Systems",
-    CS3004: "Computer Networks",
-    CS3005: "Software Engineering",
-    CS3006: "Web Development",
-    CS3007: "Artificial Intelligence",
-    CS3008: "Cloud Computing",
-    CS3009: "Mobile Application Development",
-    CS3010: "Cybersecurity",
-    MA2001: "Discrete Mathematics",
-    MA2002: "Linear Algebra",
-    EC2001: "Digital Electronics",
-    ME2001: "Engineering Mathematics",
+type StudentPaperListItem = {
+  paper_id: number;
+  exam: {
+    exam_id: number;
+    exam_type: string;
+    total_marks: number;
+    passing_marks: number;
+    course_code: string;
+    course_title: string;
   };
+  total_score: number | null;
+  evaluation_status: "PENDING" | "IN_PROGRESS" | "COMPLETED";
+};
 
-  return scripts
-    .filter((s) => s.rollNo === rollNo)
-    .map((s) => ({
-      subjectCode: s.subjectCode,
-      subjectName: subjectNames[s.subjectCode] || s.subjectCode,
-      marks: s.status === "graded" ? computeTotal(s.marks) : null,
-      recheckStatus: s.hasGrievance
-        ? "under-review" as const
-        : s.status === "pending"
-        ? "not-submitted" as const
-        : "not-submitted" as const,
-    }));
+type StudentPaperDetail = {
+  paper_id: number;
+  exam: {
+    exam_id: number;
+    exam_type: string;
+    total_marks: number;
+    passing_marks: number;
+    course_code: string;
+    course_title: string;
+  };
+  file_path: string;
+  marks_json: unknown;
+  total_score: number | null;
+  evaluation_status: "PENDING" | "IN_PROGRESS" | "COMPLETED";
+  question_paper_schema?: unknown;
+};
+
+type PaperMeta = {
+  id: string;
+  rollNo: string;
+  subjectCode: string;
+  subjectName: string;
+  examId?: number;
+};
+
+const paperMetaCache = new Map<string, PaperMeta>();
+
+function statusToScriptStatus(status: string): "pending" | "graded" {
+  return status === "COMPLETED" ? "graded" : "pending";
 }
 
-/** Check if results are published */
+function normalizeMarks(raw: unknown): MarksRow[] {
+  if (Array.isArray(raw)) return raw as MarksRow[];
+  return createEmptyMarks();
+}
+
+function cacheKey(rollNo: string, subjectCode: string): string {
+  return `${rollNo}::${subjectCode.toLowerCase()}`;
+}
+
+async function fetchTeacherScriptsInternal(): Promise<AnswerScript[]> {
+  const allocations = (await AuthService.get("/teacher/allocations/")) as TeacherAllocation[];
+  const scripts: AnswerScript[] = [];
+
+  for (const allocation of allocations) {
+    const exams = (await AuthService.get(
+      `/teacher/allocations/${allocation.allocation_id}/exams/`
+    )) as TeacherExam[];
+
+    for (const exam of exams) {
+      const papers = (await AuthService.get(
+        `/teacher/papers/?exam_id=${exam.exam_id}`
+      )) as TeacherPaperListItem[];
+
+      for (const paper of papers) {
+        const subjectCode = allocation.course.course_code;
+        const key = cacheKey(paper.student_university_id, subjectCode);
+
+        paperMetaCache.set(key, {
+          id: String(paper.paper_id),
+          rollNo: paper.student_university_id,
+          subjectCode,
+          subjectName: allocation.course.title,
+          examId: exam.exam_id,
+        });
+
+        scripts.push({
+          id: String(paper.paper_id),
+          rollNo: paper.student_university_id,
+          subjectCode,
+          submissionDate: "",
+          status: statusToScriptStatus(paper.evaluation_status),
+          hasGrievance: false,
+          marks: createEmptyMarks(),
+        });
+      }
+    }
+  }
+
+  return scripts;
+}
+
+async function fetchStudentPapersInternal(): Promise<StudentPaperListItem[]> {
+  return (await AuthService.get("/student/papers/")) as StudentPaperListItem[];
+}
+
+async function resolveStudentPaperBySubject(subjectCode: string) {
+  const papers = await fetchStudentPapersInternal();
+  return papers.find(
+    (p) => p.exam.course_code.toLowerCase() === subjectCode.toLowerCase()
+  );
+}
+
+/** Faculty list */
+export async function getAllScripts(): Promise<AnswerScript[]> {
+  return fetchTeacherScriptsInternal();
+}
+
+/** Lookup by roll + subject for viewer compatibility */
+export async function getScript(
+  rollNo: string,
+  subjectCode: string
+): Promise<AnswerScript | undefined> {
+  // 1) Try cached metadata
+  const key = cacheKey(rollNo, subjectCode);
+  const cached = paperMetaCache.get(key);
+  if (cached) {
+    const detail = (await AuthService.get(
+      `/teacher/paper/${cached.id}/`
+    )) as TeacherPaperDetail;
+
+    return {
+      id: String(detail.paper_id),
+      rollNo: detail.student_university_id,
+      subjectCode: cached.subjectCode,
+      submissionDate: "",
+      status: statusToScriptStatus(detail.evaluation_status),
+      hasGrievance: false,
+      marks: normalizeMarks(detail.marks_json),
+    };
+  }
+
+  // 2) Try teacher discovery
+  try {
+    const teacherScripts = await fetchTeacherScriptsInternal();
+    const found = teacherScripts.find(
+      (s) =>
+        s.rollNo === rollNo &&
+        s.subjectCode.toLowerCase() === subjectCode.toLowerCase()
+    );
+    if (found) {
+      const detail = (await AuthService.get(
+        `/teacher/paper/${found.id}/`
+      )) as TeacherPaperDetail;
+
+      return {
+        id: String(detail.paper_id),
+        rollNo: detail.student_university_id,
+        subjectCode: found.subjectCode,
+        submissionDate: "",
+        status: statusToScriptStatus(detail.evaluation_status),
+        hasGrievance: false,
+        marks: normalizeMarks(detail.marks_json),
+      };
+    }
+  } catch {
+    // ignore and fallback to student path
+  }
+
+  // 3) Student fallback
+  const p = await resolveStudentPaperBySubject(subjectCode);
+  if (!p) return undefined;
+
+  const detail = (await AuthService.get(
+    `/student/paper/${p.paper_id}/`
+  )) as StudentPaperDetail;
+
+  return {
+    id: String(detail.paper_id),
+    rollNo,
+    subjectCode: detail.exam.course_code,
+    submissionDate: "",
+    status: statusToScriptStatus(detail.evaluation_status),
+    hasGrievance: false,
+    marks: normalizeMarks(detail.marks_json),
+  };
+}
+
+/** Faculty grading update */
+export async function saveMarks(
+  rollNo: string,
+  subjectCode: string,
+  marks: MarksRow[]
+): Promise<void> {
+  const script = await getScript(rollNo, subjectCode);
+  if (!script) throw new Error("Paper not found");
+
+  await AuthService.put(`/teacher/paper/${script.id}/`, {
+    marks_json: marks,
+    total_score: computeTotal(marks),
+    evaluation_status: "COMPLETED",
+  });
+}
+
+/** Student grievance submission */
+export async function submitGrievance(
+  _rollNo: string,
+  subjectCode: string,
+  text: string
+): Promise<void> {
+  const paper = await resolveStudentPaperBySubject(subjectCode);
+  if (!paper) throw new Error("Completed paper not found for this subject");
+
+  await AuthService.post("/student/grievance/", {
+    paper: paper.paper_id,
+    student_comment: text,
+  });
+}
+
+/**
+ * Backend currently has no explicit teacher grievance decision endpoint.
+ * Keep these wrappers for UI compatibility.
+ */
+export async function acceptGrievance(
+  rollNo: string,
+  subjectCode: string,
+  updatedMarks: MarksRow[]
+): Promise<void> {
+  await saveMarks(rollNo, subjectCode, updatedMarks);
+}
+
+export async function rejectGrievance(
+  _rollNo: string,
+  _subjectCode: string
+): Promise<void> {
+  return;
+}
+
+/** Student results from backend (no hardcoded subjects) */
+export async function getStudentResults(_rollNo: string): Promise<StudentResult[]> {
+  const papers = await fetchStudentPapersInternal();
+
+  return papers.map((p) => ({
+    subjectCode: p.exam.course_code,
+    subjectName: p.exam.course_title || p.exam.course_code,
+    marks: p.evaluation_status === "COMPLETED" ? (p.total_score ?? 0) : null,
+    recheckStatus: "not-submitted",
+  }));
+}
+
+/** Backend releases completed papers; keep always true in current UI contract */
 export function areResultsPublished(): boolean {
-  return resultsPublished;
+  return true;
 }
 
-/** Toggle results publication */
-export function setResultsPublished(published: boolean): void {
-  resultsPublished = published;
+/** No frontend toggle; backend controls visibility/state */
+export function setResultsPublished(_published: boolean): void {
+  // no-op
 }

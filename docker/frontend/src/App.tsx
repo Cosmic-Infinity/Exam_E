@@ -12,6 +12,8 @@ import StatisticsPage from "./pages/StatisticsPage";
 import ControllerStatisticsPage from "./pages/ControllerStatisticsPage";
 import EvaluationViewer from "./pages/EvaluationViewer";
 import NotFound from "./pages/NotFound";
+import ProtectedRoute from "./components/ProtectedRoute";
+
 
 const queryClient = new QueryClient();
 
@@ -23,15 +25,51 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Login />} />
-              <Route path="/dashboard/student" element={<StudentDashboard />} />
-              <Route path="/dashboard/faculty" element={<FacultyDashboard />} />
-              <Route path="/dashboard/statistics" element={<StatisticsPage />} />
-              <Route path="/dashboard/controller-statistics" element={<ControllerStatisticsPage />} />
-              <Route path="/evaluation/:subjectId" element={<EvaluationViewer />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+          <Routes>
+  <Route path="/" element={<Login />} />
+  <Route
+    path="/dashboard/student"
+    element={
+      <ProtectedRoute allowedRoles={["student"]}>
+        <StudentDashboard />
+      </ProtectedRoute>
+    }
+  />
+  <Route
+    path="/dashboard/faculty"
+    element={
+      <ProtectedRoute allowedRoles={["faculty"]}>
+        <FacultyDashboard />
+      </ProtectedRoute>
+    }
+  />
+  <Route
+    path="/dashboard/statistics"
+    element={
+      <ProtectedRoute allowedRoles={["faculty"]} requireCoordinator>
+        <StatisticsPage />
+      </ProtectedRoute>
+    }
+  />
+  <Route
+    path="/dashboard/controller-statistics"
+    element={
+      <ProtectedRoute allowedRoles={["faculty"]} requireController>
+        <ControllerStatisticsPage />
+      </ProtectedRoute>
+    }
+  />
+  <Route
+    path="/evaluation/:subjectId"
+    element={
+      <ProtectedRoute allowedRoles={["student", "faculty"]}>
+        <EvaluationViewer />
+      </ProtectedRoute>
+    }
+  />
+  <Route path="*" element={<NotFound />} />
+</Routes>
+
           </BrowserRouter>
         </TooltipProvider>
       </ThemeProvider>

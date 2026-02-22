@@ -1,16 +1,17 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import AuthService from "@/services/authService";
 
 /**
  * UserSessionContext
- * 
+ *
  * NOT an authentication system - Backend (Django) handles real authentication via JWT
  * This only manages frontend user session state after successful backend login.
- * 
+ *
  * Purpose:
  * - Stores logged-in user info (university_id, role, full_name)
  * - Prevents passing user data through URL parameters
  * - Ensures authenticated components have access to current user
- * 
+ *
  * Do NOT:
  * - Implement login/password validation here
  * - Store passwords
@@ -30,7 +31,7 @@ interface UserSessionContextType {
   user: UserSession | null;
   setUser: (user: UserSession | null) => void;
   isLoggedIn: boolean;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const UserSessionContext = createContext<UserSessionContextType | undefined>(undefined);
@@ -39,15 +40,37 @@ export const UserSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [user, setUserState] = useState<UserSession | null>(null);
 
   // Load user session from sessionStorage on mount (cleared when browser closes)
+  // and validate it against backend cookie session.
   useEffect(() => {
-    const storedSession = sessionStorage.getItem("userSession");
-    if (storedSession) {
+    const restoreAndValidate = async () => {
+      const storedSession = sessionStorage.getItem("userSession");
+      if (!storedSession) return;
+
       try {
-        setUserState(JSON.parse(storedSession));
+        JSON.parse(storedSession); // basic parse validation
+
+        const me = await AuthService.getCurrentUser();
+        const userRole =
+          me.role === "TEACHER" || me.role === "COORDINATOR" || me.role === "CONTROLLER"
+            ? "faculty"
+            : "student";
+
+        setUserState({
+          universityId: me.university_id,
+          fullName: me.full_name,
+          role: userRole,
+          backendRole: me.role,
+          isCourseCoordinator: me.role === "COORDINATOR",
+          isController: me.role === "CONTROLLER",
+        });
       } catch (e) {
-        console.error("Failed to restore user session", e);
+        console.error("Failed to restore/validate user session", e);
+        sessionStorage.removeItem("userSession");
+        setUserState(null);
       }
-    }
+    };
+
+    restoreAndValidate();
   }, []);
 
   const setUser = (newUser: UserSession | null) => {
@@ -59,10 +82,15 @@ export const UserSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    // Backend handles JWT cookie cleanup via logout endpoint
-  };
+  const logout = useCallback(async () => {
+    try {
+      await AuthService.logout();
+    } catch (e) {
+      console.error("Backend logout failed", e);
+    } finally {
+      setUser(null);
+    }
+  }, []);
 
   return (
     <UserSessionContext.Provider value={{ user, setUser, isLoggedIn: !!user, logout }}>

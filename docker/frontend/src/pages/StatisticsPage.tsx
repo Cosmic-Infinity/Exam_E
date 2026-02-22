@@ -86,11 +86,12 @@ const StatisticsPage = () => {
     loadStatistics();
   }, [selectedCourse]);
 
-  const handleLogout = () => {
-    toast.dismiss();
-    toast.success("Logged out successfully");
-    navigate("/");
-  };
+ const handleLogout = async () => {
+  toast.dismiss();
+  await logout();
+  toast.success("Logged out successfully");
+  navigate("/");
+};
 
   const handleExpandSection = async (sectionName: string) => {
     if (expandedSection === sectionName) {

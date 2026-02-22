@@ -139,11 +139,12 @@ const ControllerStatisticsPage = () => {
     }
   };
 
-  const handleLogout = () => {
-    toast.dismiss();
-    toast.success("Logged out successfully");
-    navigate("/");
-  };
+  const handleLogout = async () => {
+  toast.dismiss();
+  await logout();
+  toast.success("Logged out successfully");
+  navigate("/");
+};
 
   const handleBack = () => {
     if (viewLevel === "subjects") {

@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useUserSession } from "@/context/UserSessionContext";
 import ThemeToggle from "@/components/ThemeToggle";
+import AuthService from "@/services/authService";
+
 
 const Login = () => {
   const [email, setEmail] = useState("");

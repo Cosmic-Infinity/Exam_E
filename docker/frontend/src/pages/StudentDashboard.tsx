@@ -62,12 +62,12 @@ const StudentDashboard = () => {
     toast.info(`Downloading ${label} for ${selectedCode}${selected ? ` — ${selected.subjectName}` : ""}...`, { duration: 2000 });
   };
 
-  const handleLogout = () => {
-    toast.dismiss();
-    logout();
-    toast.success("Logged out successfully");
-    navigate("/");
-  };
+  const handleLogout = async () => {
+  toast.dismiss();
+  await logout();
+  toast.success("Logged out successfully");
+  navigate("/");
+};
 
   return (
     <div className="min-h-screen bg-background">

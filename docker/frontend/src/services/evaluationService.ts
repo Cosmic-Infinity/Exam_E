@@ -93,9 +93,36 @@ function statusToScriptStatus(status: string): "pending" | "graded" {
 }
 
 function normalizeMarks(raw: unknown): MarksRow[] {
+  // Case 1: already in frontend array format
   if (Array.isArray(raw)) return raw as MarksRow[];
+
+  // Case 2: backend JSON object format (q1/p1... style)
+  if (raw && typeof raw === "object") {
+    const obj = raw as Record<string, Record<string, number | string>>;
+
+    const rows: MarksRow[] = [];
+    for (let q = 1; q <= 5; q++) {
+      const qKey = `q${q}`;
+      const parts = obj[qKey] || {};
+
+      rows.push({
+        q: `Q${q}`,
+        parts: {
+          a: String(parts.p1 ?? "0"),
+          b: String(parts.p2 ?? "0"),
+          c: String(parts.p3 ?? "0"),
+          d: String(parts.p4 ?? "0"),
+          e: String(parts.p5 ?? "0"),
+        },
+      });
+    }
+
+    return rows;
+  }
+
   return createEmptyMarks();
 }
+
 
 function cacheKey(rollNo: string, subjectCode: string): string {
   return `${rollNo}::${subjectCode.toLowerCase()}`;
@@ -171,25 +198,25 @@ export async function getScript(
 ): Promise<AnswerScript | undefined> {
 
   // 1) Try cached metadata
-  const key = cacheKey(rollNo, subjectCode);
-  const cached = paperMetaCache.get(key);
-  if (cached) {
-    const detail = (await AuthService.get(
-      `/teacher/paper/${cached.id}/`
-    )) as TeacherPaperDetail;
+const key = cacheKey(rollNo, subjectCode);
+const cached = paperMetaCache.get(key);
+if (cached && role === "faculty") {
+  const detail = (await AuthService.get(
+    `/teacher/paper/${cached.id}/`
+  )) as TeacherPaperDetail;
 
-    return {
-      id: String(detail.paper_id),
-      rollNo: detail.student_university_id,
-      subjectCode: cached.subjectCode,
-      submissionDate: "",
-      status: statusToScriptStatus(detail.evaluation_status),
-      hasGrievance: false,
-      marks: normalizeMarks(detail.marks_json),
-    };
-  }
+  return {
+    id: String(detail.paper_id),
+    rollNo: detail.student_university_id,
+    subjectCode: cached.subjectCode,
+    submissionDate: "",
+    status: statusToScriptStatus(detail.evaluation_status),
+    hasGrievance: false,
+    marks: normalizeMarks(detail.marks_json),
+  };
+}
 
-  // 2) Try teacher discovery
+
 // 2) Try teacher discovery only for faculty
 if (role === "faculty") {
   try {

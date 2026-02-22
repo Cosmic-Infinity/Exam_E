@@ -116,40 +116,54 @@ def parse_program_description(desc):
         return None
 
 def import_students(csv_file_path):
+    print(f"--- Starting Student Import from {csv_file_path} ---")
     conn = connect_db()
     cur = conn.cursor()
     
-    count_success = 0
+    count_created = 0
+    count_updated = 0
     count_skipped = 0
-
+    
     try:
-        print(f"Starting import from {csv_file_path}...")
         with open(csv_file_path, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
-            
             for row in reader:
-                roll_no = row.get('Institute Roll No', '').strip()
-                full_name = row.get('Name', '').strip()
-                program_desc = row.get('Program Description', '').strip()
+                # 1. Normalize Header Handling
+                # Support "Roll No" (test data), "College Roll No", "Institute Roll No" (standard)
+                roll_no = (row.get('Roll No') or row.get('Institute Roll No') or row.get('College Roll No') or '').strip()
+                full_name = (row.get('Name') or row.get('Student Name') or '').strip()
                 
                 if not roll_no or not full_name:
                     print(f"Skipping row: Missing Roll No or Name ({row})")
                     count_skipped += 1
                     continue
 
-                parsed = parse_program_description(program_desc)
-                if not parsed:
-                    print(f"Skipping row {roll_no}: Could not parse Program Description '{program_desc}'")
-                    count_skipped += 1
-                    continue
+                # 2. Get Program Data (From distinct columns OR description)
+                program_desc = row.get('Program Description', '').strip()
+                if program_desc:
+                    parsed = parse_program_description(program_desc)
+                    if not parsed:
+                        print(f"Skipping row {roll_no}: Could not parse Program Description '{program_desc}'")
+                        count_skipped += 1
+                        continue
+                    degree, stream_name, batch = parsed
+                else:
+                    # Use direct columns: "Stream", "Degree", "Batch"
+                    degree = row.get('Degree', 'B.Tech').strip()
+                    stream_name = row.get('Stream', '').strip()
+                    batch = row.get('Batch', '2021-2025').strip() # Realistic fallback
                 
-                degree, stream_name, batch = parsed
+                # Check School Code (new column in test data?)
+                school_code = row.get('School Code', 'GENERIC').strip()
+                if school_code == 'GENERIC':
+                    # Fallback — try to guess school code from stream
+                    school_code = stream_name[:3].upper() if stream_name else "GEN"
+                    
+                school_name = f"School of {school_code}" # Generic/Heuristic name
+                section_name = row.get('Section', 'A').strip()
                 
-                # Setup Academic Structure
-                school_name = f"School of {stream_name}"
-                school_code = stream_name[:3].upper()
+                # 3. Setup Academic Structure
                 school_id = ensure_school(cur, school_name, school_code)
-                
                 stream_id = ensure_stream(cur, stream_name, degree, school_id)
                 
                 # User Creation
@@ -178,7 +192,9 @@ def import_students(csv_file_path):
                         continue
 
                 # Student Profile Creation
-                section = 'A' 
+                # If section_name was provided in CSV, use it; otherwise fallback to 'A'.
+                if not section_name:
+                    section_name = 'A'
                 
                 cur.execute(
                     """
@@ -186,18 +202,18 @@ def import_students(csv_file_path):
                     VALUES (%s, %s, 1, %s, %s)
                     ON CONFLICT (user_id) DO UPDATE 
                     SET stream_id = EXCLUDED.stream_id, 
+                        section_name = EXCLUDED.section_name,
                         batch = EXCLUDED.batch
                     """,
-                    (user_id, stream_id, section, batch)
+                    (user_id, stream_id, section_name, batch)
                 )
-                count_success += 1
+                count_created += 1
 
         conn.commit()
-        print(f"Import Summary: Success={count_success}, Skipped={count_skipped}")
-
+        print(f"Import Summary: Created {count_created}, Updated {count_updated}, Skipped {count_skipped}.")
     except Exception as e:
+        print(f"FATAL: Error reading CSV file: {e}")
         conn.rollback()
-        print(f"Error: {e}")
     finally:
         cur.close()
         conn.close()

@@ -230,6 +230,35 @@ class StudentAdmin(admin.ModelAdmin):
     list_filter = ('stream', 'current_semester', 'batch')
     search_fields = ('user__university_id', 'user__full_name')
     autocomplete_fields = ['user', 'stream']
+    actions = ['generate_and_email_student_credentials']
+
+    def changelist_view(self, request, extra_context=None):
+        if extra_context is None:
+            extra_context = {}
+        extra_context['password_management_url'] = '/admin/core/password_management/'
+        return super().changelist_view(request, extra_context=extra_context)
+
+    def generate_and_email_student_credentials(self, request, queryset):
+        """
+        Admin action to generate and send login credentials to selected students.
+        """
+        if not request.user.is_superuser:
+            self.message_user(request, "Only superusers can perform this action.", level='error')
+            return
+
+        count = 0
+        for student in queryset:
+            user = student.user
+            # Default to 8-digit numeric if triggered from main StudentAdmin list
+            plain_password = get_random_string(length=8, allowed_chars='0123456789')
+            user.set_password(plain_password)
+            user.save()
+            send_credentials_email.delay(user.pk, plain_password)
+            count += 1
+            
+        self.message_user(request, f"Generated & emailed credentials to {count} students.")
+    
+    generate_and_email_student_credentials.short_description = "Generate & Email selected student credentials"
 
 @admin.register(Teacher)
 class TeacherAdmin(admin.ModelAdmin):
@@ -237,6 +266,29 @@ class TeacherAdmin(admin.ModelAdmin):
     list_filter = ('school', 'is_coordinator')
     search_fields = ('user__university_id', 'user__full_name')
     autocomplete_fields = ['user', 'school']
+    actions = ['generate_and_email_teacher_credentials']
+
+    def generate_and_email_teacher_credentials(self, request, queryset):
+        """
+        Admin action to generate and send login credentials to selected teachers.
+        """
+        if not request.user.is_superuser:
+            self.message_user(request, "Only superusers can perform this action.", level='error')
+            return
+
+        count = 0
+        for teacher in queryset:
+            user = teacher.user
+            # Default to 8-digit numeric for teachers as well
+            plain_password = get_random_string(length=8, allowed_chars='0123456789')
+            user.set_password(plain_password)
+            user.save()
+            send_credentials_email.delay(user.pk, plain_password)
+            count += 1
+            
+        self.message_user(request, f"Generated & emailed credentials to {count} teachers.")
+    
+    generate_and_email_teacher_credentials.short_description = "Generate & Email selected teacher credentials"
 
     def get_form(self, request, obj=None, **kwargs):
         # We need to manually set the form attribute for the ModelAdmin usage

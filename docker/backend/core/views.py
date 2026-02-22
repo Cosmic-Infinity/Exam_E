@@ -23,13 +23,11 @@ def password_management_view(request):
                 # Build Query
                 filters = {}
                 if school:
-                    # Filter streams by school if stream not explicitly selected, 
-                    # OR filter students whose stream belongs to school? 
-                    # Student -> Stream -> School
                     filters['stream__school'] = school
                 
                 if stream_id:
-                    filters['stream_id'] = stream_id
+                    # ModelChoiceField returns a Stream object
+                    filters['stream'] = stream_id
                 
                 if section:
                     filters['section_name__iexact'] = section

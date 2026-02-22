@@ -67,9 +67,11 @@ class PasswordFilterForm(forms.Form):
         empty_label="All Schools",
         widget=forms.Select(attrs={'class': 'form-control'})
     )
-    stream = forms.CharField(
+    stream = forms.ModelChoiceField(
+        queryset=Stream.objects.all(),
         required=False,
         label="Stream",
+        empty_label="--- Select a stream ---",
         widget=forms.Select(attrs={'class': 'form-control'})
     )
     section = forms.CharField(
@@ -86,11 +88,11 @@ class PasswordFilterForm(forms.Form):
     password_algorithm = forms.ChoiceField(
         required=False,
         choices=[
-            ('numeric_8', '8 Random Digits'),
-            ('alnum_10', '10 Alphanumeric Characters'),
-            ('uuid_12', '12 Character UUID Snippet'),
+            ('numeric_8', 'Numeric (8 Digits)'),
+            ('alnum_10', 'Alphanumeric (10 Chars)'),
+            ('uuid_12', 'Secure (12 Chars UUID)'),
         ],
-        label="Password Generation Algorithm",
+        label="Password Logic",
         widget=forms.Select(attrs={'class': 'form-control'}),
         initial='numeric_8'
     )

@@ -21,17 +21,19 @@
 
 # 3. The Architecture (Single Machine / Local Network)
 
-Entry Point: https://paper-portal.uni.edu (Resolved internally).
+Entry Point: http://localhost (Resolved internally).
 
-Nginx (Port 443):
+Nginx (Port 80):
 
-Rule A: Request for /static/papers/student_1.jpg -> Serve directly from disk. (Zero Python involvement).
+Rule A: Request for /static/papers/student_1.jpg -> Proxy to Backend.
 
-Rule B: Request for /api/login -> Forward to Gunicorn (Port 8000).
+Rule B: Request for /api/login -> Proxy to Backend (Port 8000).
 
-Application (Django/Gunicorn): Runs 9-10 worker processes. Handles logic, auth, and DB queries.
+Rule C: Request for / -> Proxy to Frontend (Port 8080).
 
-Database (Postgres): Runs on Port 5433 (Blocked from outside). Accessible only by Django.
+Application (Django/Gunicorn): Runs via `python manage.py runserver` in dev. Handles logic, auth, and DB queries.
+
+Database (Postgres): Runs on Port 5433 (Blocked from outside). Accessible only by Django via internal Docker network (host `db`, port `5432`).
 
 Celery Worker: A separate background process that wakes up to send emails or shuffle grievances.
 
@@ -60,11 +62,11 @@ Submission: Student flags a question index.
 
 Distribution: A nightly Celery task queries all Grievance objects with status='OPEN' and randomly assigns them to a Teacher in the Subject pool.
 
-Mass Mailing:
+Mass Mailing (Credentials):
 
-Trigger: Coordinator clicks "Send Passwords" in Admin Panel.
+Trigger: Coordinator selects Students/Teachers in Admin Panel and clicks "Generate & Email selected credentials".
 
-Action: Django adds 5,000 tasks to Redis. Celery workers pick them up one by one and talk to the Google Workspace SMTP server.
+Action: Django adds tasks to Redis. Celery workers pick them up one by one and talk to the configured SMTP server (or print to console in dev).
 
 
 # 5. Admin & Analytics
@@ -75,6 +77,8 @@ Action: Django adds 5,000 tasks to Redis. Celery workers pick them up one by one
 - **Drill-down**: Click on charts to view specific students and their exam papers.
 
 **Exam Builder**: A visual drag-and-drop interface within the Admin panel allows Coordinators to define complex exam structures (Sections, Questions, Parts) without writing raw JSON.
+
+**Bulk Password Management**: A dedicated tool in the admin panel to filter students by school, stream, section, or semester and generate credentials in bulk.
 
 
 # 6. Authentication — Current Implementation
@@ -126,42 +130,43 @@ Every user has one of three roles. Each API view can be locked to a role using a
 | `COOKIE_SECURE` | `0` (HTTP) | `1` (HTTPS only) |
 | `HTTPS redirect` | Off | On (`SECURE_SSL_REDIRECT`) |
 | `HSTS` | Off | 1 year, subdomains + preload |
-| `CORS` | `http://localhost:3000` | Set via `CORS_ALLOWED_ORIGINS` env var |
+| `CORS` | `http://localhost:8080`, `http://localhost` | Set via `CORS_ALLOWED_ORIGINS` env var |
 | Login rate limit | 5 attempts / minute / IP | Same |
 
 ## Admin Panel
 
-The Django admin (`/admin/`) is the central control hub for the system. It handles:
+The Django admin (`http://localhost/admin/`) is the central control hub for the system. It handles:
 
 - **User Management**:
   - Full CRUD for Students, Teachers, and Staff.
   - Role management and custom permissions.
-  - Password generation & credential distribution.
+  - **Single-click Credential Generation**: Select users and choose "Generate & Email selected credentials" from the actions menu.
 - **Bulk Password Management Tool**:
-  - Located on the Admin Dashboard.
+  - Located on the Admin Dashboard > "Bulk Password Management".
   - Allows bulk password generation for students filtered by School, Stream, Section, or Semester.
   - Integrated with Celery for background email delivery.
 - **Academic Setup**:
-  - Automated CSV imports via the Data Import tool or startup scripts.
-  - Coordination logic: Assigning teachers to manage courses via the **Teachers** admin interface.
+  - Automated CSV imports via `docker/backend/entrypoint.sh` using `Data/test_data/`.
+  - Coordination logic: Assigning teachers to manage courses.
 - **Stats Dashboard**:
   - Real-time evaluation progress, grievance analytics, and score distribution.
 
-> **Note**: The Admin Panel is exposed only for administration. The main application (Paper Checking, Grievances, etc.) runs in the React Frontend as separate portals for Students, Teachers, and Controllers.
+> **Note**: The Admin Panel is for Staff. Students & Teachers use the React Frontend (`http://localhost/`).
 
 ## Background Email (Celery)
 
-System-wide notifications (password generation, grievance updates) are handled asynchronoulsy by Celery workers + Redis.
+System-wide notifications (password generation, grievance updates) are handled asynchronously.
 
-- **Dev**: Emails print to the terminal (Console Backend).
+- **Dev**: Emails are printed to the docker logs (`docker compose logs backend`).
 - **Production**: Configure `EMAIL_BACKEND` (SMTP) via environment variables.
 
 ## First-Time Setup (Nuke & Boot)
 
-The system is now **fully automated**. 
+The system is fully automated.
 
 1. **Clean Start**: To reset everything (schema, data, and users):
    ```bash
+   cd docker
    docker compose down -v
    ```
 2. **Build and Start**:
@@ -169,9 +174,12 @@ The system is now **fully automated**.
    docker compose up --build
    ```
 
-Wait for the terminal to finish the import logs. You can then log in to the admin panel with:
-- **Email**: `admin@kiit.ac.in`
-- **Password**: `admin`
+Wait for the terminal to show "Automatic Data Import Complete".
+
+**Default Credentials:**
+- **Admin**: `admin@kiit.ac.in` / `admin`
+- **Test Students**: Check `Data/test_data/1_students.csv` (Roll numbers are University IDs).
+- **Test Teachers**: Check `Data/test_data/2_teachers.csv` (Emp IDs are University IDs).
 
 ---
 

@@ -1,0 +1,11 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls static admin_list %}
+
+{% block object-tools-items %}
+  {{ block.super }}
+  <li>
+    <a href="{{ password_management_url }}" class="addlink" style="background-color: #417690; color: white;">
+      {% trans "Bulk Password Management" %}
+    </a>
+  </li>
+{% endblock %}

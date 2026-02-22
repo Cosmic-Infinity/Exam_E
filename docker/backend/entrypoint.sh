@@ -8,7 +8,8 @@ done
 echo "PostgreSQL started"
 
 # Run migrations
-python manage.py migrate --noinput
+# Using --fake-initial because the schema may already exist from init_db.sql
+python manage.py migrate --noinput --fake-initial
 
 # --- AUTOMATIC SUPERUSER CREATION ---
 echo "Checking for superuser..."
@@ -35,20 +36,25 @@ echo "--- Starting post-migration data check/import ---"
 
 # Step 1: Base Data (Schools, Streams, Teachers, Courses)
 # These scripts use environment variables for DB config and handle existing data gracefully.
-python scripts/import_academic_data.py --founders Data/schools_streams.csv
-python scripts/import_academic_data.py --teachers Data/teachers.csv
-python scripts/import_academic_data.py --courses Data/courses.csv
-python scripts/import_academic_data.py --allocations Data/allocations.csv
+echo "Importing Foundational Data (Schools/Streams)..."
+python scripts/import_academic_data.py --founders "Data/test_data/0. schools_streams.csv"
 
-# Step 2: Students (Batch files)
-for f in Data/2301.csv Data/2302.csv Data/2303.csv Data/2304.csv Data/2305.csv; do
-    if [ -f "$f" ]; then
-        python scripts/import_students.py "$f"
-    fi
-done
+echo "Importing Teachers..."
+python scripts/import_academic_data.py --teachers "Data/test_data/2_teachers.csv"
+
+echo "Importing Courses..."
+python scripts/import_academic_data.py --courses "Data/test_data/3_courses.csv"
+
+echo "Importing Allocations..."
+python scripts/import_academic_data.py --allocations "Data/test_data/4_allocations.csv"
+
+# Step 2: Students
+echo "Importing Students..."
+python scripts/import_students.py "Data/test_data/1_students.csv"
 
 # Step 3: Enrollments (Depends on Students and Allocations)
-python scripts/bulk_enroll.py --csv Data/enrollments.csv --session "Spring 2026"
+echo "Importing Enrollments..."
+python scripts/bulk_enroll.py --csv "Data/test_data/5_enrollments.csv" --session "2024-2025"
 
 echo "--- Automatic Data Import Complete ---"
 # --- END DATA IMPORT ---

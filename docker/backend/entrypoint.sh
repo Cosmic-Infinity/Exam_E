@@ -19,7 +19,7 @@ User = get_user_model()
 if not User.objects.filter(is_superuser=True).exists():
     print("Creating auto-generated superuser...")
     User.objects.create_superuser(
-        email='admin@kiit.ac.in',
+        email='23052199@kiit.ac.in',
         password='admin',
         full_name='System Admin',
         university_id='0000'

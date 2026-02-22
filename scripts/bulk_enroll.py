@@ -18,8 +18,8 @@ DB_CONFIG = {
     "dbname": os.getenv("DATABASE_NAME", "exam_e"),
     "user": os.getenv("DATABASE_USER", "postgres"),
     "password": os.getenv("DATABASE_PASSWORD", "postgres"),
-    "host": os.getenv("DATABASE_HOST", "localhost"),
-    "port": os.getenv("DATABASE_PORT", "5433")
+    "host": os.getenv("DATABASE_HOST", "db"),
+    "port": os.getenv("DATABASE_PORT", "5432")
 }
 
 def connect_db():

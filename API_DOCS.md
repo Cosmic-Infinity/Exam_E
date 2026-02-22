@@ -13,21 +13,22 @@ The application uses a **Hierarchical Role System**.
 1.  **`STUDENT`**: Can only access their own data, exams, and results.
 2.  **`TEACHER`**: The base role for all faculty members.
     - **Core Functionality**: Can access assigned course allocations, upload marks, and resolve grievances for their sections.
-    - **As Course Coordinator**: If a Teacher is linked to a `Course` (via the `coordinator` field), they gain **read-only access** to the Statistics Dashboard for that specific course.
+    - **As Course Coordinator**: If a Teacher is linked to a `Course` (via the `coordinator_id` field), they gain **read-only access** to the Statistics Dashboard for that specific course.
 3.  **`CONTROLLER`** (Controller of Examination):
     - **Superset of Teacher**: Has all the capabilities of a Teacher (can teach courses, grade papers).
     - **Global View**: Has global read-only access to the Statistics Dashboard for **all courses**.
     - **API Access**: Can access all Teacher APIs (via `IsTeacher` permission) and all Statistics APIs.
+4.  **`COORDINATOR`** (System Administrator):
+    - **Note**: This is a backend-only role for technical maintenance. These users have full permissions via the Django Admin Panel but typically do not use the React Teacher/Portal APIs except for debugging.
 
 ### Note on System Administration
 
-There is no dedicated "System Admin" role in the frontend application. System administration (user management, database configuration) is handled exclusively via the **Django Admin Panel** (`/admin`) by users with the `is_staff` and `is_superuser` flags. These users do not interact with the exam evaluation workflow directly.
+System administration (user management, database configuration) is handled exclusively via the **Django Admin Panel** (`/admin`). Users with the `COORDINATOR` role who have the `is_staff` and `is_superuser` flags have full access to this panel. These users do not interact with the exam evaluation workflow directly.
 
 ### Django Flags
 
 - **`is_staff`**: Grants access to the **Django Admin Panel** (`/admin`).
-  - **Teachers**: `False` by default. They use the React Teacher Portal.
-  - **Controller**: `False` by default. They use the React Portal.
+  - **Teachers/Controllers**: `False` by default. They use the frontend portals.
   - **System Admin**: `True`. Only for technical DB maintenance.
 
 ---
@@ -41,7 +42,7 @@ Authenticates a user and sets an `HttpOnly` cookie containing the JWT access and
 - **Input**:
   ```json
   {
-    "email": "teacher@uni.edu",
+    "email": "admin@kiit.ac.in",
     "password": "securepassword"
   }
   ```
@@ -61,13 +62,12 @@ Returns the profile information of the currently authenticated user.
   ```json
   {
     "id": 1,
-    "university_id": "T-1001",
-    "full_name": "Dr. John Doe",
-    "email": "teacher@uni.edu",
-    "role": "TEACHER",
+    "university_id": "0000",
+    "full_name": "System Admin",
+    "email": "admin@kiit.ac.in",
+    "role": "COORDINATOR",
     "is_active": true,
-    "is_staff": false,
-    "is_verified": true,
+    "is_staff": true,
     "date_joined": "2026-02-20T12:00:00Z"
   }
   ```

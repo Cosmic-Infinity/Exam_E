@@ -131,19 +131,30 @@ Every user has one of three roles. Each API view can be locked to a role using a
 
 ## Admin Panel
 
-The Django admin (`/admin/`) supports full user management:
-- Create users with hashed passwords via the **Add User** form
-  - Edit roles, flags (`is_active`, `is_staff`) and group permissions
-UPDATED NOTES: this is an evaluaton system where there is basically a system admin/database admin/django admin (this portal isn't exposed to the web and is meant only for administrative purpose. do not accomodate for this in api or frontend, as this is unrelated to the frontend's functionality, and if the db is up, this sysadmin role already exists). There is student (who view their papers, their marks, raise grievances). there is teacher (who checks papers, resolves gievances for their specific course+section combo). there is a coures coordinator for each course, who, besides teaching the course in some section, has an overview of statistics (similar to the one statistics of django admin panel, but recreated in the frontend by api served data) for his/her specific course, including the drill down (view only) ability. there is a controller of examination role, who can overview course coordinator style stats, but for all subjects.
-note, the controller themselves can be a teacher who teaches an unrelated subject. managed like this- if teacher, they only have option to mark copes, resolve grievance for their subject, etc. if course coordinator (who is also a teacher) they have added ability to view stats for the course, if controller (who is also a teacher) has added functionaity and can see the stats for all subjects.
+The Django admin (`/admin/`) is the central control hub for the system. It handles:
+
+- **User Management**:
+  - Full CRUD for Students, Teachers, and Staff.
+  - Role management and custom permissions.
+  - Password generation & credential distribution.
+- **Bulk Password Management Tool**:
+  - Located on the Admin Dashboard.
+  - Allows bulk password generation for students filtered by School, Stream, Section, or Semester.
+  - Integrated with Celery for background email delivery.
+- **Academic Setup**:
+  - Automated CSV imports via the Data Import tool or startup scripts.
+  - Coordination logic: Assigning teachers to manage courses via the **Teachers** admin interface.
+- **Stats Dashboard**:
+  - Real-time evaluation progress, grievance analytics, and score distribution.
+
+> **Note**: The Admin Panel is exposed only for administration. The main application (Paper Checking, Grievances, etc.) runs in the React Frontend as separate portals for Students, Teachers, and Controllers.
 
 ## Background Email (Celery)
 
-Password-change events trigger an async Celery task that emails the user.
-A welcome email task exists for new account creation.
+System-wide notifications (password generation, grievance updates) are handled asynchronoulsy by Celery workers + Redis.
 
-- **Dev**: emails print to the terminal (console backend)
-- **Production**: set `EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` env vars to switch to SMTP
+- **Dev**: Emails print to the terminal (Console Backend).
+- **Production**: Configure `EMAIL_BACKEND` (SMTP) via environment variables.
 
 ## First-Time Setup (Nuke & Boot)
 

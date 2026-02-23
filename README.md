@@ -76,7 +76,7 @@ Action: Django adds tasks to Redis. Celery workers pick them up one by one and t
 - **Score Distribution**: Histograms of student performance.
 - **Drill-down**: Click on charts to view specific students and their exam papers.
 
-**Exam Builder**: A visual drag-and-drop interface within the Admin panel allows Coordinators to define complex exam structures (Sections, Questions, Parts) without writing raw JSON.
+**Exam Builder**: A visual drag-and-drop interface within the Admin panel allows System admin to define complex exam structures (Sections, Questions, Parts) without writing raw JSON.
 
 **Bulk Password Management**: A dedicated tool in the admin panel to filter students by school, stream, section, or semester and generate credentials in bulk.
 
@@ -85,31 +85,17 @@ Action: Django adds tasks to Redis. Celery workers pick them up one by one and t
 
 ## How It Works
 
-Users log in with their **university ID + password** (not email). On successful login, two secure HttpOnly cookies are set — an access token (15 min) and a refresh token (1 day). The React frontend never sees the raw tokens; they travel only via cookies.
+Users log in with their **university email + password**. On successful login, two secure HttpOnly cookies are set — an access token (15 min) and a refresh token (1 day). The React frontend never sees the raw tokens; they travel only via cookies.
 
 ```
 POST /api/auth/login/         → sets access_token + refresh_token cookies
 POST /api/auth/logout/        → blacklists refresh token, clears cookies
 POST /api/auth/refresh/       → issues a new access_token from the refresh cookie
-POST /api/auth/password/change/ → change password (logged-in users only)
 GET  /api/me/                 → returns logged-in user's profile
 POST /api/token/              → header-based JWT login (Postman / mobile)
 POST /api/token/refresh/      → header-based token refresh
 ```
 
-## Roles
-
-Every user has one of three roles. Each API view can be locked to a role using a permission class:
-
-| Role | Permission class | Access |
-|---|---|---|
-| `COORDINATOR` | `IsCoordinator` | System Admin access (User management, Config) |
-| `CONTROLLER` | `IsController` | Global statistics view + Teacher capabilities |
-| `TEACHER` | `IsTeacher` | Teaching-related views |
-| `STUDENT` | `IsStudent` | Student-facing views |
-| COORDINATOR or TEACHER | `IsCoordOrTeacher` | Combined |
-
-*(Note: System Administrators are superusers with full access but do not use a specific 'ADMIN' role application-side.)*
 
 ## Token Details
 

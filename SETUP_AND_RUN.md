@@ -62,6 +62,8 @@ The system is configured to **automatically initialize** everything on the first
 | **Password** | `admin` |
 | **University ID** | `0000` |
 
+> **⚠️ Note on Email Configuration**: This email address can be changed in [docker/backend/entrypoint.sh](docker/backend/entrypoint.sh) if needed for mail service API testing or production setup. The email must match your **mail service provider's authenticated sender address** when configuring `EMAIL_HOST_USER` in the environment variables.
+
 ---
 
 ## 4. Manual Administration
@@ -80,7 +82,7 @@ docker compose exec backend python manage.py createsuperuser
 | :-------------- | :--------------------------------------------------------------- | :------------------------------------------------- |
 | **Admin Panel** | [http://localhost:8000/admin](http://localhost:8000/admin)       | **System Admin Only**. Data Entry & User Management. |
 | **API Docs**    | See `API_DOCS.md` file                                           | Backend API Documentation (No live Swagger UI yet) |
-| **Frontend**    | [http://localhost:3000](http://localhost:3000)                   | **Main App**. Student/Teacher/Portal.              |
+| **Frontend**    | [http://localhost:8080](http://localhost:8080)                   | **Main App**. Student/Teacher/Portal.              |
 | **Database**    | `localhost:5433`                                                 | Direct SQL Access (Use DBeaver/PgAdmin, not browser) |
 
 ---

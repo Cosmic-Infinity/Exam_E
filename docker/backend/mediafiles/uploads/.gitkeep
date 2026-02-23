@@ -1,0 +1,2 @@
+# This directory stores user uploads (profile pictures, documents, etc.)
+# Directory structure: uploads/{user_id}/ or uploads/{session_id}/

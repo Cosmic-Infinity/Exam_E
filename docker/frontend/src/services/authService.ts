@@ -128,17 +128,13 @@ class AuthService {
 
   /**
    * Generic API call with automatic token refresh on 401
-   * 
+   *
    * Usage:
    * const data = await authService.apiCall('/stats/dashboard/data/', {
    *   method: 'GET'
    * });
    */
-  static async apiCall(
-    endpoint: string,
-    options: RequestInit = {},
-    retryCount = 0
-  ): Promise<Response> {
+  static async apiCall(endpoint: string, options: RequestInit = {}, retryCount = 0): Promise<Response> {
     const url = endpoint.startsWith("http") ? endpoint : `${this.BASE_URL}${endpoint}`;
 
     const response = await fetch(url, {

@@ -1048,23 +1048,24 @@ const EvaluationViewer = () => {
                   <div className="rounded border border-border/60 bg-background/40 overflow-hidden">
                     <div className="p-0 flex gap-0">
                       {nextPageThumbnails.map((pageNum) => (
-                        <PageThumbnail
-                          key={pageNum}
-                          page={pageNum}
-                          subjectCode={subjectCode}
-                          rollNo={rollNo}
-                          src={currentScript?.pages ? currentScript.pages[pageNum - 1] : undefined}
-                          totalPages={totalPages}
-                          onClick={() => {
-                            setActivePage(pageNum);
-                            // Scroll to top of right panel
-                            const scrollContainer = document.querySelector('[class*="flex-col"]');
-                            if (scrollContainer) {
-                              scrollContainer.scrollTop = 0;
-                            }
-                          }}
-                          isLoading={loadingThumbnails}
-                        />
+                        <div key={pageNum}>
+                          <PageThumbnail
+                            page={pageNum}
+                            subjectCode={subjectCode}
+                            rollNo={rollNo}
+                            src={currentScript?.pages ? currentScript.pages[pageNum - 1] : undefined}
+                            totalPages={totalPages}
+                            onClick={() => {
+                              setActivePage(pageNum);
+                              // Scroll to top of right panel
+                              const scrollContainer = document.querySelector('[class*="flex-col"]');
+                              if (scrollContainer) {
+                                scrollContainer.scrollTop = 0;
+                              }
+                            }}
+                            isLoading={loadingThumbnails}
+                          />
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -1096,7 +1097,7 @@ const EvaluationViewer = () => {
                     </thead>
                     <tbody>
                       {marks.map((row, i) => {
-                        const rowTotal = Object.values(row.parts).reduce((s, v) => s + (v === "-" || v === "" ? 0 : parseInt(v) || 0), 0);
+                        const rowTotal = Object.values(row.parts).reduce((s, v) => s + ((v as string) === "-" || (v as string) === "" ? 0 : parseInt(v as string) || 0), 0);
                         return (
                           <tr key={row.q} className={i % 2 === 1 ? "bg-muted/20" : ""}>
                             <td className="px-2 py-1 font-mono font-semibold text-foreground text-xs border-r border-border">{row.q}</td>

@@ -70,6 +70,7 @@ type StudentPaperDetail = {
   question_paper_schema?: unknown;
   question_paper_path?: string;
   answer_key_path?: string;
+  pages?: string[];
 };
 type StudentEnrollmentItem = {
   enrollment_id: number;
@@ -216,9 +217,9 @@ export async function getScript(rollNo: string, subjectCode: string, role: "stud
   if (role === "faculty") {
     try {
       const teacherScripts = await fetchTeacherScriptsInternal();
-      const found = teacherScripts.find((s) => s.student_university_id === rollNo && s.exam.course_code.toLowerCase() === subjectCode.toLowerCase());
+      const found = teacherScripts.find((s) => s.rollNo === rollNo && s.subjectCode.toLowerCase() === subjectCode.toLowerCase());
       if (found) {
-        const detail = (await AuthService.get(`/teacher/paper/${found.paper_id}/`)) as TeacherPaperDetail;
+        const detail = (await AuthService.get(`/teacher/paper/${found.id}/`)) as TeacherPaperDetail;
 
         return {
           id: String(detail.paper_id),

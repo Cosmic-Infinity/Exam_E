@@ -14,7 +14,7 @@ RUN npm install --legacy-peer-deps
 COPY . .
 
 # Step 6: Expose the port the dev server runs on
-EXPOSE 3000
+EXPOSE 8080
 
 # Step 7: Start the development server
 CMD ["npm", "run", "dev"]

@@ -40,3 +40,8 @@ This repository contains a **university‑level paper evaluation and student vie
 - When generating or modifying system‑level features, remind the user to:
   - Communicate breaking changes in the group.
   - Ensure all contributors are aware of updates that may affect workflows.
+
+### 5. Environment details
+ - Most of the team is developing on a Windows environment, but this application is being built to be deployed in linux docker containers.
+ - Remember to use appropriate shell commands accordingly.
+ - One of the team mambers may be on MacOS.

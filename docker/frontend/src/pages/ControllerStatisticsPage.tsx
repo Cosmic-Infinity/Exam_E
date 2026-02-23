@@ -21,7 +21,7 @@ interface SectionDetail extends SectionStatistics {
 
 const ControllerStatisticsPage = () => {
   const navigate = useNavigate();
-  const { user, setUser } = useUserSession();
+  const { user, setUser, logout } = useUserSession();
   const [viewLevel, setViewLevel] = useState<ViewLevel>("semesters");
   const [loading, setLoading] = useState(false);
 

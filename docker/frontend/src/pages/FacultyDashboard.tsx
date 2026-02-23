@@ -40,7 +40,7 @@ useEffect(() => {
 
   const loadScripts = async () => {
     try {
-      const data = await Promise.resolve(getAllScripts());
+      const data = await getAllScripts();
       if (active) setScripts(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Failed to load scripts:", error);

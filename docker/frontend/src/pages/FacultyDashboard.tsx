@@ -19,29 +19,19 @@ const FacultyDashboard = () => {
 
   // Fetch and set permission flags from backend role on mount
   useEffect(() => {
-    const fetchPermissions = async () => {
-      try {
-        // Determine permissions based on backend role
-        if (user?.backendRole) {
-          const isCourseCoordinator = user.backendRole === "COORDINATOR";
-          const isController = user.backendRole === "CONTROLLER";
-          
-          // Update user session with permissions
-          setUser({
-            ...user,
-            isCourseCoordinator,
-            isController,
-          });
-        }
-      } catch (error) {
-        console.error("Error fetching permissions", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    // Teachers can be course coordinators, Controllers are global viewers
+    if (user?.backendRole) {
+      const isCourseCoordinator = user.backendRole === "TEACHER";
+      const isController = user.backendRole === "CONTROLLER";
 
-    fetchPermissions();
-  }, [user?.backendRole]);
+      setUser({
+        ...user,
+        isCourseCoordinator,
+        isController,
+      });
+    }
+    setLoading(false);
+  }, [user?.backendRole, setUser]);
 
   const [scripts, setScripts] = useState<any[]>([]);
 
@@ -50,7 +40,7 @@ useEffect(() => {
 
   const loadScripts = async () => {
     try {
-      const data = await Promise.resolve(getAllScripts());
+      const data = await getAllScripts();
       if (active) setScripts(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Failed to load scripts:", error);

@@ -10,13 +10,13 @@ This document outlines the workflows for populating the `Exam_E` database, speci
 | :--- | :--- | :--- | :--- |
 | **Student** | `STUDENT` | `False` | Application User. |
 | **Teacher** | `TEACHER` | `False` | Standard Faculty. Viewing stats requires Course Coordinator link. |
-| **Course Coordinator** | `TEACHER` | `False` | **Linked to Course via `coordinator_id`**. See below. |
+| **Course Coordinator** | `TEACHER` | `False` | **Linked to Course via `coordinator_id`**. isCoordinator=true See below. |
 | **Controller** | `CONTROLLER`| `False` | Faculty with Global Stats View. Can also teach courses. |
-| **System Admin** | `COORDINATOR`| `True` | **Technical Role**. Accesses Django Admin / Data Tools. |
+
 
 ### Assigning Course Coordinators
-The `Course` model has a `coordinator_id` field (ForeignKey to User).
-1.  **Via Admin Panel**: Go to `Teachers`, select a teacher, and check "Is Coordinator". You **must** then select the course they manage in the "Assign as Coordinator for Course" dropdown. This will automatically update the `Course` table's `coordinator_id`.
+A **Course Coordinator** is a `TEACHER` user assigned to manage a course's statistics and grievances. The `Course` model has a `coordinator_id` field (ForeignKey to User).
+1.  **Via Django Admin Panel**: Go to `Courses`, select a course, and select a Teacher in the "Coordinator" dropdown. This will set the `Course.coordinator_id` field.
 2.  **Via Script**: Ensure the `Course` table is updated with the `user_id` of the teacher in the `coordinator_id` column.
 
 ---
@@ -95,11 +95,10 @@ _Students do not upload papers. A dedicated department digitizes and maps them._
 3.  **Bulk Upload**:
     - **Script**: Scans directory.
     - **Parsing**: Extracts `ROLLNUMBER` and `COURSECODE` from the folder name.
-    - **Conversion (Optional)**: Converts images to a single PDF (Frontend can display PDF easier) or keeps as image list.
     - **Lookup**: Finds the active `enrollment_id` for that Student + Course combo.
     - **Linkage**: Finds the active `exam_id` (e.g., Midsem) based on strict configuration or user input.
-    - **Upload**: Uploads either the PDF or the list of image paths to storage (S3/MinIO/Local).
-    - **Database**: Inserts row into `exam_papers` with `file_path` (as JSON array or PDF path) and `status='PENDING'`.
+    - **Upload**: Uploads the list of image paths to storage (S3/MinIO/Local).
+    - **Database**: Inserts row into `exam_papers` with `file_path` (as JSON array) and `status='PENDING'`.
 
 ---
 

@@ -39,17 +39,22 @@ class StudentPaperListSerializer(serializers.ModelSerializer):
 class StudentPaperDetailSerializer(serializers.ModelSerializer):
     exam = StudentExamSerializer(read_only=True)
     question_paper_schema = serializers.JSONField(source='exam.question_paper_schema', read_only=True)
+    question_paper_path = serializers.CharField(source='exam.question_paper_path', read_only=True, allow_null=True)
+    answer_key_path = serializers.CharField(source='exam.answer_key_path', read_only=True, allow_null=True)
     
     class Meta:
         model = ExamPaper
         fields = [
             'paper_id', 
             'exam', 
-            'file_path', 
+            'file_path',
+            'pages',
             'marks_json', 
             'total_score', 
             'evaluation_status',
-            'question_paper_schema'
+            'question_paper_schema',
+            'question_paper_path',
+            'answer_key_path'
         ]
         read_only_fields = fields
 

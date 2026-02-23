@@ -1,0 +1,2 @@
+# This directory stores student answer papers (PDF/image files)
+# Directory structure: papers/{student_id}_{course_code}/page{n}.jpg or .pdf

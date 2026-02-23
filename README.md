@@ -48,7 +48,7 @@ JWT (JSON Web Tokens) for stateless student login.
 
 Rotation: A simple Python script that generates random strings, hashes them with bcrypt, and updates the User table.
 
-Paper Evaluation (The Hard Part):
+Paper Evaluation:
 
 Frontend: React loads the JPG. Use a library like react-zoom-pan-pinch.
 
@@ -64,7 +64,7 @@ Distribution: A nightly Celery task queries all Grievance objects with status='O
 
 Mass Mailing (Credentials):
 
-Trigger: Coordinator selects Students/Teachers in Admin Panel and clicks "Generate & Email selected credentials".
+Trigger: System Administrator (via Django Admin Panel) selects Students/Teachers and clicks "Generate & Email selected credentials".
 
 Action: Django adds tasks to Redis. Celery workers pick them up one by one and talk to the configured SMTP server (or print to console in dev).
 
@@ -81,51 +81,25 @@ Action: Django adds tasks to Redis. Celery workers pick them up one by one and t
 **Bulk Password Management**: A dedicated tool in the admin panel to filter students by school, stream, section, or semester and generate credentials in bulk.
 
 
-# 6. Authentication — Current Implementation
+# 6. Authentication, Authorization & Security
 
-## How It Works
+For comprehensive documentation on authentication, role-based access control, and security implementation, see **[AUTHENTICATION.md](AUTHENTICATION.md)**.
 
-Users log in with their **university email + password**. On successful login, two secure HttpOnly cookies are set — an access token (15 min) and a refresh token (1 day). The React frontend never sees the raw tokens; they travel only via cookies.
+**Quick Reference**:
+- Users authenticate with email + password
+- JWT tokens stored in secure HttpOnly cookies
+- Three roles: STUDENT, TEACHER, CONTROLLER
+- Role-based API access control via permission classes
+- Course-level authorization for statistics and grading
 
-```
-POST /api/auth/login/         → sets access_token + refresh_token cookies
-POST /api/auth/logout/        → blacklists refresh token, clears cookies
-POST /api/auth/refresh/       → issues a new access_token from the refresh cookie
-GET  /api/me/                 → returns logged-in user's profile
-POST /api/token/              → header-based JWT login (Postman / mobile)
-POST /api/token/refresh/      → header-based token refresh
-```
-
-
-## Token Details
-
-| Setting | Value |
-|---|---|
-| Access token lifetime | 15 minutes |
-| Refresh token lifetime | 1 day |
-| Token rotation | Enabled — old refresh token is blacklisted on every refresh |
-| Storage | HttpOnly cookies (not localStorage) |
-| Custom claims in payload | `university_id`, `full_name`, `role` |
-
-## Security Settings
-
-| Setting | Dev | Production |
-|---|---|---|
-| `SECRET_KEY` | Set via env var — app refuses to start without it | Same |
-| `DEBUG` | `DEBUG=1` via docker-compose | `DEBUG=0` |
-| `COOKIE_SECURE` | `0` (HTTP) | `1` (HTTPS only) |
-| `HTTPS redirect` | Off | On (`SECURE_SSL_REDIRECT`) |
-| `HSTS` | Off | 1 year, subdomains + preload |
-| `CORS` | `http://localhost:8080`, `http://localhost` | Set via `CORS_ALLOWED_ORIGINS` env var |
-| Login rate limit | 5 attempts / minute / IP | Same |
+---
 
 ## Admin Panel
 
 The Django admin (`http://localhost/admin/`) is the central control hub for the system. It handles:
 
 - **User Management**:
-  - Full CRUD for Students, Teachers, and Staff.
-  - Role management and custom permissions.
+  - Full CRUD for Students, Teachers, and System Administrators.
   - **Single-click Credential Generation**: Select users and choose "Generate & Email selected credentials" from the actions menu.
 - **Bulk Password Management Tool**:
   - Located on the Admin Dashboard > "Bulk Password Management".
@@ -133,11 +107,11 @@ The Django admin (`http://localhost/admin/`) is the central control hub for the 
   - Integrated with Celery for background email delivery.
 - **Academic Setup**:
   - Automated CSV imports via `docker/backend/entrypoint.sh` using `Data/test_data/`.
-  - Coordination logic: Assigning teachers to manage courses.
+  - Course coordinator assignment: Link teachers to courses for statistics access.
 - **Stats Dashboard**:
   - Real-time evaluation progress, grievance analytics, and score distribution.
 
-> **Note**: The Admin Panel is for Staff. Students & Teachers use the React Frontend (`http://localhost/`).
+> **Note**: The Admin Panel is for System Administrators only. Students & Teachers use the React Frontend (`http://localhost/`).
 
 ## Background Email (Celery)
 
@@ -146,33 +120,33 @@ System-wide notifications (password generation, grievance updates) are handled a
 - **Dev**: Emails are printed to the docker logs (`docker compose logs backend`).
 - **Production**: Configure `EMAIL_BACKEND` (SMTP) via environment variables.
 
-## First-Time Setup (Nuke & Boot)
+## First-Time Setup & Initialization
 
-The system is fully automated.
+The system is fully automated on startup.
 
 1. **Clean Start**: To reset everything (schema, data, and users):
    ```bash
    cd docker
    docker compose down -v
    ```
+
 2. **Build and Start**:
    ```bash
    docker compose up --build
    ```
 
-Wait for the terminal to show "Automatic Data Import Complete".
+   Wait for the terminal to show "Automatic Data Import Complete".
 
-**Default Credentials:**
-- **Admin**: `admin@kiit.ac.in` / `admin`
-- **Test Students**: Check `Data/test_data/1_students.csv` (Roll numbers are University IDs).
-- **Test Teachers**: Check `Data/test_data/2_teachers.csv` (Emp IDs are University IDs).
+3. **Access the Application**:
+   - **Student/Teacher Portal**: http://localhost
+   - **Admin Panel**: http://localhost/admin/
+
+4. **Default Credentials**:
+   - **Admin**: `admin@kiit.ac.in` / `admin`
+   - **Test Students**: Check [Data/test_data/1_students.csv](Data/test_data/1_students.csv) (Roll numbers are login IDs)
+   - **Test Teachers**: Check [Data/test_data/2_teachers.csv](Data/test_data/2_teachers.csv) (Emp IDs are login IDs)
+
+For detailed authentication information, see [AUTHENTICATION.md](AUTHENTICATION.md).
 
 ---
-
-## What Is NOT Done Yet
-
-| Missing feature | Notes |
-|---|---|
-| **Logout from all devices** | Logout currently only invalidates the current session's refresh token |
-| **React frontend auth** | Auth context, protected routes, and silent refresh logic are currently being integrated |
 

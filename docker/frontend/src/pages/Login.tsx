@@ -40,7 +40,7 @@ const Login = () => {
       const data = await response.json();
 
       // Convert role from TEACHER to student/faculty
-      const userRole = data.role === "TEACHER" || data.role === "COORDINATOR" || data.role === "CONTROLLER" ? "faculty" : "student";
+      const userRole = data.role === "TEACHER" || data.role === "CONTROLLER" ? "faculty" : "student";
 
       setUser({
         universityId: data.university_id,

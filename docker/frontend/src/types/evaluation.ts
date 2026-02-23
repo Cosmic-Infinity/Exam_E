@@ -36,6 +36,11 @@ export interface AnswerScript {
   grievanceText?: string;
   grievanceDate?: string;
   marks: MarksRow[];
+  file_path?: string;
+  question_paper_path?: string;
+  answer_key_path?: string;
+  question_paper_schema?: unknown;
+  pages?: string[];
 }
 
 export const SUBJECTS: Subject[] = [

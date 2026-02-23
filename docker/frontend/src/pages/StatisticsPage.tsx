@@ -14,7 +14,7 @@ interface SectionDetail extends SectionStatistics {}
 
 const StatisticsPage = () => {
   const navigate = useNavigate();
-  const { user, setUser } = useUserSession();
+  const { user, setUser, logout } = useUserSession();
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
@@ -22,21 +22,20 @@ const StatisticsPage = () => {
   const [selectedCourse, setSelectedCourse] = useState<string | null>(null);
   const [courses, setCourses] = useState<Array<{ course_code: string; title: string }>>([]);
 
-  const [sectionDetailsMap, setSectionDetailsMap] = useState<
-    Map<string, SectionDetail>
-  >(new Map());
+  const [sectionDetailsMap, setSectionDetailsMap] = useState<Map<string, SectionDetail>>(new Map());
 
   // Fetch and set permission flags from backend role on mount
   useEffect(() => {
     if (user?.backendRole) {
-      const isCourseCoordinator = user.backendRole === "COORDINATOR";
+      // Course coordinators are TEACHERS with assigned courses (not CONTROLLERS)
+      const isCourseCoordinator = user.backendRole === "TEACHER";
       setUser({
         ...user,
         isCourseCoordinator,
         isController: user.backendRole === "CONTROLLER",
       });
     }
-  }, [user?.backendRole]);
+  }, [user?.backendRole, setUser]);
 
   // Fetch accessible courses on mount
   useEffect(() => {
@@ -86,12 +85,12 @@ const StatisticsPage = () => {
     loadStatistics();
   }, [selectedCourse]);
 
- const handleLogout = async () => {
-  toast.dismiss();
-  await logout();
-  toast.success("Logged out successfully");
-  navigate("/");
-};
+  const handleLogout = async () => {
+    toast.dismiss();
+    await logout();
+    toast.success("Logged out successfully");
+    navigate("/");
+  };
 
   const handleExpandSection = async (sectionName: string) => {
     if (expandedSection === sectionName) {
@@ -114,19 +113,19 @@ const StatisticsPage = () => {
         return;
       }
 
-      // Create section details with mock grievance data (would come from backend in production)
-      const mockDetails: SectionDetail = {
+      // Create section details - grievance details come from the API as part of SectionStatistics
+      const sectionDetails: SectionDetail = {
         sectionName: section.sectionName,
         totalStudents: section.totalStudents,
         checkingProgress: section.checkingProgress,
         markingProgress: section.markingProgress,
-        pendingProgress: section.totalStudents - section.checkingProgress - section.markingProgress,
+        pendingProgress: section.pendingProgress,
         grievanceCount: section.grievanceCount,
-        grievanceDetails: generateMockGrievanceDetails(section.grievanceCount),
+        grievanceDetails: section.grievanceDetails || [],
       };
 
       const newDetailsMap = new Map(sectionDetailsMap);
-      newDetailsMap.set(sectionName, mockDetails);
+      newDetailsMap.set(sectionName, sectionDetails);
       setSectionDetailsMap(newDetailsMap);
       setExpandedSection(sectionName);
     } catch (error) {
@@ -134,17 +133,6 @@ const StatisticsPage = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const generateMockGrievanceDetails = (count: number) => {
-    const mockGrievances = [
-      { studentId: "STU001", studentName: "Aarav Kumar", grievanceType: "Marking Error" },
-      { studentId: "STU002", studentName: "Priya Singh", grievanceType: "Question Clarity" },
-      { studentId: "STU003", studentName: "Ravi Sharma", grievanceType: "Answer Verification" },
-      { studentId: "STU004", studentName: "Neha Patel", grievanceType: "Calculation Error" },
-      { studentId: "STU005", studentName: "Arjun Verma", grievanceType: "Marking Mismatch" },
-    ];
-    return mockGrievances.slice(0, Math.min(count, mockGrievances.length));
   };
 
   const getExpandedDetails = (): SectionDetail | undefined => {

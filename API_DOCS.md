@@ -18,12 +18,10 @@ The application uses a **Hierarchical Role System**.
     - **Superset of Teacher**: Has all the capabilities of a Teacher (can teach courses, grade papers).
     - **Global View**: Has global read-only access to the Statistics Dashboard for **all courses**.
     - **API Access**: Can access all Teacher APIs (via `IsTeacher` permission) and all Statistics APIs.
-4.  **`COORDINATOR`** (System Administrator):
-    - **Note**: This is a backend-only role for technical maintenance. These users have full permissions via the Django Admin Panel but typically do not use the React Teacher/Portal APIs except for debugging.
 
 ### Note on System Administration
 
-System administration (user management, database configuration) is handled exclusively via the **Django Admin Panel** (`/admin`). Users with the `COORDINATOR` role who have the `is_staff` and `is_superuser` flags have full access to this panel. These users do not interact with the exam evaluation workflow directly.
+System administration (user management, database configuration) is handled exclusively via the **Django Admin Panel** (`/admin`). **Only users with `is_staff=True` and `is_superuser=True` flags** have access to this panel, regardless of their role. These system administrators do not interact with the exam evaluation workflow directly.
 
 ### Django Flags
 
@@ -65,7 +63,7 @@ Returns the profile information of the currently authenticated user.
     "university_id": "0000",
     "full_name": "System Admin",
     "email": "admin@kiit.ac.in",
-    "role": "COORDINATOR",
+    "role": "TEACHER",
     "is_active": true,
     "is_staff": true,
     "date_joined": "2026-02-20T12:00:00Z"
@@ -81,7 +79,7 @@ Returns the profile information of the currently authenticated user.
 Fetches a list of all active course sections assigned to the currently logged-in teacher. This is the data needed for the Teacher's "Home Screen".
 
 - **Auth Required**: Yes
-- **Role Required**: `TEACHER` or `COORDINATOR`
+- **Role Required**: `TEACHER` or `CONTROLLER`
 - **Input**: None (Uses the user's session/token)
 - **Output (200 OK)**:
   ```json
@@ -126,7 +124,7 @@ Fetches a list of all active course sections assigned to the currently logged-in
 Fetches a list of all exams (e.g., Midsem, Endsem) associated with a specific course allocation.
 
 - **Auth Required**: Yes
-- **Role Required**: `TEACHER` or `COORDINATOR`
+- **Role Required**: `TEACHER` or `CONTROLLER`
 - **Input**: `allocation_id` (in the URL path)
 - **Output (200 OK)**:
   ```json
@@ -155,7 +153,7 @@ Fetches a list of all exams (e.g., Midsem, Endsem) associated with a specific co
 Fetches a lightweight list of all student papers for a specific exam. This is used to populate the grading list/table.
 
 - **Auth Required**: Yes
-- **Role Required**: `TEACHER` or `COORDINATOR`
+- **Role Required**: `TEACHER` or `CONTROLLER`
 - **Input**: `exam_id` (as a query parameter)
 - **Output (200 OK)**:
   ```json
@@ -179,10 +177,10 @@ Fetches a lightweight list of all student papers for a specific exam. This is us
 
 ### `GET /api/teacher/paper/{paper_id}/`
 
-Fetches the full details of a specific paper, including the file path to the scanned image and the current marks JSON.
+Fetches the full details of a specific paper, including all page images, question paper PDF, answer key PDF, and the current marks JSON.
 
 - **Auth Required**: Yes
-- **Role Required**: `TEACHER` or `COORDINATOR`
+- **Role Required**: `TEACHER` or `CONTROLLER`
 - **Input**: `paper_id` (in the URL path)
 - **Output (200 OK)**:
   ```json
@@ -190,7 +188,14 @@ Fetches the full details of a specific paper, including the file path to the sca
     "paper_id": 101,
     "student_university_id": "2305128",
     "student_name": "Alice Smith",
-    "file_path": "/static/papers/2305128_CS302/page1.jpg",
+    "file_path": "papers/2305128_CS302/page1.jpg",
+    "pages": [
+      "papers/2305128_CS302/page1.jpg",
+      "papers/2305128_CS302/page2.jpg",
+      "papers/2305128_CS302/page3.jpg"
+    ],
+    "question_paper_path": "exam_docs/CS302_MIDSEM_qp.pdf",
+    "answer_key_path": "exam_docs/CS302_MIDSEM_key.pdf",
     "marks_json": null,
     "total_score": null,
     "evaluation_status": "PENDING",
@@ -198,16 +203,19 @@ Fetches the full details of a specific paper, including the file path to the sca
       { "q_no": 1, "parts": [1, 1, 1, 1, 1] },
       { "q_no": 2, "parts": [2, 3] }
     ],
-## 3. Statistics APIs (Controller & Coordinators)
+    "exam_total_marks": 30
+  }
+  ```
+## 3. Statistics APIs (Controllers & Course Coordinators)
 
-These APIs power the dashboards for Controllers (global view) and Course Coordinators (course-specific view).
+These APIs power the dashboards for Controllers (global view) and Course Coordinators—TEACHER users with assigned courses (course-specific view).
 
 ### `GET /api/stats/dashboard/data/`
 
 Returns the list of courses accessible to the current user for the dashboard dropdown.
 
 - **Auth Required**: Yes
-- **Role Required**: `CONTROLLER`, `COORDINATOR`, or `TEACHER` (assigned as coordinator)
+- **Role Required**: `CONTROLLER` or `TEACHER` (assigned as course coordinator)
 - **Output (200 OK)**:
   ```json
   {
@@ -301,7 +309,7 @@ Returns grievance statistics.
 Updates the marks and evaluation status for a specific paper.
 
 - **Auth Required**: Yes
-- **Role Required**: `TEACHER` or `COORDINATOR`
+- **Role Required**: `TEACHER` or `CONTROLLER`
 - **Input**:
   ```json
   {
@@ -375,7 +383,7 @@ Fetches a list of all _graded and released_ papers for the logged-in student.
 
 ### `GET /api/student/paper/{paper_id}/`
 
-Fetches the full details of a specific paper, including the scanned image URL and the marks JSON, so the student can review their grading.
+Fetches the full details of a specific paper, including all page images, question paper PDF, answer key PDF, and the marks JSON, so the student can review their grading.
 
 - **Auth Required**: Yes
 - **Role Required**: `STUDENT`
@@ -392,7 +400,14 @@ Fetches the full details of a specific paper, including the scanned image URL an
       "course_code": "CS302",
       "course_title": "Database Management Systems"
     },
-    "file_path": "/static/papers/2305129_CS302/page1.jpg",
+    "file_path": "papers/2305129_CS302/page1.jpg",
+    "pages": [
+      "papers/2305129_CS302/page1.jpg",
+      "papers/2305129_CS302/page2.jpg",
+      "papers/2305129_CS302/page3.jpg"
+    ],
+    "question_paper_path": "exam_docs/CS302_MIDSEM_qp.pdf",
+    "answer_key_path": "exam_docs/CS302_MIDSEM_key.pdf",
     "marks_json": {
       "q1": { "p1": 1, "p2": 1, "p3": 0, "p4": 1, "p5": 1 },
       "q2": { "p1": 2, "p2": 2.5 }
@@ -433,13 +448,13 @@ Allows a student to raise a grievance (re-evaluation request) for a specific pap
 
 ## 5. Analytics & Statistics APIs
 
-These endpoints provide data for the dashboard visualizations. They are primarily designed for the Admin/Staff dashboard but can be consumed by the frontend for coordinator views.
+These endpoints provide data for the dashboard visualizations. They are primarily designed for the Admin/Staff dashboard but can be consumed by the frontend for course coordinator views.
 
 ### `GET /api/stats/dashboard/data/`
 
 Returns the list of courses the user is authorized to view stats for.
 
-- **Auth**: `CONTROLLER`, `COORDINATOR`, or `TEACHER` (if course coordinator).
+- **Auth**: `CONTROLLER` or `TEACHER` (if course coordinator).
 - **Output**:
   ```json
   { "courses": [{ "course_code": "CS101", "title": "Intro to CS" }] }
@@ -449,7 +464,7 @@ Returns the list of courses the user is authorized to view stats for.
 
 Returns all subjects for the current active semester with their evaluation progress.
 
-- **Auth**: `CONTROLLER`, `COORDINATOR`, or `TEACHER` (if course coordinator).
+- **Auth**: `CONTROLLER` or `TEACHER` (if course coordinator).
 - **Output**:
   ```json
   {
@@ -470,7 +485,7 @@ Returns all subjects for the current active semester with their evaluation progr
 
 Returns sections for a specific course with their evaluation progress.
 
-- **Auth**: `CONTROLLER`, `COORDINATOR`, or `TEACHER` (if course coordinator).
+- **Auth**: `CONTROLLER` or `TEACHER` (if course coordinator).
 - **Query Params**: `course_code` (Required).
 - **Output**:
   ```json

@@ -1,7 +1,5 @@
 from rest_framework.permissions import BasePermission
 
-# Note: COORDINATOR role is for System Admin only and not used in API permissions.
-# System Admins use the Django Admin Panel.
 
 class IsTeacher(BasePermission):
     """Allows access to TEACHER or CONTROLLER (since Controllers are also Teachers)."""

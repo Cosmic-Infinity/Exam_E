@@ -29,14 +29,15 @@ const StatisticsPage = () => {
   // Fetch and set permission flags from backend role on mount
   useEffect(() => {
     if (user?.backendRole) {
-      const isCourseCoordinator = user.backendRole === "COORDINATOR";
+      // Course coordinators are TEACHERS with assigned courses (not CONTROLLERS)
+      const isCourseCoordinator = user.backendRole === "TEACHER";
       setUser({
         ...user,
         isCourseCoordinator,
         isController: user.backendRole === "CONTROLLER",
       });
     }
-  }, [user?.backendRole]);
+  }, [user?.backendRole, setUser]);
 
   // Fetch accessible courses on mount
   useEffect(() => {

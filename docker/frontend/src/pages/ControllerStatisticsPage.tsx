@@ -41,13 +41,14 @@ const ControllerStatisticsPage = () => {
   // Fetch and set permission flags from backend role on mount
   useEffect(() => {
     if (user?.backendRole) {
+      // Controllers are not course coordinators - they have global view
       setUser({
         ...user,
-        isCourseCoordinator: user.backendRole === "COORDINATOR",
+        isCourseCoordinator: false,
         isController: user.backendRole === "CONTROLLER",
       });
     }
-  }, [user?.backendRole]);
+  }, [user?.backendRole, setUser]);
 
   // Load semesters on mount
   useEffect(() => {

@@ -13,7 +13,7 @@ This document outlines the PostgreSQL schema used for the University Paper Evalu
 
 ## 1. users
 
-The central identity table. All actors (Students, Teachers, Coordinators) are stored here. Note: System Administrators (Superusers) are also stored here but rely on `is_staff`/`is_superuser` flags rather than a specific role.
+The central identity table. All actors (Students, Teachers, Controllers) are stored here. **System Administrators** are also stored here and are identified by **`is_staff=True` and `is_superuser=True` flags**, not by a specific role. **Course Coordinators** are TEACHER users with the `Course.coordinator_id` field set to them.
 
 | Attribute       | Type         | Source            | Description                                                                                                                                              |
 | :-------------- | :----------- | :---------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -21,7 +21,7 @@ The central identity table. All actors (Students, Teachers, Coordinators) are st
 | `university_id` | Varchar(30)  | **Manual Input**  | **Official ID**. The ID printed on ID cards. This must be provided during registration. <br> _Example (Student): `2305128`_ <br> _Unique Constraint_     |
 | `email`         | Varchar(100) | **Manual Input**  | **Login credential**. The primary identifier for authentication. <br> _Unique Constraint_                                                                |
 | `password`      | Varchar(128) | **App Generated** | Standard Django password hash (PBKDF2/Argon2). <br> _Default: `!invalid`_                                                                                |
-| `role`          | Varchar(20)  | **Manual Input**  | Permissions level. <br> _Values: `'STUDENT'`, `'TEACHER'`, `'CONTROLLER'`, `'COORDINATOR'`_ <br> _Note: Course Coordinators are Teachers linked to a formatted Course; they do not have a separate role value._ |
+| `role`          | Varchar(20)  | **Manual Input**  | Permissions level. <br> _Values: `'STUDENT'`, `'TEACHER'`, `'CONTROLLER'`_ <br> _Note: Course Coordinators are Teachers linked to a Course via `coordinator_id`; they do not have a separate role value._ |
 | `created_at`    | Timestamp    | **DB Default**    | Timestamp. <br> _Default: `CURRENT_TIMESTAMP`_                                                                                                           |
 
 ## 2. schools

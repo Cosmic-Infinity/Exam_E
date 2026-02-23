@@ -33,6 +33,10 @@ type TeacherPaperDetail = {
   marks_json: unknown;
   total_score: number | null;
   evaluation_status: "PENDING" | "IN_PROGRESS" | "COMPLETED";
+  question_paper_path?: string;
+  answer_key_path?: string;
+  question_paper_schema?: unknown;
+  pages?: string[];
 };
 
 type StudentPaperListItem = {
@@ -123,7 +127,6 @@ function normalizeMarks(raw: unknown): MarksRow[] {
   return createEmptyMarks();
 }
 
-
 function cacheKey(rollNo: string, subjectCode: string): string {
   return `${rollNo}::${subjectCode.toLowerCase()}`;
 }
@@ -133,14 +136,10 @@ async function fetchTeacherScriptsInternal(): Promise<AnswerScript[]> {
   const scripts: AnswerScript[] = [];
 
   for (const allocation of allocations) {
-    const exams = (await AuthService.get(
-      `/teacher/allocations/${allocation.allocation_id}/exams/`
-    )) as TeacherExam[];
+    const exams = (await AuthService.get(`/teacher/allocations/${allocation.allocation_id}/exams/`)) as TeacherExam[];
 
     for (const exam of exams) {
-      const papers = (await AuthService.get(
-        `/teacher/papers/?exam_id=${exam.exam_id}`
-      )) as TeacherPaperListItem[];
+      const papers = (await AuthService.get(`/teacher/papers/?exam_id=${exam.exam_id}`)) as TeacherPaperListItem[];
 
       for (const paper of papers) {
         const subjectCode = allocation.course.course_code;
@@ -180,9 +179,7 @@ async function fetchStudentEnrollmentsInternal(): Promise<StudentEnrollmentItem[
 
 async function resolveStudentPaperBySubject(subjectCode: string) {
   const papers = await fetchStudentPapersInternal();
-  return papers.find(
-    (p) => p.exam.course_code.toLowerCase() === subjectCode.toLowerCase()
-  );
+  return papers.find((p) => p.exam.course_code.toLowerCase() === subjectCode.toLowerCase());
 }
 
 /** Faculty list */
@@ -191,68 +188,61 @@ export async function getAllScripts(): Promise<AnswerScript[]> {
 }
 
 /** Lookup by roll + subject for viewer compatibility */
-export async function getScript(
-  rollNo: string,
-  subjectCode: string,
-  role: "student" | "faculty" = "student"
-): Promise<AnswerScript | undefined> {
-
+export async function getScript(rollNo: string, subjectCode: string, role: "student" | "faculty" = "student"): Promise<AnswerScript | undefined> {
   // 1) Try cached metadata
-const key = cacheKey(rollNo, subjectCode);
-const cached = paperMetaCache.get(key);
-if (cached && role === "faculty") {
-  const detail = (await AuthService.get(
-    `/teacher/paper/${cached.id}/`
-  )) as TeacherPaperDetail;
+  const key = cacheKey(rollNo, subjectCode);
+  const cached = paperMetaCache.get(key);
+  if (cached && role === "faculty") {
+    const detail = (await AuthService.get(`/teacher/paper/${cached.id}/`)) as TeacherPaperDetail;
 
-  return {
-    id: String(detail.paper_id),
-    rollNo: detail.student_university_id,
-    subjectCode: cached.subjectCode,
-    submissionDate: "",
-    status: statusToScriptStatus(detail.evaluation_status),
-    hasGrievance: false,
-    marks: normalizeMarks(detail.marks_json),
-  };
-}
-
-
-// 2) Try teacher discovery only for faculty
-if (role === "faculty") {
-  try {
-    const teacherScripts = await fetchTeacherScriptsInternal();
-    const found = teacherScripts.find(
-      (s) =>
-        s.rollNo === rollNo &&
-        s.subjectCode.toLowerCase() === subjectCode.toLowerCase()
-    );
-    if (found) {
-      const detail = (await AuthService.get(
-        `/teacher/paper/${found.id}/`
-      )) as TeacherPaperDetail;
-
-      return {
-        id: String(detail.paper_id),
-        rollNo: detail.student_university_id,
-        subjectCode: found.subjectCode,
-        submissionDate: "",
-        status: statusToScriptStatus(detail.evaluation_status),
-        hasGrievance: false,
-        marks: normalizeMarks(detail.marks_json),
-      };
-    }
-  } catch {
-    // ignore and fallback to student path
+    return {
+      id: String(detail.paper_id),
+      rollNo: detail.student_university_id,
+      subjectCode: cached.subjectCode,
+      submissionDate: "",
+      status: statusToScriptStatus(detail.evaluation_status),
+      hasGrievance: false,
+      marks: normalizeMarks(detail.marks_json),
+      file_path: detail.file_path ? `/media/${detail.file_path}` : undefined,
+      question_paper_path: detail.question_paper_path ? `/media/${detail.question_paper_path}` : undefined,
+      answer_key_path: detail.answer_key_path ? `/media/${detail.answer_key_path}` : undefined,
+      question_paper_schema: detail.question_paper_schema,
+    };
   }
-}
+
+  // 2) Try teacher discovery only for faculty
+  if (role === "faculty") {
+    try {
+      const teacherScripts = await fetchTeacherScriptsInternal();
+      const found = teacherScripts.find((s) => s.student_university_id === rollNo && s.exam.course_code.toLowerCase() === subjectCode.toLowerCase());
+      if (found) {
+        const detail = (await AuthService.get(`/teacher/paper/${found.paper_id}/`)) as TeacherPaperDetail;
+
+        return {
+          id: String(detail.paper_id),
+          rollNo: detail.student_university_id,
+          subjectCode: subjectCode,
+          submissionDate: "",
+          status: statusToScriptStatus(detail.evaluation_status),
+          hasGrievance: false,
+          marks: normalizeMarks(detail.marks_json),
+          file_path: detail.file_path ? `/media/${detail.file_path}` : undefined,
+          question_paper_path: detail.question_paper_path ? `/media/${detail.question_paper_path}` : undefined,
+          answer_key_path: detail.answer_key_path ? `/media/${detail.answer_key_path}` : undefined,
+          question_paper_schema: detail.question_paper_schema,
+          pages: detail.pages ? detail.pages.map((p) => `/media/${p}`) : undefined,
+        };
+      }
+    } catch {
+      // ignore and fallback to student path
+    }
+  }
 
   // 3) Student fallback
   const p = await resolveStudentPaperBySubject(subjectCode);
   if (!p) return undefined;
 
-  const detail = (await AuthService.get(
-    `/student/paper/${p.paper_id}/`
-  )) as StudentPaperDetail;
+  const detail = (await AuthService.get(`/student/paper/${p.paper_id}/`)) as StudentPaperDetail;
 
   return {
     id: String(detail.paper_id),
@@ -262,6 +252,9 @@ if (role === "faculty") {
     status: statusToScriptStatus(detail.evaluation_status),
     hasGrievance: false,
     marks: normalizeMarks(detail.marks_json),
+    file_path: detail.file_path ? `/media/${detail.file_path}` : undefined,
+    // Student serializer doesn't have QP/Key path yet, but could add if needed
+    question_paper_schema: detail.question_paper_schema,
   };
 }
 

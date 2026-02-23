@@ -46,17 +46,6 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        # ── Optional: Ensure Coordinator flag consistency ────────────────────
-        # Since COORDINATORs are staff, we ensure any user with that role has is_staff=True.
-        # This is useful for dummy data imports which might not set the flag explicitly.
-        coord_updated = User.objects.filter(role='COORDINATOR', is_staff=False).count()
-        if coord_updated:
-            User.objects.filter(role='COORDINATOR').update(is_staff=True)
-            self.stdout.write(
-                self.style.SUCCESS(
-                    f'Auto-corrected flags: {coord_updated} COORDINATOR(s) set to is_staff=True.'
-                )
-            )
 
         # ── Create Dev Superuser ─────────────────────────────────────────────
         if options['create_dev_admin']:

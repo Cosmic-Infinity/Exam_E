@@ -22,7 +22,7 @@ export interface UserSession {
   universityId: string;
   role: "student" | "faculty";
   fullName: string;
-  backendRole?: string; // Stores original backend role (TEACHER, COORDINATOR, CONTROLLER, STUDENT)
+  backendRole?: string; // Stores original backend role (TEACHER, CONTROLLER, STUDENT)
   isCourseCoordinator?: boolean; // Determined on dashboard load, not at login
   isController?: boolean; // Determined on dashboard load, not at login
 }
@@ -50,17 +50,14 @@ export const UserSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         JSON.parse(storedSession); // basic parse validation
 
         const me = await AuthService.getCurrentUser();
-        const userRole =
-          me.role === "TEACHER" || me.role === "COORDINATOR" || me.role === "CONTROLLER"
-            ? "faculty"
-            : "student";
+        const userRole = me.role === "TEACHER" || me.role === "CONTROLLER" ? "faculty" : "student";
 
         setUserState({
           universityId: me.university_id,
           fullName: me.full_name,
           role: userRole,
           backendRole: me.role,
-          isCourseCoordinator: me.role === "COORDINATOR",
+          isCourseCoordinator: me.role === "TEACHER",
           isController: me.role === "CONTROLLER",
         });
       } catch (e) {
@@ -92,11 +89,7 @@ export const UserSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   }, []);
 
-  return (
-    <UserSessionContext.Provider value={{ user, setUser, isLoggedIn: !!user, logout }}>
-      {children}
-    </UserSessionContext.Provider>
-  );
+  return <UserSessionContext.Provider value={{ user, setUser, isLoggedIn: !!user, logout }}>{children}</UserSessionContext.Provider>;
 };
 
 export const useUserSession = () => {

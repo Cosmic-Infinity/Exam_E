@@ -67,8 +67,8 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         
-        # Default to COORDINATOR for superusers as ADMIN role is removed
-        extra_fields.setdefault('role', 'COORDINATOR')
+        # System admins use is_staff/is_superuser flags for Django Admin access only
+        extra_fields.setdefault('role', 'TEACHER')
 
         if extra_fields.get('is_staff') is not True:
             raise ValueError('Superuser must have is_staff=True.')
@@ -84,7 +84,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     full_name = models.CharField(max_length=100)
     email = models.EmailField(max_length=100, unique=True)
     ROLE_CHOICES = (
-        ('COORDINATOR', 'System Administrator'), # Backend Admin only
         ('CONTROLLER', 'Controller of Examination'), # Global Viewer
         ('TEACHER', 'Teacher'),
         ('STUDENT', 'Student'),

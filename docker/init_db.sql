@@ -385,7 +385,7 @@ CREATE TABLE public.users (
     is_staff boolean DEFAULT false NOT NULL,
     is_verified boolean DEFAULT false NOT NULL,
     date_joined timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT users_role_check CHECK (((role)::text = ANY ((ARRAY['STUDENT'::character varying, 'TEACHER'::character varying, 'COORDINATOR'::character varying])::text[])))
+    CONSTRAINT users_role_check CHECK (((role)::text = ANY ((ARRAY['STUDENT'::character varying, 'TEACHER'::character varying, 'CONTROLLER'::character varying])::text[])))
 );
 
 

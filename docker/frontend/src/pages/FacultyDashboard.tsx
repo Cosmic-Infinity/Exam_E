@@ -20,7 +20,7 @@ const FacultyDashboard = () => {
   // Fetch and set permission flags from backend role on mount
   useEffect(() => {
     // Teachers can be course coordinators, Controllers are global viewers
-    if (user?.backendRole) {
+    if (user?.backendRole && user !== null && user !== undefined && !user?.isCourseCoordinator && !user?.isController) {
       const isCourseCoordinator = user.backendRole === "TEACHER";
       const isController = user.backendRole === "CONTROLLER";
 
@@ -31,7 +31,7 @@ const FacultyDashboard = () => {
       });
     }
     setLoading(false);
-  }, [user?.backendRole, setUser]);
+  }, [user?.backendRole]);
 
   const [scripts, setScripts] = useState<any[]>([]);
 

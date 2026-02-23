@@ -164,7 +164,8 @@ const EvaluationViewer = () => {
     navigate("/");
     return null;
   }
-  const rollNo = user.universityId;
+  // For faculty: get student roll from query params; for students: use own ID
+  const rollNo = role === "faculty" && searchParams.get("roll") ? searchParams.get("roll")! : user.universityId;
 
   const isFaculty = role === "faculty";
   const isFresh = mode === "fresh";
@@ -351,7 +352,7 @@ const EvaluationViewer = () => {
   };
 
   const handleSaveMarks = () => {
-    saveMarks(rollNo, subjectId || "", marks);
+    saveMarks(rollNo, subjectId || "", marks, role as "student" | "faculty");
     toast.success("Marks saved successfully.", { duration: 2500 });
   };
 
@@ -1021,22 +1022,17 @@ const EvaluationViewer = () => {
                         ✕
                       </button>
                     </div>
-                    {/* Scrollable document area */}
-                    <div ref={previewScrollRef} className="h-48 overflow-y-auto p-3 space-y-2">
-                      {Array.from({ length: 12 }, (_, i) => {
-                        const seed = (i * 13 + (activePreview === "answer-key" ? 50 : 20)) % 100;
-                        const isHeading = i % 4 === 0;
-                        return (
-                          <div key={i} className="space-y-1">
-                            {isHeading && <div className="h-2 w-24 rounded bg-foreground/25 mb-1.5" />}
-                            <div className="h-1.5 rounded bg-foreground/15" style={{ width: `${45 + (seed % 50)}%` }} />
-                            {!isHeading && <div className="h-1.5 rounded bg-foreground/10" style={{ width: `${30 + ((seed * 3) % 55)}%` }} />}
-                          </div>
-                        );
-                      })}
-                      <div className="pt-2 text-center">
-                        <span className="text-[10px] text-muted-foreground">— End of {activePreview === "question-paper" ? "Question Paper" : "Answer Key"} —</span>
-                      </div>
+                    {/* PDF Viewer or Fallback */}
+                    <div ref={previewScrollRef} className="h-48 overflow-y-auto bg-black/5">
+                      {activePreview === "question-paper" && currentScript?.question_paper_path ? (
+                        <iframe src={`/media/${currentScript.question_paper_path}`} className="w-full h-full border-0" title="Question Paper" />
+                      ) : activePreview === "answer-key" && currentScript?.answer_key_path ? (
+                        <iframe src={`/media/${currentScript.answer_key_path}`} className="w-full h-full border-0" title="Answer Key" />
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                          <span>{activePreview === "question-paper" ? "Question Paper not available" : "Answer Key not available"}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1246,6 +1242,6 @@ const EvaluationViewer = () => {
       </div>
     </div>
   );
-};
+};;
 
 export default EvaluationViewer;

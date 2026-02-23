@@ -177,7 +177,7 @@ Fetches a lightweight list of all student papers for a specific exam. This is us
 
 ### `GET /api/teacher/paper/{paper_id}/`
 
-Fetches the full details of a specific paper, including the file path to the scanned image and the current marks JSON.
+Fetches the full details of a specific paper, including all page images, question paper PDF, answer key PDF, and the current marks JSON.
 
 - **Auth Required**: Yes
 - **Role Required**: `TEACHER` or `CONTROLLER`
@@ -188,7 +188,14 @@ Fetches the full details of a specific paper, including the file path to the sca
     "paper_id": 101,
     "student_university_id": "2305128",
     "student_name": "Alice Smith",
-    "file_path": "/static/papers/2305128_CS302/page1.jpg",
+    "file_path": "papers/2305128_CS302/page1.jpg",
+    "pages": [
+      "papers/2305128_CS302/page1.jpg",
+      "papers/2305128_CS302/page2.jpg",
+      "papers/2305128_CS302/page3.jpg"
+    ],
+    "question_paper_path": "exam_docs/CS302_MIDSEM_qp.pdf",
+    "answer_key_path": "exam_docs/CS302_MIDSEM_key.pdf",
     "marks_json": null,
     "total_score": null,
     "evaluation_status": "PENDING",
@@ -196,6 +203,9 @@ Fetches the full details of a specific paper, including the file path to the sca
       { "q_no": 1, "parts": [1, 1, 1, 1, 1] },
       { "q_no": 2, "parts": [2, 3] }
     ],
+    "exam_total_marks": 30
+  }
+  ```
 ## 3. Statistics APIs (Controllers & Course Coordinators)
 
 These APIs power the dashboards for Controllers (global view) and Course Coordinators—TEACHER users with assigned courses (course-specific view).
@@ -373,7 +383,7 @@ Fetches a list of all _graded and released_ papers for the logged-in student.
 
 ### `GET /api/student/paper/{paper_id}/`
 
-Fetches the full details of a specific paper, including the scanned image URL and the marks JSON, so the student can review their grading.
+Fetches the full details of a specific paper, including all page images, question paper PDF, answer key PDF, and the marks JSON, so the student can review their grading.
 
 - **Auth Required**: Yes
 - **Role Required**: `STUDENT`
@@ -390,7 +400,14 @@ Fetches the full details of a specific paper, including the scanned image URL an
       "course_code": "CS302",
       "course_title": "Database Management Systems"
     },
-    "file_path": "/static/papers/2305129_CS302/page1.jpg",
+    "file_path": "papers/2305129_CS302/page1.jpg",
+    "pages": [
+      "papers/2305129_CS302/page1.jpg",
+      "papers/2305129_CS302/page2.jpg",
+      "papers/2305129_CS302/page3.jpg"
+    ],
+    "question_paper_path": "exam_docs/CS302_MIDSEM_qp.pdf",
+    "answer_key_path": "exam_docs/CS302_MIDSEM_key.pdf",
     "marks_json": {
       "q1": { "p1": 1, "p2": 1, "p3": 0, "p4": 1, "p5": 1 },
       "q2": { "p1": 2, "p2": 2.5 }

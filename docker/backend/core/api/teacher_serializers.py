@@ -50,6 +50,8 @@ class ExamPaperDetailSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='enrollment.student.full_name', read_only=True)
     question_paper_schema = serializers.JSONField(source='exam.question_paper_schema', read_only=True)
     exam_total_marks = serializers.IntegerField(source='exam.total_marks', read_only=True)
+    question_paper_path = serializers.CharField(source='exam.question_paper_path', read_only=True, allow_null=True)
+    answer_key_path = serializers.CharField(source='exam.answer_key_path', read_only=True, allow_null=True)
     
     class Meta:
         model = ExamPaper
@@ -57,11 +59,14 @@ class ExamPaperDetailSerializer(serializers.ModelSerializer):
             'paper_id', 
             'student_university_id', 
             'student_name', 
-            'file_path', 
+            'file_path',
+            'pages',
             'marks_json', 
             'total_score', 
             'evaluation_status',
             'question_paper_schema',
-            'exam_total_marks'
+            'exam_total_marks',
+            'question_paper_path',
+            'answer_key_path'
         ]
-        read_only_fields = ['paper_id', 'student_university_id', 'student_name', 'file_path', 'question_paper_schema', 'exam_total_marks']
+        read_only_fields = ['paper_id', 'student_university_id', 'student_name', 'file_path', 'pages', 'question_paper_schema', 'exam_total_marks', 'question_paper_path', 'answer_key_path']

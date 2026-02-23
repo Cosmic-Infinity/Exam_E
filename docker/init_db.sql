@@ -160,6 +160,8 @@ CREATE TABLE public.exams (
     total_marks integer NOT NULL,
     passing_marks integer,
     question_paper_schema jsonb, -- Stores structure like: [{"q_no": 1, "parts": [1, 1, 1, 1, 1]}, {"q_no": 2, "parts": [2, 3]}]
+    question_paper_path text, -- Path to question paper PDF (e.g., exam_docs/CS302_MIDSEM_qp.pdf)
+    answer_key_path text, -- Path to answer key PDF (e.g., exam_docs/CS302_MIDSEM_key.pdf)
     is_active boolean DEFAULT true,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
 );
@@ -197,7 +199,8 @@ CREATE TABLE public.exam_papers (
     paper_id integer NOT NULL,
     enrollment_id integer,
     exam_id integer,
-    file_path text NOT NULL,
+    pages jsonb,  -- Array of page file paths: ["papers/ROLLNO_COURSECODE/page1.jpg", "papers/ROLLNO_COURSECODE/page2.jpg", ...]
+    file_path text,  -- Deprecated; pages array is the source of truth
     marks_json jsonb,
     total_score numeric(5,2),
     evaluation_status character varying(20) DEFAULT 'PENDING'::character varying,

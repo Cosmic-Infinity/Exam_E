@@ -68,6 +68,8 @@ type StudentPaperDetail = {
   total_score: number | null;
   evaluation_status: "PENDING" | "IN_PROGRESS" | "COMPLETED";
   question_paper_schema?: unknown;
+  question_paper_path?: string;
+  answer_key_path?: string;
 };
 type StudentEnrollmentItem = {
   enrollment_id: number;
@@ -253,8 +255,10 @@ export async function getScript(rollNo: string, subjectCode: string, role: "stud
     hasGrievance: false,
     marks: normalizeMarks(detail.marks_json),
     file_path: detail.file_path ? `/media/${detail.file_path}` : undefined,
-    // Student serializer doesn't have QP/Key path yet, but could add if needed
+    question_paper_path: detail.question_paper_path ? `/media/${detail.question_paper_path}` : undefined,
+    answer_key_path: detail.answer_key_path ? `/media/${detail.answer_key_path}` : undefined,
     question_paper_schema: detail.question_paper_schema,
+    pages: detail.pages ? detail.pages.map((p: string) => `/media/${p}`) : undefined,
   };
 }
 

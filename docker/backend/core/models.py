@@ -220,7 +220,8 @@ class ExamPaper(models.Model):
     paper_id = models.AutoField(primary_key=True)
     enrollment = models.ForeignKey(Enrollment, on_delete=models.DO_NOTHING)
     exam = models.ForeignKey('Exam', on_delete=models.DO_NOTHING, null=True, blank=True)
-    file_path = models.TextField()
+    pages = models.JSONField(null=True, blank=True)  # Array of page file paths: ["papers/ROLLNO_COURSECODE/page1.jpg", "papers/ROLLNO_COURSECODE/page2.jpg", ...]
+    file_path = models.TextField(null=True, blank=True)  # Deprecated; pages array is the source of truth
     marks_json = models.JSONField(null=True, blank=True)
     total_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     evaluation_status = models.CharField(max_length=20, default='PENDING', choices=[
@@ -266,6 +267,8 @@ class Exam(models.Model):
     total_marks = models.IntegerField()
     passing_marks = models.IntegerField(null=True, blank=True)
     question_paper_schema = models.JSONField(null=True, blank=True)
+    question_paper_path = models.TextField(null=True, blank=True)
+    answer_key_path = models.TextField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

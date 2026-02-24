@@ -541,3 +541,82 @@ Drill down to see students in a specific score range.
   ```json
   { "students": [{ "name": "John", "score": 85, "paper_id": 101 }] }
   ```
+
+---
+
+## 5. Student Papers API
+
+### `GET /api/student/papers/`
+
+Lists all graded and released exam papers for the currently authenticated student.
+
+- **Auth Required**: Yes
+- **Role Required**: `STUDENT`
+- **Input**: None (Uses the user's session/token)
+- **Output (200 OK)**:
+  ```json
+  [
+    {
+      "paper_id": 1,
+      "exam": {
+        "exam_id": 1,
+        "exam_type": "ENDSEM",
+        "total_marks": 100,
+        "passing_marks": 40,
+        "course_code": "CS201",
+        "course_title": "Machine Learning"
+      },
+      "total_score": 78,
+      "evaluation_status": "COMPLETED"
+    }
+  ]
+  ```
+
+**Visibility Rules**:
+- Only papers with `evaluation_status = 'COMPLETED'` are shown
+- Only papers belonging to the student's enrollments are shown
+
+### `GET /api/student/paper/<int:pk>/`
+
+Retrieves full details of a specific paper including all page images, marks breakdown, and exam information (read-only).
+
+- **Auth Required**: Yes
+- **Role Required**: `STUDENT`
+- **Input**: Paper ID in URL path
+- **Output (200 OK)**:
+  ```json
+  {
+    "paper_id": 1,
+    "exam": {
+      "exam_id": 1,
+      "exam_type": "ENDSEM",
+      "total_marks": 100,
+      "passing_marks": 40,
+      "course_code": "CS201",
+      "course_title": "Machine Learning"
+    },
+    "file_path": null,
+    "pages": [
+      "papers/2205101_CS201/page1.jpg",
+      "papers/2205101_CS201/page2.jpg",
+      "papers/2205101_CS201/page3.jpg"
+    ],
+    "marks_json": {
+      "q1": 15,
+      "q2": 18,
+      "q3": 20,
+      "q4": 25
+    },
+    "total_score": 78,
+    "evaluation_status": "COMPLETED",
+    "question_paper_schema": null,
+    "question_paper_path": null,
+    "answer_key_path": null
+  }
+  ```
+
+**Note on `pages` Field**:
+- Contains an array of relative file paths to JPEG images
+- Images are served via `/media/` path: `http://localhost:8000/media/papers/2205101_CS201/page1.jpg`
+- Order in array determines display sequence in frontend
+- Deprecated `file_path` field is ignored in favor of `pages` array

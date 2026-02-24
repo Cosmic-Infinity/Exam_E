@@ -210,6 +210,7 @@ export async function getScript(rollNo: string, subjectCode: string, role: "stud
       question_paper_path: detail.question_paper_path ? `/media/${detail.question_paper_path}` : undefined,
       answer_key_path: detail.answer_key_path ? `/media/${detail.answer_key_path}` : undefined,
       question_paper_schema: detail.question_paper_schema,
+      pages: detail.pages ? detail.pages.map((p) => `/media/${p}`) : undefined,
     };
   }
 
@@ -241,7 +242,12 @@ export async function getScript(rollNo: string, subjectCode: string, role: "stud
     }
   }
 
-  // 3) Student fallback
+  // 3) Student fallback (only if not faculty)
+  if (role === "faculty") {
+    // Faculty should only use teacher API, not student API
+    return undefined;
+  }
+
   const p = await resolveStudentPaperBySubject(subjectCode);
   if (!p) return undefined;
 
@@ -264,12 +270,8 @@ export async function getScript(rollNo: string, subjectCode: string, role: "stud
 }
 
 /** Faculty grading update */
-export async function saveMarks(
-  rollNo: string,
-  subjectCode: string,
-  marks: MarksRow[]
-): Promise<void> {
-  const script = await getScript(rollNo, subjectCode);
+export async function saveMarks(rollNo: string, subjectCode: string, marks: MarksRow[], role: "student" | "faculty" = "student"): Promise<void> {
+  const script = await getScript(rollNo, subjectCode, role);
   if (!script) throw new Error("Paper not found");
 
   await AuthService.put(`/teacher/paper/${script.id}/`, {

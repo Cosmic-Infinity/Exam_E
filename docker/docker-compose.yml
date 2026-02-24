@@ -104,6 +104,8 @@ services:
     build: ./nginx
     ports:
       - "80:80"
+    volumes:
+      - ./backend/mediafiles:/app/mediafiles:ro
     depends_on:
       backend:
         condition: service_started

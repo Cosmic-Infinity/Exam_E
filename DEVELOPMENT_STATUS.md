@@ -1,13 +1,13 @@
 # Current Development Status & Roadmap
 
-> **Last Updated:** February 22, 2026  
-> **Summary:** Automation and Infrastructure phase is complete. All data seeding (800+ records) and role-based permissions are now functional in the backend.
+> **Last Updated:** February 23, 2026  
+> **Summary:** Automation and Infrastructure phase is complete. All data seeding (800+ records), role-based permissions, and paper serving infrastructure are now functional in the backend.
 
 ---
 
-## 🚀 Recent Progress (Feb 22, 2026)
+## 🚀 Recent Progress (Feb 23, 2026)
 
-The project has achieved **Zero-Touch Setup**:
+The project has achieved **Zero-Touch Setup** with **Paper Serving Infrastructure**:
 
 1.  **"Nuke & Boot" Automation**: Running `docker compose down -v && up` now:
     - Auto-generates superuser `admin@kiit.ac.in` / `admin`.
@@ -17,7 +17,13 @@ The project has achieved **Zero-Touch Setup**:
 2.  **Course Coordination Logic**:
     - Teachers can now be designated as coordinators via the Django Admin.
     - This updates the `Course.coordinator_id` column automatically, enabling course-level statistics.
-3.  **Data Robustness**:
+3.  **Paper Serving Infrastructure** ✅:
+    - Students can now view graded exam papers via `/api/student/papers/` and `/api/student/paper/<id>/`
+    - Papers stored as multi-page JPEG images in `mediafiles/papers/{UNIV_ID}_{COURSE_CODE}/`
+    - Exam paper metadata (pages array, marks_json, scores) stored in database
+    - Sample paper pre-populated for testing (Student: Myra Kaur, Course: CS201)
+    - Endpoint security enforces role=STUDENT and evaluation_status=COMPLETED
+4.  **Data Robustness**:
     - Fixed infinite loops in import scripts (e.g., student school name mismatches).
     - Synchronized `init_db.sql` schema with Django ORM expectations (added `coordinator_id`).
 

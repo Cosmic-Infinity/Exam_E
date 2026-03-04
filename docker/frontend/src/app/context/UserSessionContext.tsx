@@ -83,14 +83,14 @@ export const UserSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     restoreAndValidate();
   }, []);
 
-  const setUser = (newUser: UserSession | null) => {
+  const setUser = useCallback((newUser: UserSession | null) => {
     setUserState(newUser);
     if (newUser) {
       sessionStorage.setItem("userSession", JSON.stringify(newUser));
     } else {
       sessionStorage.removeItem("userSession");
     }
-  };
+  }, []);
 
   const logout = useCallback(async () => {
     try {

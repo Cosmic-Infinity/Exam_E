@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import JSZip from "jszip";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import { useUserSession } from "@/app/context/UserSessionContext";
 import {
   ResizableHandle,
@@ -15,6 +16,7 @@ import {
   acceptGrievance,
   rejectGrievance,
   downloadFile,
+  getStudentResults,
 } from "@/app/services/evaluationService";
 import { MarksRow, SUBJECT_MAP, createEmptyMarks, computeTotal, AnswerScript } from "@/app/types/evaluation";
 import ThemeToggle from "@/app/components/common/ThemeToggle";
@@ -154,7 +156,8 @@ const PageThumbnail = ({
 const EvaluationViewer = () => {
   const { subjectId } = useParams();
   const [searchParams] = useSearchParams();
-  const role = searchParams.get("role") || "student";
+  const roleParam = searchParams.get("role");
+  const role = (roleParam === "faculty" ? "faculty" : "student");
   const mode = searchParams.get("mode") || "graded";
   const navigate = useNavigate();
   const { user } = useUserSession();
@@ -569,77 +572,133 @@ const EvaluationViewer = () => {
     }
   };
 
-  // Download full sheet from backend
-  const handleDownloadFullSheet = async () => {
+  // Helper to fetch image as base64 for PDF
+  const fetchImageForPDF = async (url: string): Promise<string> => {
+    const fetchUrl = url.startsWith("/media/") ? url : `/media/${url}`;
+    const response = await fetch(fetchUrl);
+    if (!response.ok) throw new Error(`Failed to fetch image: ${url}`);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
+
+  const generatePDF = async (includeMarks: boolean) => {
     setIsDownloading(true);
     try {
       if (!currentScript || !currentScript.pages || currentScript.pages.length === 0) {
         toast.error("Answer sheet pages not available");
-        return;
-      }
-
-      toast.loading(`Creating ZIP file with all ${currentScript.pages.length} pages...`);
-      const zip = new JSZip();
-      const pagesFolder = zip.folder("pages");
-      let successCount = 0;
-
-      // Download each page and add to ZIP
-      for (let i = 0; i < currentScript.pages.length; i++) {
-        const filePath = currentScript.pages[i];
-        if (!filePath) {
-          continue;
-        }
-
-        try {
-          // Create a fetch request to get the image blob
-          // Handle both cases: paths with and without /media/ prefix
-          const fetchUrl = filePath.startsWith("/media/") ? filePath : `/media/${filePath}`;
-          const response = await fetch(fetchUrl);
-          
-          if (!response.ok) {
-            continue;
-          }
-
-          const blob = await response.blob();
-          
-          const paddedPageNum = String(i + 1).padStart(2, "0");
-          const fileName = `${subjectCode}_page_${paddedPageNum}.jpg`;
-          if (pagesFolder) {
-            pagesFolder.file(fileName, blob);
-            successCount++;
-          }
-        } catch (error) {
-          continue;
-        }
-      }
-      
-      if (successCount === 0) {
-        toast.error("No pages were successfully downloaded");
         setIsDownloading(false);
         return;
       }
 
-      // Generate ZIP and download
-      toast.loading(`Generating ZIP file with ${successCount} pages...`);
-      const zipBlob = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
+      const toastId = toast.loading(`Generating PDF (${currentScript.pages.length} pages)...`);
       
-      const url = URL.createObjectURL(zipBlob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `${subjectCode}_Full_Answer_Sheet.zip`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      // Initialize PDF (A4 default)
+      const pdf = new jsPDF();
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      
+      let pagesAdded = 0;
 
-      toast.success(`Complete answer sheet downloaded as ZIP! (${successCount} pages)`);
+      for (let i = 0; i < currentScript.pages.length; i++) {
+        const filePath = currentScript.pages[i];
+        if (!filePath) continue;
+
+        try {
+          const imgData = await fetchImageForPDF(filePath);
+          
+          if (pagesAdded > 0) pdf.addPage();
+          
+          // Get image dimensions to fit within PDF page while maintaining aspect ratio
+          const imgProps = pdf.getImageProperties(imgData);
+          const ratio = imgProps.width / imgProps.height;
+          
+          // Use nearly full page width (with small margin), calculate height
+          const margin = 10;
+          const displayWidth = pageWidth - (margin * 2);
+          const displayHeight = displayWidth / ratio;
+          
+          // Center the image if it fits, else scale to fit height
+          if (displayHeight > pageHeight - (margin * 2)) {
+             // Too tall, scale by height
+             const scaledHeight = pageHeight - (margin * 2);
+             const scaledWidth = scaledHeight * ratio;
+             pdf.addImage(imgData, "JPEG", (pageWidth - scaledWidth)/2, margin, scaledWidth, scaledHeight);
+          } else {
+             // Fits by width
+             pdf.addImage(imgData, "JPEG", margin, margin, displayWidth, displayHeight);
+          }
+          
+          pagesAdded++;
+          
+        } catch (error) {
+          console.error(`Error processing page ${i + 1}`, error);
+        }
+      }
+
+      if (pagesAdded === 0) {
+        toast.error("Failed to generate PDF pages");
+        toast.dismiss(toastId);
+        setIsDownloading(false);
+        return;
+      }
+
+      if (includeMarks) {
+        toast.message("Fetching student marks for summary...", { id: toastId });
+        try {
+          const results = await getStudentResults(rollNo);
+          
+          if (results && results.length > 0) {
+            pdf.addPage();
+            pdf.setFontSize(16);
+            pdf.text("Student Marks Summary", 14, 20);
+            
+            pdf.setFontSize(10);
+            pdf.text(`Student ID: ${rollNo}`, 14, 28);
+            pdf.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 33);
+
+            const tableData = results.map(r => [
+              r.subjectCode,
+              r.subjectName,
+              r.marks !== null ? r.marks : "Pending",
+              r.recheckStatus === "not-submitted" ? "No Recheck" : r.recheckStatus
+            ]);
+
+            autoTable(pdf, {
+              startY: 40,
+              head: [["Subject Code", "Subject Name", "Marks", "Status"]],
+              body: tableData,
+              theme: 'striped',
+            });
+          }
+        } catch (e) {
+          console.error("Failed to fetch marks for PDF", e);
+          toast.error("Could not add marks summary page");
+        }
+      }
+
+      const fileName = `${subjectCode}_${includeMarks ? "Full_Report" : "Answer_Sheet"}.pdf`;
+      pdf.save(fileName);
+      
+      toast.success("PDF downloaded successfully!", { id: toastId });
       setDownloadDropdownOpen(false);
     } catch (error) {
-      toast.error("Failed to download complete sheet");
+      console.error(error);
+      toast.error("Failed to generate PDF");
     } finally {
       setIsDownloading(false);
     }
   };
+
+  // Download full sheet as PDF
+  const handleDownloadFullSheet = () => generatePDF(false);
+  
+  // Download full sheet + Marks as PDF
+  const handleDownloadWithMarks = () => generatePDF(true);
 
   const totalMarks = computeTotal(marks);
   const modeLabel = isFresh ? "New Evaluation" : hasGrievance ? "Grievance Review" : "Graded";
@@ -834,7 +893,7 @@ const EvaluationViewer = () => {
                     </button>
 
                     {downloadDropdownOpen && (
-                      <div className="absolute right-full mr-1 top-0 z-50 w-40 rounded-lg border border-border bg-card shadow-xl shadow-black/30 overflow-hidden">
+                      <div className="absolute right-full mr-1 top-0 z-50 w-52 rounded-lg border border-border bg-card shadow-xl shadow-black/30 overflow-hidden">
                         <button
                           onClick={handleDownloadSinglePage}
                           disabled={isDownloading}
@@ -848,7 +907,15 @@ const EvaluationViewer = () => {
                           disabled={isDownloading}
                           className="w-full text-left px-3 py-2.5 text-xs font-medium transition-colors flex items-center gap-2 text-foreground hover:bg-muted/50 disabled:opacity-50"
                         >
-                          📦 Full Sheet ({totalPages} pages)
+                          📦 Full Sheet (PDF)
+                        </button>
+                        <div className="h-px bg-border" />
+                        <button
+                          onClick={handleDownloadWithMarks}
+                          disabled={isDownloading}
+                          className="w-full text-left px-3 py-2.5 text-xs font-medium transition-colors flex items-center gap-2 text-foreground hover:bg-muted/50 disabled:opacity-50"
+                        >
+                          📑 Full Sheet + Marks
                         </button>
                       </div>
                     )}

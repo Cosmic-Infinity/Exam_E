@@ -29,6 +29,8 @@ export interface StudentResult {
 export interface AnswerScript {
   id: string; // unique identifier
   rollNo: string;
+  studentName?: string;
+  section?: string;
   subjectCode: string;
   submissionDate: string;
   status: ScriptStatus;

@@ -10,6 +10,7 @@ import StudentDashboard from "./app/pages/dashboard/StudentDashboard";
 import FacultyDashboard from "./app/pages/dashboard/FacultyDashboard";
 import StatisticsPage from "./app/pages/dashboard/StatisticsPage";
 import ControllerStatisticsPage from "./app/pages/dashboard/ControllerStatisticsPage";
+import ControllerSubjectStatistics from "./app/pages/dashboard/ControllerSubjectStatistics";
 import EvaluationViewer from "./app/pages/evaluation/EvaluationViewer";
 import NotFound from "./app/pages/NotFound";
 import ProtectedRoute from "./app/components/common/ProtectedRoute";
@@ -73,6 +74,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute allowedRoles={["faculty"]} requireController>
             <ControllerStatisticsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard/controller-subject-statistics"
+        element={
+          <ProtectedRoute allowedRoles={["faculty"]} requireController>
+            <ControllerSubjectStatistics />
           </ProtectedRoute>
         }
       />

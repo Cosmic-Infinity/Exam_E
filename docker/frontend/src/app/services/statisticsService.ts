@@ -2,6 +2,7 @@ import AuthService from "@/app/services/authService";
 
 export interface SectionStatistics {
   sectionName: string;
+  teacherName: string;
   totalStudents: number;
   checkingProgress: number;
   markingProgress: number;
@@ -42,6 +43,7 @@ export async function fetchCourseStatistics(courseCode: string): Promise<CourseS
 
   const sections: SectionStatistics[] = (sectionData.sections || []).map((s) => ({
     sectionName: s.section_name,
+    teacherName: s.teacher__full_name || "Unassigned",
     totalStudents: Number(s.total_students ?? 0),
     checkingProgress: Number(s.checked ?? 0),
     markingProgress: Number(s.checked ?? 0), // keep same visual bucket semantics currently used in UI
@@ -57,14 +59,38 @@ export async function fetchCourseStatistics(courseCode: string): Promise<CourseS
   };
 }
 
+export interface ScoreDistribution {
+  labels: string[];
+  distribution: number[];
+  meta: {
+    count: number;
+    avg: number;
+  };
+}
+
+export async function fetchScoreDistribution(courseCode: string): Promise<ScoreDistribution> {
+  const data = (await AuthService.get(
+    `/stats/scores/?course_code=${encodeURIComponent(courseCode)}`
+  )) as ScoreDistribution;
+  return data;
+}
+
 export async function fetchStudentsInRange(
   courseCode: string,
-  minScore: number,
-  maxScore: number
+  minScore: number = 0,
+  maxScore: number = 100
 ) {
   return AuthService.get(
     `/stats/students/?course_code=${encodeURIComponent(courseCode)}&min=${minScore}&max=${maxScore}`
   );
+}
+
+export interface StudentStats {
+  name: string;
+  university_id: string;
+  score: number;
+  section: string;
+  paper_id: number;
 }
 
 export async function fetchAccessibleCourses() {

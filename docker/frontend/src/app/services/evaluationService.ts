@@ -10,6 +10,7 @@ import {
 type TeacherAllocation = {
   allocation_id: number;
   course: { course_code: string; title: string };
+  section_name?: string;
 };
 
 type TeacherExam = {
@@ -159,6 +160,8 @@ async function fetchTeacherScriptsInternal(): Promise<AnswerScript[]> {
         scripts.push({
           id: String(paper.paper_id),
           rollNo: paper.student_university_id,
+          studentName: paper.student_name,
+          section: allocation.section_name,
           subjectCode,
           submissionDate: "",
           status: statusToScriptStatus(paper.evaluation_status),

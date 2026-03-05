@@ -351,25 +351,67 @@ const ControllerSubjectStatistics = () => {
       </header>
 
       <main className="p-6 max-w-7xl mx-auto space-y-6">
-        {/* Course Selector */}
-        {!dataLoading && courses.length > 0 && (
-          <div className="rounded-xl border border-border bg-card p-4">
-            <label className="text-sm font-medium text-foreground mb-2 block">
-              Select Subject (Global)
-            </label>
-            <select
-              value={selectedCourse || ""}
-              onChange={(e) => setSelectedCourse(e.target.value)}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
-            >
-              {courses.map((course) => (
-                <option key={course.course_code} value={course.course_code}>
-                  {course.course_code} - {course.title}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+        
+        {/* Top Section: Selector + Summary Cards */}
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
+            {/* Course Selector - Left Side */}
+            {!dataLoading && courses.length > 0 && (
+              <div className="rounded-xl border border-border bg-card p-4 w-[350px] shrink-0">
+                <label className="text-sm font-medium text-foreground mb-2 block">
+                  Select Subject (Global)
+                </label>
+                <select
+                  value={selectedCourse || ""}
+                  onChange={(e) => setSelectedCourse(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                >
+                  {courses.map((course) => (
+                    <option key={course.course_code} value={course.course_code}>
+                      {course.course_code} - {course.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Summary Cards - Right Side */}
+            {!dataLoading && sectionsData.length > 0 && (
+              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+                <div className="rounded-xl border border-border bg-card p-4 flex flex-col justify-between">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase">Total Students</h3>
+                  <p className="text-2xl font-bold mt-2">
+                    {sectionsData.reduce((acc, curr) => acc + curr.totalStudents, 0)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border bg-card p-4 flex flex-col justify-between">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase">Evaluation Progress</h3>
+                  <div className="mt-2">
+                    <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold text-primary">
+                          {Math.round((sectionsData.reduce((acc, curr) => acc + curr.checkingProgress, 0) / sectionsData.reduce((acc, curr) => acc + curr.totalStudents, 0) || 0) * 100)}%
+                        </span>
+                        <span className="text-xs text-muted-foreground">Completed</span>
+                    </div>
+                    <div className="w-full bg-secondary h-2 rounded-full mt-2 overflow-hidden">
+                        <div className="bg-primary h-full transition-all duration-500" style={{ width: `${(sectionsData.reduce((acc, curr) => acc + curr.checkingProgress, 0) / sectionsData.reduce((acc, curr) => acc + curr.totalStudents, 0) || 0) * 100}%` }}></div>
+                    </div>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-border bg-card p-4 flex flex-col justify-between">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase">Pending Papers</h3>
+                  <p className="text-2xl font-bold mt-2 text-orange-500">
+                    {sectionsData.reduce((acc, curr) => acc + curr.pendingProgress, 0)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border bg-card p-4 flex flex-col justify-between">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase">Active Grievances</h3>
+                  <p className="text-2xl font-bold mt-2 text-destructive">
+                    {sectionsData.reduce((acc, curr) => acc + curr.grievanceCount, 0)}
+                  </p>
+                </div>
+              </div>
+            )}
+        </div>
 
         {/* Loading State */}
         {dataLoading && (
@@ -382,42 +424,7 @@ const ControllerSubjectStatistics = () => {
         {/* At a Glance & Charts */}
         {!dataLoading && sectionsData.length > 0 && (
           <div className="space-y-6">
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="rounded-xl border border-border bg-card p-4 flex flex-col justify-between">
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase">Total Students</h3>
-                <p className="text-2xl font-bold mt-2">
-                  {sectionsData.reduce((acc, curr) => acc + curr.totalStudents, 0)}
-                </p>
-              </div>
-              <div className="rounded-xl border border-border bg-card p-4 flex flex-col justify-between">
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase">Evaluation Progress</h3>
-                <div className="mt-2">
-                   <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-bold text-primary">
-                        {Math.round((sectionsData.reduce((acc, curr) => acc + curr.checkingProgress, 0) / sectionsData.reduce((acc, curr) => acc + curr.totalStudents, 0) || 0) * 100)}%
-                      </span>
-                      <span className="text-xs text-muted-foreground">Completed</span>
-                   </div>
-                   <div className="w-full bg-secondary h-2 rounded-full mt-2 overflow-hidden">
-                      <div className="bg-primary h-full transition-all duration-500" style={{ width: `${(sectionsData.reduce((acc, curr) => acc + curr.checkingProgress, 0) / sectionsData.reduce((acc, curr) => acc + curr.totalStudents, 0) || 0) * 100}%` }}></div>
-                   </div>
-                </div>
-              </div>
-              <div className="rounded-xl border border-border bg-card p-4 flex flex-col justify-between">
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase">Pending Papers</h3>
-                <p className="text-2xl font-bold mt-2 text-orange-500">
-                  {sectionsData.reduce((acc, curr) => acc + curr.pendingProgress, 0)}
-                </p>
-              </div>
-              <div className="rounded-xl border border-border bg-card p-4 flex flex-col justify-between">
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase">Active Grievances</h3>
-                <p className="text-2xl font-bold mt-2 text-destructive">
-                  {sectionsData.reduce((acc, curr) => acc + curr.grievanceCount, 0)}
-                </p>
-              </div>
-            </div>
-
+            
             <div className="rounded-xl border border-border bg-card p-6">
               <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
                 <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">

@@ -1,3 +1,4 @@
+import React from "react";
 import { Navigate } from "react-router-dom";
 import { useUserSession } from "@/app/context/UserSessionContext";
 
@@ -34,15 +35,26 @@ const ProtectedRoute = ({
   requireController = false,
 }: ProtectedRouteProps) => {
   const { user, isLoading } = useUserSession();
+  
+  // Safe role check handling undefined/null/empty
+  const safeAllowedRoles = allowedRoles || [];
 
   // Show loading spinner while session is being restored on page refresh
   if (isLoading) {
     return <LoadingSpinner />;
   }
 
-  if (!user) return <Navigate to="/" replace />;
+  // Redirect to login if user is not authenticated
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
 
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
+  // Check role access
+  // If allowedRoles is empty (or undefined resolved to empty), NO ONE is allowed.
+  // If allowedRoles has roles, user must match one.
+  const isRoleAllowed = safeAllowedRoles.includes(user.role as AllowedRole);
+  
+  if (!isRoleAllowed) {
     return <Navigate to={user.role === "faculty" ? "/dashboard/faculty" : "/dashboard/student"} replace />;
   }
 

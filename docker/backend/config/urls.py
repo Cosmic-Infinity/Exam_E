@@ -5,6 +5,8 @@ from core.api import stats as views
 from core.api.auth import LoginView, LogoutView, CustomTokenObtainPairView, MeView, CookieTokenRefreshView, ChangePasswordView
 from core.api.teacher import TeacherAllocationListView, TeacherExamListView, TeacherPaperListView, TeacherPaperDetailView
 from core.api.student import StudentEnrollmentListView, StudentPaperListView, StudentPaperDetailView, StudentGrievanceCreateView
+from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
     # ── Django admin ─────────────────────────────────────
@@ -30,16 +32,22 @@ urlpatterns = [
 
     # ── Protected user profile ────────────────────────────
     path('api/me/', MeView.as_view(), name='user_me'),
+]
 
-    # ── Teacher Portal APIs ───────────────────────────────
+urlpatterns += [
     path('api/teacher/allocations/', TeacherAllocationListView.as_view(), name='teacher_allocations'),
-    path('api/teacher/allocations/<int:allocation_id>/exams/', TeacherExamListView.as_view(), name='teacher_exams'),
+    path('api/teacher/exams/<int:allocation_id>/', TeacherExamListView.as_view(), name='teacher_exams'),
     path('api/teacher/papers/', TeacherPaperListView.as_view(), name='teacher_papers'),
     path('api/teacher/paper/<int:pk>/', TeacherPaperDetailView.as_view(), name='teacher_paper_detail'),
 
-    # ── Student Portal APIs ───────────────────────────────
+    # Student URLs
     path('api/student/enrollments/', StudentEnrollmentListView.as_view(), name='student_enrollments'),
     path('api/student/papers/', StudentPaperListView.as_view(), name='student_papers'),
     path('api/student/paper/<int:pk>/', StudentPaperDetailView.as_view(), name='student_paper_detail'),
     path('api/student/grievance/', StudentGrievanceCreateView.as_view(), name='student_grievance_create'),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static('/Data/', document_root=str(settings.BASE_DIR / 'Data'))
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

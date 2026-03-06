@@ -34,7 +34,7 @@ docker compose up --build -d
 
 > **Note**: The first build may take 5-10 minutes.
 
-### Step 3: Verify Running Services
+### Step 4: Verify Running Services
 
 ```bash
 docker compose ps
@@ -44,23 +44,46 @@ You should see `backend`, `frontend`, `db`, `nginx`, `redis`, and `celery` all w
 
 ---
 
-## 3. Database Initialization
+## 3. Resetting the System (The "Nuclear Option")
+
+To wipe the database and start fresh with the latest CSV/PDF data:
+
+```bash
+# 1. Stop all containers and remove volumes (DELETES DB DATA)
+docker compose -f docker/docker-compose.yml down -v
+
+# 2. Rebuild and Start (Will auto-run all import scripts on boot)
+docker compose -f docker/docker-compose.yml up --build -d
+```
+
+---
+
+## 4. Database Initialization
 
 ### Automatic Setup (The "Zero-Touch" Boot)
 
-The system is configured to **automatically initialize** everything on the first boot:
+Automatically on the first boot:
 - **Database Schema**: Imported from `docker/init_db.sql`.
 - **Migrations**: Automatic execution of Django migrations.
 - **Superuser**: Created automatically (Credentials below).
-- **Data Seeding**: Automatic import of all CSV files from the `Data/` folder (Schools, Streams, Teachers, Courses, Students, and Enrollments).
+- **Academic Data**: Imports Schools, Teachers, Courses from `Data/` CSVs.
+- **Student Data**: Imports Students & Enrollments from `Data/` CSVs. 
+- **Exam Linking**: Scans `Data/` folders (e.g., `Data/CN`, `Data/HPC`) and links PDFs to student records.
 
 ### Default Superuser Credentials (SYSTEM ADMIN)
+
 
 | Attribute | Value |
 | :--- | :--- |
 | **Email** | `admin@kiit.ac.in` |
 | **Password** | `admin` |
 | **University ID** | `0000` |
+
+### Default Student Credentials (TEST DATA)
+The system imports students from CSVs (e.g., `2305.csv`).
+- **Email**: Derived from CSV (usually `rollno@kiit.ac.in`).
+- **Password**: `password` (Hardcoded for all imported students).
+- **Roll No**: As per CSV (e.g., `2305101`).
 
 > **⚠️ Note on Email Configuration**: This email address can be changed in [docker/backend/entrypoint.sh](docker/backend/entrypoint.sh) if needed for mail service API testing or production setup. The email must match your **mail service provider's authenticated sender address** when configuring `EMAIL_HOST_USER` in the environment variables.
 

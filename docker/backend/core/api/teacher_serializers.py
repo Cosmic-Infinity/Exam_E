@@ -50,8 +50,11 @@ class ExamPaperDetailSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='enrollment.student.full_name', read_only=True)
     question_paper_schema = serializers.JSONField(source='exam.question_paper_schema', read_only=True)
     exam_total_marks = serializers.IntegerField(source='exam.total_marks', read_only=True)
-    question_paper_path = serializers.CharField(source='exam.question_paper_path', read_only=True, allow_null=True)
-    answer_key_path = serializers.CharField(source='exam.answer_key_path', read_only=True, allow_null=True)
+    
+    # URL Generators
+    question_paper_path = serializers.SerializerMethodField()
+    answer_key_path = serializers.SerializerMethodField()
+    pages = serializers.SerializerMethodField()
     
     class Meta:
         model = ExamPaper
@@ -70,3 +73,19 @@ class ExamPaperDetailSerializer(serializers.ModelSerializer):
             'answer_key_path'
         ]
         read_only_fields = ['paper_id', 'student_university_id', 'student_name', 'file_path', 'pages', 'question_paper_schema', 'exam_total_marks', 'question_paper_path', 'answer_key_path']
+
+    def get_pages(self, obj):
+        if not obj.pages:
+            return []
+        # Return URLs assuming Data is served at root
+        return [f"/{p}" if not p.startswith("/") else p for p in obj.pages]
+
+    def get_question_paper_path(self, obj):
+        if obj.exam and obj.exam.question_paper_path:
+            return f"/{obj.exam.question_paper_path}"
+        return None
+
+    def get_answer_key_path(self, obj):
+        if obj.exam and obj.exam.answer_key_path:
+            return f"/{obj.exam.answer_key_path}"
+        return None

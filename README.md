@@ -1,6 +1,7 @@
 # 🎓 Exam Evaluation System (Exam_E)
 
 > **Quick Start**: Go to [SETUP_AND_RUN.md](SETUP_AND_RUN.md) for first-boot instructions.
+> **Status**: Active Development. See [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md) for the latest changelog (March 6, 2026).
 
 ## 1. The Core Philosophy
 
@@ -21,19 +22,22 @@
 
 # 3. The Architecture (Single Machine / Local Network)
 
-Entry Point: http://localhost (Resolved internally).
+Entry Point: http://localhost (Nginx reverse proxy).
 
 Nginx (Port 80):
 
-Rule A: Request for /static/papers/student_1.jpg -> Proxy to Backend.
+Rule A: Request for `/Data/*` (e.g., Papers) -> Served directly from disk (Alias to `/app/Data`).
 
-Rule B: Request for /api/login -> Proxy to Backend (Port 8000).
+Rule B: Request for `/api/*` -> Proxy to Backend (Port 8000).
 
-Rule C: Request for / -> Proxy to Frontend (Port 8080).
+Rule C: Request for `/` -> Proxy to Frontend (Port 8080).
 
 Application (Django/Gunicorn): Runs via `python manage.py runserver` in dev. Handles logic, auth, and DB queries.
 
-Database (Postgres): Runs on Port 5433 (Blocked from outside). Accessible only by Django via internal Docker network (host `db`, port `5432`).
+Database (Postgres): 
+- **Internal**: `db:5432` (Accessed by Django).
+- **External**: `localhost:5433` (Exposed for debugging tools like DBeaver).
+- **Persistence**: Data stored in `postgres_data` volume.
 
 Celery Worker: A separate background process that wakes up to send emails or shuffle grievances.
 

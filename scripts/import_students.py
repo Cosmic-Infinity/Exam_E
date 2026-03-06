@@ -18,6 +18,8 @@ DB_CONFIG = {
     "port": os.getenv("DATABASE_PORT", "5432")
 }
 
+DEFAULT_PASSWORD = "password"
+
 def connect_db():
     try:
         conn = psycopg2.connect(**DB_CONFIG)
@@ -117,6 +119,8 @@ def parse_program_description(desc):
 
 def import_students(csv_file_path):
     print(f"--- Starting Student Import from {csv_file_path} ---")
+    print(f"Default user password set to: '{DEFAULT_PASSWORD}'")
+    
     conn = connect_db()
     cur = conn.cursor()
     
@@ -178,11 +182,11 @@ def import_students(csv_file_path):
                     try:
                         cur.execute(
                             """
-                            INSERT INTO users (university_id, full_name, email, role)
-                            VALUES (%s, %s, %s, 'STUDENT')
+                            INSERT INTO users (university_id, full_name, email, role, password, is_staff, is_active, is_superuser, date_joined)
+                            VALUES (%s, %s, %s, 'STUDENT', %s, FALSE, TRUE, FALSE, NOW())
                             RETURNING id
                             """,
-                            (roll_no, full_name, email)
+                            (roll_no, full_name, email, 'pbkdf2_sha256$1000000$F2ZYe8DOhCY2xT52eSi8N7$bEdFTJpdDqv91LnqcajOHSK2mN9ztMsdOjFI5ELMXco=')
                         )
                         user_id = cur.fetchone()[0]
                     except psycopg2.errors.UniqueViolation:

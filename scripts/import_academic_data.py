@@ -67,23 +67,24 @@ def import_teachers(conn, filepath):
                 # Teacher is NOT is_staff. Use Django Admin only for System Admins.
                 cur.execute(
                     """
-                    INSERT INTO users (university_id, full_name, email, role, is_staff, is_active)
-                    VALUES (%s, %s, %s, 'TEACHER', FALSE, TRUE)
+                    INSERT INTO users (university_id, full_name, email, role, is_staff, is_active, password, is_superuser, date_joined)
+                    VALUES (%s, %s, %s, 'TEACHER', FALSE, TRUE, %s, FALSE, NOW())
                     ON CONFLICT (university_id) DO UPDATE 
                     SET full_name = EXCLUDED.full_name
                     RETURNING id
                     """,
-                    (emp_id, name, email)
+                    (emp_id, name, email, 'pbkdf2_sha256$1000000$F2ZYe8DOhCY2xT52eSi8N7$bEdFTJpdDqv91LnqcajOHSK2mN9ztMsdOjFI5ELMXco=')
                 )
                 user_id = cur.fetchone()[0]
 
-                # 3. Create/Update Teacher Profile
+                # 3. Create/Update Teacher Profile                # 3. Create/Update Teacher Profile
                 cur.execute(
                     """
-                    INSERT INTO teachers (user_id, school_id, specialization)
-                    VALUES (%s, %s, %s)
-                    ON CONFLICT (user_id) DO UPDATE 
-                    SET school_id = EXCLUDED.school_id, specialization = EXCLUDED.specialization
+                    INSERT INTO teachers (user_id, school_id, specialization, is_coordinator)
+                    VALUES (%s, %s, %s, FALSE)
+                    ON CONFLICT (user_id) DO UPDATE
+                    SET school_id = EXCLUDED.school_id,
+                        specialization = EXCLUDED.specialization
                     """,
                     (user_id, school_id, spec)
                 )

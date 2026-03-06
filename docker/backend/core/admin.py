@@ -10,6 +10,7 @@ from .models import Exam, CourseAllocation, AcademicSession, School, User, Strea
 from .forms import ExamForm, UserCreationForm, UserChangeForm, CSVImportForm
 from .tasks import send_credentials_email
 from .services import importer
+from django.utils.html import mark_safe
 
 
 @admin.register(AcademicSession)
@@ -223,6 +224,23 @@ class ExamPaperAdmin(admin.ModelAdmin):
     list_filter = ('evaluation_status', 'exam__exam_type')
     search_fields = ('enrollment__student__university_id',)
     autocomplete_fields = ['enrollment', 'exam']
+    readonly_fields = ('image_preview',)
+
+    def image_preview(self, obj):
+        if not obj.pages:
+            return "No pages linked."
+        
+        html = '<div style="display: flex; flex-wrap: wrap; gap: 10px;">'
+        # Assuming pages is a list of strings like ["Data/Papers/...", ...]
+        # We need to map this to /Data/Papers/... for display if Nginx mounts it there
+        for page in obj.pages:
+             # Ensure path starts with /
+             url = f"/{page}" if not page.startswith("/") else page
+             html += f'<a href="{url}" target="_blank"><img src="{url}" style="height: 150px; border: 1px solid #ccc;"></a>'
+        html += '</div>'
+        return mark_safe(html)
+    
+    image_preview.short_description = "Pages Preview"
 
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):

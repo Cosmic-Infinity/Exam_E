@@ -61,11 +61,23 @@ const PAGE_COLORS = [
   "from-indigo-900/38 to-slate-900/48",
 ];
 
-const AnswerSheetImage = ({ page, subjectCode, rollNo, totalPages = DEFAULT_TOTAL_PAGES, src }: { page: number; subjectCode: string; rollNo: string; totalPages?: number; src?: string }) => {
+const AnswerSheetImage = ({ page, subjectCode, rollNo, src }: { page: number; subjectCode: string; rollNo: string; src?: string }) => {
   if (src) {
+    // If src is provided, use the real image
+    // Ensure we are pointing to the backend URL if it's a relative path
+    const imageSrc = src.startsWith("http") ? src : `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${src}`;
+    
     return (
-      <div className="w-full h-full rounded-lg border border-border bg-black/5 flex flex-col overflow-hidden shadow-xl shadow-black/30">
-        <img src={src} alt={`Page ${page}`} className="object-contain w-full h-full" />
+      <div className="w-full h-full bg-black/5 flex flex-col items-center justify-center overflow-auto">
+        <img 
+          src={imageSrc} 
+          alt={`Page ${page}`} 
+          className="max-h-full max-w-full object-contain shadow-lg" 
+          onError={(e) => {
+            console.error("Failed to load image:", imageSrc);
+            e.currentTarget.style.display = 'none'; // Fallback to simulation if load fails
+          }}
+        />
       </div>
     );
   }
@@ -240,14 +252,27 @@ const EvaluationViewer = () => {
   const [recheckOpen, setRecheckOpen] = useState(false);
   const [missingType, setMissingType] = useState<"pages" | "complete" | null>(null);
   const [missingPages, setMissingPages] = useState("");
+  
+  // Loading & Error states
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     let active = true;
+    setLoading(true);
+    setNotFound(false);
 
     const loadScript = async () => {
       try {
         const script = await getScript(rollNo, subjectId || "", role);
-        if (!active || !script) return;
+        if (!active) return;
+        
+        if (!script) {
+          setNotFound(true);
+          setLoading(false);
+          toast.error("Answer sheet not found for this subject.");
+          return;
+        }
 
         setMarks(script.marks);
         setCurrentScript(script);
@@ -260,7 +285,9 @@ const EvaluationViewer = () => {
       } catch (err) {
         console.error("Failed to load script:", err);
         toast.error("Unable to load answer sheet for this subject.");
-        navigate("/dashboard/student");
+        // navigate("/dashboard/student"); // Let user stay and understand why
+      } finally {
+        if (active) setLoading(false);
       }
     };
 
@@ -731,7 +758,23 @@ const EvaluationViewer = () => {
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden relative">
+        {loading ? (
+           <div className="absolute inset-0 flex items-center justify-center bg-background z-50">
+             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+           </div>
+        ) : notFound ? (
+           <div className="flex flex-col items-center justify-center h-full gap-4 p-8 text-center text-muted-foreground bg-background">
+             <div className="text-6xl">📄🚫</div>
+             <p className="max-w-md text-lg">
+               No answer sheet found for subject <span className="font-mono font-bold text-foreground">{subjectCode}</span>.
+             </p>
+             <p className="text-sm text-muted-foreground/80">Please check with your faculty coordinator if it has been uploaded or if you are enrolled in this course.</p>
+             <button onClick={() => navigate("/dashboard/student")} className="mt-4 px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 transition-colors">
+               Return to Dashboard
+             </button>
+           </div>
+        ) : (
         <ResizablePanelGroup direction="horizontal" className="h-full">
           {/* Left: Answer Sheet as Image */}
           <ResizablePanel defaultSize={55} minSize={35}>
@@ -1236,6 +1279,7 @@ const EvaluationViewer = () => {
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>
+        )}
       </div>
     </div>
   );

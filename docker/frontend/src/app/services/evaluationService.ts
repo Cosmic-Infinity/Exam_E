@@ -201,7 +201,7 @@ export async function getScript(rollNo: string, subjectCode: string, role: "stud
   if (cached && role === "faculty") {
     const detail = (await AuthService.get(`/teacher/paper/${cached.id}/`)) as TeacherPaperDetail;
 
-    return {
+      return {
       id: String(detail.paper_id),
       rollNo: detail.student_university_id,
       subjectCode: cached.subjectCode,
@@ -209,15 +209,13 @@ export async function getScript(rollNo: string, subjectCode: string, role: "stud
       status: statusToScriptStatus(detail.evaluation_status),
       hasGrievance: false,
       marks: normalizeMarks(detail.marks_json),
-      file_path: detail.file_path ? `/media/${detail.file_path}` : undefined,
-      question_paper_path: detail.question_paper_path ? `/media/${detail.question_paper_path}` : undefined,
-      answer_key_path: detail.answer_key_path ? `/media/${detail.answer_key_path}` : undefined,
+      file_path: detail.file_path ? `/${detail.file_path}` : undefined,
+      question_paper_path: detail.question_paper_path ? `/${detail.question_paper_path}` : undefined,
+      answer_key_path: detail.answer_key_path ? `/${detail.answer_key_path}` : undefined,
       question_paper_schema: detail.question_paper_schema,
-      pages: detail.pages ? detail.pages.map((p) => `/media/${p}`) : undefined,
+      pages: detail.pages ? detail.pages.map((p) => `/${p}`) : undefined,
     };
-  }
-
-  // 2) Try teacher discovery only for faculty
+  }  // 2) Try teacher discovery only for faculty
   if (role === "faculty") {
     try {
       const teacherScripts = await fetchTeacherScriptsInternal();
@@ -233,11 +231,11 @@ export async function getScript(rollNo: string, subjectCode: string, role: "stud
           status: statusToScriptStatus(detail.evaluation_status),
           hasGrievance: false,
           marks: normalizeMarks(detail.marks_json),
-          file_path: detail.file_path ? `/media/${detail.file_path}` : undefined,
-          question_paper_path: detail.question_paper_path ? `/media/${detail.question_paper_path}` : undefined,
-          answer_key_path: detail.answer_key_path ? `/media/${detail.answer_key_path}` : undefined,
+          file_path: detail.file_path ? `/${detail.file_path}` : undefined,
+          question_paper_path: detail.question_paper_path ? `/${detail.question_paper_path}` : undefined,
+          answer_key_path: detail.answer_key_path ? `/${detail.answer_key_path}` : undefined,
           question_paper_schema: detail.question_paper_schema,
-          pages: detail.pages ? detail.pages.map((p) => `/media/${p}`) : undefined,
+          pages: detail.pages ? detail.pages.map((p) => `/${p}`) : undefined,
         };
       }
     } catch {
@@ -264,11 +262,11 @@ export async function getScript(rollNo: string, subjectCode: string, role: "stud
     status: statusToScriptStatus(detail.evaluation_status),
     hasGrievance: false,
     marks: normalizeMarks(detail.marks_json),
-    file_path: detail.file_path ? `/media/${detail.file_path}` : undefined,
-    question_paper_path: detail.question_paper_path ? `/media/${detail.question_paper_path}` : undefined,
-    answer_key_path: detail.answer_key_path ? `/media/${detail.answer_key_path}` : undefined,
+    file_path: detail.file_path ? `/${detail.file_path}` : undefined,
+    question_paper_path: detail.question_paper_path ? `/${detail.question_paper_path}` : undefined,
+    answer_key_path: detail.answer_key_path ? `/${detail.answer_key_path}` : undefined,
     question_paper_schema: detail.question_paper_schema,
-    pages: detail.pages ? detail.pages.map((p: string) => `/media/${p}`) : undefined,
+    pages: detail.pages ? detail.pages.map((p: string) => `/${p}`) : undefined,
   };
 }
 

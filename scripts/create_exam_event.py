@@ -11,6 +11,7 @@ import psycopg2
 import sys
 import argparse
 import json
+import os
 
 # Database Configuration
 DB_CONFIG = {
@@ -75,8 +76,8 @@ def create_exam(session_label, course_code, exam_type, total_marks, schema_json)
 
             # Insert
             cur.execute("""
-                INSERT INTO exams (allocation_id, exam_type, total_marks, question_paper_schema)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO exams (allocation_id, exam_type, total_marks, question_paper_schema, created_at, is_active)
+                VALUES (%s, %s, %s, %s, NOW(), TRUE)
             """, (alloc_id, exam_type, total_marks, schema_json))
             created_count += 1
             print(f"  - Section {section_name}: Created.")

@@ -163,7 +163,7 @@ CREATE TABLE public.exams (
     question_paper_path text, -- Path to question paper PDF (e.g., exam_docs/CS302_MIDSEM_qp.pdf)
     answer_key_path text, -- Path to answer key PDF (e.g., exam_docs/CS302_MIDSEM_key.pdf)
     is_active boolean DEFAULT true,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
 );
 
 
@@ -189,6 +189,8 @@ ALTER TABLE public.exams_exam_id_seq OWNER TO postgres;
 --
 
 ALTER SEQUENCE public.exams_exam_id_seq OWNED BY public.exams.exam_id;
+
+ALTER TABLE ONLY public.exams ALTER COLUMN exam_id SET DEFAULT nextval('public.exams_exam_id_seq'::regclass);
 
 
 --

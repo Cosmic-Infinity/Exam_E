@@ -106,6 +106,7 @@ services:
       - "80:80"
     volumes:
       - ./backend/mediafiles:/app/mediafiles:ro
+      - ../Data:/app/Data:ro # Serve paper contents directly
     depends_on:
       backend:
         condition: service_started

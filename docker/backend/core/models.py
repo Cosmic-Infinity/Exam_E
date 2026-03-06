@@ -10,7 +10,6 @@ class AcademicSession(models.Model):
     is_active = models.BooleanField(default=True)
 
     class Meta:
-        managed = False
         db_table = 'academic_sessions'
     
     def __str__(self):
@@ -22,7 +21,6 @@ class School(models.Model):
     code = models.CharField(max_length=10)
 
     class Meta:
-        managed = False
         db_table = 'schools'
     
     def __str__(self):
@@ -41,7 +39,6 @@ class Stream(models.Model):
     ])
 
     class Meta:
-        managed = False
         db_table = 'streams'
     
     def __str__(self):
@@ -119,7 +116,6 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     class Meta:
         db_table = 'users'
-        managed = False
 
     def __str__(self):
         return f"{self.full_name} ({self.university_id})"
@@ -133,7 +129,6 @@ class Student(models.Model):
     batch = models.CharField(max_length=10, null=True, blank=True)
 
     class Meta:
-        managed = False
         db_table = 'students'
 
     def __str__(self):
@@ -148,7 +143,6 @@ class Teacher(models.Model):
     is_coordinator = models.BooleanField(default=False) # Legacy flag, use Course.coordinator field
 
     class Meta:
-        managed = False
         db_table = 'teachers'
 
     def __str__(self):
@@ -173,7 +167,6 @@ class Course(models.Model):
     coordinator = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='coordinated_courses', limit_choices_to={'role': 'TEACHER'})
 
     class Meta:
-        managed = False
         db_table = 'courses'
 
     def __str__(self):
@@ -189,7 +182,6 @@ class CourseAllocation(models.Model):
     semester = models.IntegerField()
 
     class Meta:
-        managed = False
         db_table = 'course_allocations'
 
     def __str__(self):
@@ -210,7 +202,6 @@ class Enrollment(models.Model):
     ])
 
     class Meta:
-        managed = False
         db_table = 'enrollments'
 
     def __str__(self):
@@ -232,7 +223,6 @@ class ExamPaper(models.Model):
     ])
 
     class Meta:
-        managed = False
         db_table = 'exam_papers'
 
     def __str__(self):
@@ -250,7 +240,6 @@ class Grievance(models.Model):
     ])
 
     class Meta:
-        managed = False
         db_table = 'grievances'
     
     def __str__(self):
@@ -273,7 +262,6 @@ class Exam(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        managed = False
         db_table = 'exams'
 
     def __str__(self):

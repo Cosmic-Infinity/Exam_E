@@ -1,29 +1,34 @@
+```markdown
 # Current Development Status & Roadmap
 
-> **Last Updated:** March 3, 2026  
-> **Summary:** Authentication, Security, and Statistics phases are complete. The system now features a fully secure, role-based environment with real-time evaluation tracking for Controllers and Course Coordinators.
+> **Last Updated:** March 6, 2026  
+> **Summary:** Core exam data pipeline is complete. The system now supports end-to-end data import, automatic linking of scanned answer sheets to students based on fuzzy logic, and secure file serving for question papers and answer keys.
 
 ---
 
-## 🚀 Recent Progress (March 3, 2026)
+## 🚀 Recent Progress (March 6, 2026)
 
-The project has achieved **Full Security & Real-Time Monitoring**:
+The project has achieved **Full Exam Data Lifecycle Automation**:
 
-1.  **Authentication & Security** ✅:
-    - **Secure Session Management**: Implemented `authService.ts` with auto-refresh token logic (handling 401s transparently).
-    - **Route Protection**: Added `<ProtectedRoute>` component to guard `/dashboard/*` and `/evaluation/*` routes based on user roles (`student`, `faculty`, `controller`).
-    - **Session Validation**: Frontend now validates session with backend on app load via `UserSessionContext`.
-    - **Real Logout**: Logout buttons now invalidate backend sessions.
-2.  **Controller Statistics** ✅:
-    - Full drill-down capabilty for Controllers: Semesters -> Subjects -> Sections.
-    - Powered by real-time data from `/api/stats/subjects/` and `/api/stats/sections/`.
-3.  **Course Coordinator Statistics** ✅:
-    - Section-wise progress tracking for course coordinators.
-    - Powered by real-time data from `/api/stats/sections/?course_code=XYZ`.
+1.  **Exam Data Linking & Management** ✅:
+    - **Automated Mapping**: Created `link_exam_data` command to map physical folder names (e.g., "HPC", "CN") to curriculum codes (e.g., "CS201", "CS101").
+    - **Test Data Support**: Restored support for the legacy `Data/Papers/MidSem` folder structure to ensure existing test datasets (containing JPGs) are correctly ingested.
+    - **Status Automation**: Exam papers are automatically set to `COMPLETED` upon import to ensure immediate visibility in the Student Portal.
+2.  **Infrastructure & File Serving** ✅:
+    - **Digital Asset Serving**: configured Django (`urls.py`) to serve the `/Data/` directory securely in development mode, resolving "damaged file" errors on download.
+    - **Frontend Viewer**: Updated `EvaluationViewer` to correctly handle file paths and gracefully display "No answer sheet found" states.
+    - **Zero-Touch Entrypoint**: Updated `entrypoint.sh` to run the full import pipeline (`import_academic_data`, `import_students`, `bulk_enroll`, `link_exam_data`) automatically on container start.
+3.  **Admin Experience** ✅:
+    - **Visual Debugging**: Added image previews to the Django Admin `ExamPaper` list view to quickly verify correct file linking.
+
+### ⚠️ Current Limitations
+- **Hardcoded Course Mapping**: The `link_exam_data` script currently uses a hardcoded dictionary to map folder names (e.g., "HPC") to course codes. This will be moved to a configuration file or database table in a future update (Issue #45).
+- **PDF-Only Support**: The new linking logic strictly expects `.pdf` files. Images (.jpg/.png) are not currently supported for automated linking.
 
 ---
 
 ## 1. Authentication System
+
 
 The authentication system is **fully functional** and secure.
 

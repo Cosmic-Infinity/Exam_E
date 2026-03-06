@@ -124,10 +124,11 @@ The catalog of subjects (Metadata only).
 | `paper_id`          | Integer (PK) | **DB Auto-Gen**         | **Paper ID**.                                          |
 | `enrollment_id`     | Integer (FK) | **Digitization Script** | **Context**. Extracted from folder/filename mapping.   |
 | `exam_id`           | Integer (FK) | **App Logic**           | **Exam Event**. Links to the specific exam definition. |
-| `file_path`         | Text         | **Digitization Script** | System path to the file.                               |
+| `pages`             | JSON         | **Digitization Script** | **File Paths**. Array of paths to the answer sheet images/PDFs. <br> _Example: `["Data/CS201/2305101.pdf"]`_ |
+| `file_path`         | Text         | **Legacy/Backup**       | Single file path (Deprecated in favor of `pages`). <br> _Nullable_ |
 | `marks_json`        | JSONB        | **App (Teacher)**       | Detailed scores. <br> _Nullable_                       |
 | `total_score`       | Numeric      | **App (Teacher)**       | Result. <br> _Nullable_                                |
-| `evaluation_status` | Varchar(20)  | **DB Default**          | Workflow state. <br> _Default: `'PENDING'`_            |
+| `evaluation_status` | Varchar(20)  | **DB Default**          | Workflow state. <br> _Values: `'PENDING'`, `'COMPLETED'`_ |
 
 ## 11. grievances
 
@@ -152,6 +153,8 @@ Defines the exam structure and rules for a specific course allocation.
 | `exam_type`             | Varchar(20)      | **Manual Input** | Event type. <br> _Values: `'MIDSEM'`, `'ENDSEM'`, `'QUIZ'`_                 |
 | `total_marks`           | Integer          | **Manual Input** | Maximum possible score.                                                     |
 | `passing_marks`         | Integer          | **Manual Input** | Threshold for pass. <br> _Nullable_                                         |
+| `question_paper_path`   | Text             | **Auto-Linking** | Path to the Question Paper PDF. <br> _Example: `Data/CS201/Question Paper.pdf`_ |
+| `answer_key_path`       | Text             | **Auto-Linking** | Path to the Answer Key PDF. <br> _Example: `Data/CS201/Answer Key.pdf`_ |
 | `question_paper_schema` | JSONB            | **App (Admin)**  | Structure definition (Sections, Questions). <br> _Example: `{"sections": [...]}`_ |
 | `is_active`             | Boolean          | **Manual Input** | Enable/Disable. <br> _Default: `true`_                                      |
 | `created_at`            | Timestamp        | **DB Default**   | Creation time.                                                              |

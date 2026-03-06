@@ -82,23 +82,49 @@ _Before papers can be uploaded, the "Exam Event" must be created._
 | :-------- | :------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------- |
 | **exams** | `exam_type`, `marks`, `metadata` | **Django Admin Dashboard** <br> Navigate to `http://localhost:8000/admin/` -> Exams -> Add Exam. Define marks and upload JSON schema if needed. |
 
-## 5. Exam Paper Digitization
+## 5. Exam Paper Digitization & Linking
 
-_Students do not upload papers. A dedicated department digitizes and maps them._
+_Students do not upload papers. A dedicated department digitizes them, and the system automatically links them._
 
-### Workflow
+### Folder Structure (Test Data Configuration)
+The system currently uses a legacy structure for test data, where pages are grouped by subject and assigned to enrolled students for demonstration:
 
-1.  **Scanning**: Physical answer sheets are scanned page-by-page.
-2.  **Naming Convention**: Folders must be named logically, e.g., `ROLLNO_COURSECODE`.
-    - Example Folder: `2305128_CS302`
-    - Example Content: `page1.jpg`, `page2.jpg`, `page3.jpg`.
-3.  **Bulk Upload**:
-    - **Script**: Scans directory.
-    - **Parsing**: Extracts `ROLLNUMBER` and `COURSECODE` from the folder name.
-    - **Lookup**: Finds the active `enrollment_id` for that Student + Course combo.
-    - **Linkage**: Finds the active `exam_id` (e.g., Midsem) based on strict configuration or user input.
-    - **Upload**: Uploads the list of image paths to storage (S3/MinIO/Local).
-    - **Database**: Inserts row into `exam_papers` with `file_path` (as JSON array) and `status='PENDING'`.
+```text
+Data/Papers/
+  ├── MidSem/
+  │   ├── [Subject_Folder]/  (e.g., "CN", "HPC")
+  │   │   ├── page1.jpg
+  │   │   └── ...
+  │   └── Answer Keys/
+  ├── EndSem/
+  │   └── ...
+  └── Questions/
+```
+
+### Automated Linking (The 'link_exam_data' Command)
+The `link_exam_data` script performs the following:
+
+1.  **Legacy Mapping**: Maps folders like "HPC" to "CS201" and "CN" to "CS101".
+2.  **Exam Creation**: Automatically generates Exam Events (MidSem/EndSem) for all active course allocations.
+3.  **Demo Assignment**: Assigns the set of images in the subject folder to the **first enrolled student** found for that course.
+    - **Purpose**: This ensures that when you log in as a test student (e.g., `2305101`), you have visible papers to view and evaluate.
+4.  **Status Update**: Automatically sets `exam_papers.evaluation_status` to `'COMPLETED'` so it is immediately visible.
+
+If you add new data, you can trigger this manually:
+```bash
+docker compose exec backend python manage.py link_exam_data
+```
+
+## 6. Storage Strategy: `Data/` vs `mediafiles/`
+
+The system uses a hybrid storage approach to handle large volumes of scanned answer sheets efficiently:
+
+| Directory | Purpose | Handling |
+| :--- | :--- | :--- |
+| **`Data/`**  | **Bulk Digitized Papers**. Contains the massive archive of scanned answer sheets (PDFs/JPGs) organized by semester/subject. | **Read-Only / Linked**. The system *links* these files directly in the database (e.g., storing `Data/Papers/...` paths). It does **NOT** copy them to `mediafiles` to save storage space. |
+| **`mediafiles/`** | **Ad-Hoc Uploads**. Stores files uploaded manually via the Django Admin interface (e.g., profile pictures, individual supplementary exam files). | **Managed by Django**. Files uploaded here are standard media files handled by Django's `FileField`. |
+
+> **Key Takeaway**: The automated import scripts strictly use `Data/`. They do not touch `mediafiles/`. If you are bulk importing, place your files in `Data/`.
 
 ---
 

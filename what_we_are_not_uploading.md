@@ -17,6 +17,7 @@ __pycache__/
 backend/venv/
 backend/static_root/
 backend/media/
+backend/mediafiles/
 
 # --- Node / React ---
 frontend/node_modules/
@@ -35,3 +36,11 @@ frontend/dist/
 .vscode/
 .idea/
 Thumbs.db
+
+# --- Exam Data ---
+# Custom Data with large PDFs
+Data/Papers/
+Data/
+# Exception: We allow the schema CSVs
+!Data/*.csv
+```

@@ -47,7 +47,12 @@ Authenticates a user and sets an `HttpOnly` cookie containing the JWT access and
 - **Output (200 OK)**:
   ```json
   {
-    "detail": "Successfully logged in."
+    "message": "Login successful",
+    "university_id": "0000",
+    "full_name": "System Admin",
+    "role": "TEACHER",
+    "is_course_coordinator": false,
+    "is_controller": false
   }
   ```
 
@@ -66,7 +71,9 @@ Returns the profile information of the currently authenticated user.
     "role": "TEACHER",
     "is_active": true,
     "is_staff": true,
-    "date_joined": "2026-02-20T12:00:00Z"
+    "date_joined": "2026-02-20T12:00:00Z",
+    "is_course_coordinator": false,
+    "is_controller": false
   }
   ```
 
@@ -119,7 +126,7 @@ Fetches a list of all active course sections assigned to the currently logged-in
   ]
   ```
 
-### `GET /api/teacher/allocations/{allocation_id}/exams/`
+### `GET /api/teacher/exams/{allocation_id}/`
 
 Fetches a list of all exams (e.g., Midsem, Endsem) associated with a specific course allocation.
 

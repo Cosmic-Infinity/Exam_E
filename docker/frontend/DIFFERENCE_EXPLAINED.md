@@ -59,7 +59,7 @@ Stored in: sessionStorage (cleared when browser closes)
 Used by: Components to know current user
 ```
 
-**Location**: Frontend React (`/src/context/UserSessionContext.tsx`)
+**Location**: Frontend React (`/src/app/context/UserSessionContext.tsx`)
 **Tools**: React Context API + sessionStorage
 
 ---
@@ -229,7 +229,7 @@ const { user } = useUserSession()  // ← Who is logged in here?
 | **Stores What** | JWT token | User info |
 | **Stores Where** | HTTP-only cookie | sessionStorage |
 | **Prevents** | Fake users | URL manipulation |
-| **File** | `/core/authentication.py` | `UserSessionContext.tsx` |
+| **File** | `/core/authentication.py` | `src/app/context/UserSessionContext.tsx` |
 
 ---
 

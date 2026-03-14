@@ -34,8 +34,19 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class UserMeSerializer(serializers.ModelSerializer):
     """Serializer for the /api/me/ endpoint — returns safe read-only user fields."""
+    is_course_coordinator = serializers.SerializerMethodField()
+    is_controller = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = ['id', 'university_id', 'full_name', 'email', 'role',
-                  'is_active', 'is_staff', 'date_joined']
+                  'is_active', 'is_staff', 'date_joined', 'is_course_coordinator', 'is_controller']
         read_only_fields = fields
+
+    def get_is_course_coordinator(self, obj):
+        if obj.role != 'TEACHER':
+            return False
+        return obj.coordinated_courses.exists()
+
+    def get_is_controller(self, obj):
+        return obj.role == 'CONTROLLER'

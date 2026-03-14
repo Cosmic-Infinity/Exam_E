@@ -14,6 +14,8 @@ interface LoginResponse {
   university_id: string;
   full_name: string;
   role: string;
+  is_course_coordinator?: boolean;
+  is_controller?: boolean;
 }
 
 interface ApiError {

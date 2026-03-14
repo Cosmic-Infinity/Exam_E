@@ -72,14 +72,14 @@ The frontend will be accessible at `http://localhost:8080`
 
 ```
 src/
-├── components/     # Reusable UI components
-├── pages/         # Page components
-├── context/       # React Context providers
-├── hooks/         # Custom React hooks
-├── services/      # API services
-├── types/         # TypeScript type definitions
-├── lib/           # Utility functions
-├── test/          # Test setup and utilities
+├── app/
+│   ├── components/ # Reusable UI components
+│   ├── context/    # React Context providers
+│   ├── pages/      # Route/page modules
+│   ├── services/   # API services
+│   ├── types/      # TypeScript type definitions
+│   └── lib/        # Utility functions
+├── __tests__/      # Test setup and utilities
 ├── App.tsx        # Main App component
 ├── main.tsx       # Entry point
 └── index.css      # Global styles

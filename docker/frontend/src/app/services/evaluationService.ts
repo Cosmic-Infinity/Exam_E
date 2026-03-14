@@ -158,6 +158,14 @@ function cacheKey(rollNo: string, subjectCode: string): string {
   return `${rollNo}::${subjectCode.toLowerCase()}`;
 }
 
+function normalizeAssetPath(path?: string): string | undefined {
+  if (!path) return undefined;
+  const trimmed = path.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed;
+  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+}
+
 function buildSectionMarksPayload(raw: unknown, rows: MarksRow[]) {
   if (!raw || typeof raw !== "object" || !Array.isArray((raw as { sections?: unknown[] }).sections)) {
     return raw;
@@ -221,7 +229,7 @@ async function fetchTeacherScriptsInternal(): Promise<AnswerScript[]> {
   const scripts: AnswerScript[] = [];
 
   for (const allocation of allocations) {
-    const exams = (await AuthService.get(`/teacher/allocations/${allocation.allocation_id}/exams/`)) as TeacherExam[];
+    const exams = (await AuthService.get(`/teacher/exams/${allocation.allocation_id}/`)) as TeacherExam[];
 
     for (const exam of exams) {
       const papers = (await AuthService.get(`/teacher/papers/?exam_id=${exam.exam_id}`)) as TeacherPaperListItem[];
@@ -290,10 +298,10 @@ export async function getScript(rollNo: string, subjectCode: string, role: "stud
       status: statusToScriptStatus(detail.evaluation_status),
       hasGrievance: false,
       marks: normalizeMarks(detail.marks_json),
-      question_paper_path: detail.question_paper_path ? `/${detail.question_paper_path}` : undefined,
-      answer_key_path: detail.answer_key_path ? `/${detail.answer_key_path}` : undefined,
+      question_paper_path: normalizeAssetPath(detail.question_paper_path),
+      answer_key_path: normalizeAssetPath(detail.answer_key_path),
       question_paper_schema: detail.question_paper_schema,
-      pages: detail.pages ? detail.pages.map((p) => `/${p}`) : undefined,
+      pages: detail.pages ? detail.pages.map((p) => normalizeAssetPath(p)).filter((p): p is string => Boolean(p)) : undefined,
     };
   } // 2) Try teacher discovery only for faculty
   if (role === "faculty") {
@@ -311,10 +319,10 @@ export async function getScript(rollNo: string, subjectCode: string, role: "stud
           status: statusToScriptStatus(detail.evaluation_status),
           hasGrievance: false,
           marks: normalizeMarks(detail.marks_json),
-          question_paper_path: detail.question_paper_path ? `/${detail.question_paper_path}` : undefined,
-          answer_key_path: detail.answer_key_path ? `/${detail.answer_key_path}` : undefined,
+          question_paper_path: normalizeAssetPath(detail.question_paper_path),
+          answer_key_path: normalizeAssetPath(detail.answer_key_path),
           question_paper_schema: detail.question_paper_schema,
-          pages: detail.pages ? detail.pages.map((p) => `/${p}`) : undefined,
+          pages: detail.pages ? detail.pages.map((p) => normalizeAssetPath(p)).filter((p): p is string => Boolean(p)) : undefined,
         };
       }
     } catch {
@@ -341,10 +349,10 @@ export async function getScript(rollNo: string, subjectCode: string, role: "stud
     status: statusToScriptStatus(detail.evaluation_status),
     hasGrievance: false,
     marks: normalizeMarks(detail.marks_json),
-    question_paper_path: detail.question_paper_path ? `/${detail.question_paper_path}` : undefined,
-    answer_key_path: detail.answer_key_path ? `/${detail.answer_key_path}` : undefined,
+    question_paper_path: normalizeAssetPath(detail.question_paper_path),
+    answer_key_path: normalizeAssetPath(detail.answer_key_path),
     question_paper_schema: detail.question_paper_schema,
-    pages: detail.pages ? detail.pages.map((p: string) => `/${p}`) : undefined,
+    pages: detail.pages ? detail.pages.map((p: string) => normalizeAssetPath(p)).filter((p): p is string => Boolean(p)) : undefined,
   };
 }
 
@@ -364,11 +372,7 @@ export async function saveMarks(rollNo: string, subjectCode: string, marks: Mark
 }
 
 /** Student grievance submission */
-export async function submitGrievance(
-  _rollNo: string,
-  subjectCode: string,
-  text: string
-): Promise<void> {
+export async function submitGrievance(_rollNo: string, subjectCode: string, text: string): Promise<void> {
   const paper = await resolveStudentPaperBySubject(subjectCode);
   if (!paper) throw new Error("Completed paper not found for this subject");
 
@@ -382,27 +386,17 @@ export async function submitGrievance(
  * Backend currently has no explicit teacher grievance decision endpoint.
  * Keep these wrappers for UI compatibility.
  */
-export async function acceptGrievance(
-  rollNo: string,
-  subjectCode: string,
-  updatedMarks: MarksRow[]
-): Promise<void> {
+export async function acceptGrievance(rollNo: string, subjectCode: string, updatedMarks: MarksRow[]): Promise<void> {
   await saveMarks(rollNo, subjectCode, updatedMarks);
 }
 
-export async function rejectGrievance(
-  _rollNo: string,
-  _subjectCode: string
-): Promise<void> {
+export async function rejectGrievance(_rollNo: string, _subjectCode: string): Promise<void> {
   return;
 }
 
 /** Student results from backend (no hardcoded subjects) */
 export async function getStudentResults(_rollNo: string): Promise<StudentResult[]> {
-  const [enrollments, papers] = await Promise.all([
-    fetchStudentEnrollmentsInternal(),
-    fetchStudentPapersInternal(),
-  ]);
+  const [enrollments, papers] = await Promise.all([fetchStudentEnrollmentsInternal(), fetchStudentPapersInternal()]);
 
   const papersByCourse = new Map<string, StudentPaperListItem>();
   for (const p of papers) {
@@ -416,15 +410,11 @@ export async function getStudentResults(_rollNo: string): Promise<StudentResult[
     return {
       subjectCode,
       subjectName: enr.allocation.course.title || subjectCode,
-      marks:
-        paper && paper.evaluation_status === "COMPLETED"
-          ? (paper.total_score ?? 0)
-          : null,
+      marks: paper && paper.evaluation_status === "COMPLETED" ? (paper.total_score ?? 0) : null,
       recheckStatus: "not-submitted",
     };
   });
 }
-
 
 /** Backend releases completed papers; keep always true in current UI contract */
 export function areResultsPublished(): boolean {
@@ -437,16 +427,12 @@ export function setResultsPublished(_published: boolean): void {
 }
 
 /** Fetch full paper details for a student by subject code */
-export async function getStudentPaperDetailsBySubject(
-  subjectCode: string
-): Promise<StudentPaperDetail | null> {
+export async function getStudentPaperDetailsBySubject(subjectCode: string): Promise<StudentPaperDetail | null> {
   try {
     const paper = await resolveStudentPaperBySubject(subjectCode);
     if (!paper) return null;
 
-    const detail = (await AuthService.get(
-      `/student/paper/${paper.paper_id}/`
-    )) as StudentPaperDetail;
+    const detail = (await AuthService.get(`/student/paper/${paper.paper_id}/`)) as StudentPaperDetail;
     return detail;
   } catch (error) {
     console.error(`Failed to fetch paper details for ${subjectCode}:`, error);
@@ -457,8 +443,14 @@ export async function getStudentPaperDetailsBySubject(
 /** Download a file from the given path */
 export function downloadFile(filePath: string, fileName: string): void {
   try {
-    // Handle both cases: paths with and without /media/ prefix
-    const url = filePath.startsWith("/media/") ? filePath : `/media/${filePath}`;
+    const normalized = normalizeAssetPath(filePath);
+    if (!normalized) {
+      throw new Error("Invalid file path");
+    }
+
+    // Support already rooted paths while defaulting relative paths to /media.
+    const url = normalized.startsWith("/media/") || normalized.startsWith("/Data/") ? normalized : `/media${normalized}`;
+
     const link = document.createElement("a");
     link.href = url;
     link.download = fileName || filePath.split("/").pop() || "download";

@@ -23,8 +23,8 @@ export interface UserSession {
   role: "student" | "faculty";
   fullName: string;
   backendRole?: string; // Stores original backend role (TEACHER, CONTROLLER, STUDENT)
-  isCourseCoordinator?: boolean; // Determined on dashboard load, not at login
-  isController?: boolean; // Determined on dashboard load, not at login
+  isCourseCoordinator?: boolean; // Provided by backend auth/me endpoints
+  isController?: boolean; // Provided by backend auth/me endpoints
 }
 
 interface UserSessionContextType {
@@ -46,7 +46,7 @@ export const UserSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   useEffect(() => {
     const restoreAndValidate = async () => {
       const storedSession = sessionStorage.getItem("userSession");
-      
+
       // Immediately restore from sessionStorage if it exists
       if (storedSession) {
         try {
@@ -67,8 +67,8 @@ export const UserSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
           fullName: me.full_name,
           role: userRole,
           backendRole: me.role,
-          isCourseCoordinator: me.role === "TEACHER",
-          isController: me.role === "CONTROLLER",
+          isCourseCoordinator: Boolean(me.is_course_coordinator),
+          isController: Boolean(me.is_controller),
         });
       } catch (e) {
         console.error("Failed to validate user session with backend", e);

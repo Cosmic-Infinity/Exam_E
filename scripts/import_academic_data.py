@@ -80,8 +80,8 @@ def import_teachers(conn, filepath):
                 # 3. Create/Update Teacher Profile                # 3. Create/Update Teacher Profile
                 cur.execute(
                     """
-                    INSERT INTO teachers (user_id, school_id, specialization, is_coordinator)
-                    VALUES (%s, %s, %s, FALSE)
+                    INSERT INTO teachers (user_id, school_id, specialization)
+                    VALUES (%s, %s, %s)
                     ON CONFLICT (user_id) DO UPDATE
                     SET school_id = EXCLUDED.school_id,
                         specialization = EXCLUDED.specialization

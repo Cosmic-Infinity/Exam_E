@@ -43,7 +43,7 @@ interface SectionDetail extends SectionStatistics {}
 
 const StatisticsPage = () => {
   const navigate = useNavigate();
-  const { user, setUser, logout } = useUserSession();
+  const { user, logout } = useUserSession();
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
@@ -81,19 +81,6 @@ const StatisticsPage = () => {
     });
     return colorMap;
   };
-
-  // Fetch and set permission flags from backend role on mount
-  useEffect(() => {
-    if (user?.backendRole) {
-      // Course coordinators are TEACHERS with assigned courses (not CONTROLLERS)
-      const isCourseCoordinator = user.backendRole === "TEACHER";
-      setUser({
-        ...user,
-        isCourseCoordinator,
-        isController: user.backendRole === "CONTROLLER",
-      });
-    }
-  }, [user?.backendRole, setUser]);
 
   // Fetch accessible courses on mount
   useEffect(() => {

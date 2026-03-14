@@ -74,6 +74,8 @@ class LoginView(APIView):
             'university_id': user.university_id,
             'full_name': user.full_name,
             'role': user.role,
+            'is_course_coordinator': user.role == 'TEACHER' and user.coordinated_courses.exists(),
+            'is_controller': user.role == 'CONTROLLER',
         })
         _set_auth_cookies(response, str(refresh.access_token), str(refresh))
         return response

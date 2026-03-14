@@ -30,25 +30,12 @@ const FacultyDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [hasCoordinatedCourses, setHasCoordinatedCourses] = useState(false);
   const navigate = useNavigate();
-  const { user, setUser, logout } = useUserSession();
+  const { user, logout } = useUserSession();
 
-
-
-  // Fetch and set permission flags from backend role on mount
+  // Session flags are now sourced from backend auth responses.
   useEffect(() => {
-    // Teachers can be course coordinators, Controllers are global viewers
-    if (user?.backendRole && user !== null && user !== undefined && !user?.isCourseCoordinator && !user?.isController) {
-      const isCourseCoordinator = user.backendRole === "TEACHER";
-      const isController = user.backendRole === "CONTROLLER";
-
-      setUser({
-        ...user,
-        isCourseCoordinator,
-        isController,
-      });
-    }
     setLoading(false);
-  }, [user?.backendRole]);
+  }, []);
 
   // Check if course coordinator actually has courses assigned
   useEffect(() => {

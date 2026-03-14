@@ -26,8 +26,8 @@ BEGIN
         INSERT INTO users (university_id, email, password, full_name, role, is_active, is_staff, is_superuser, is_verified, date_joined)
         VALUES ('T88888', 'prof.stats@kiit.ac.in', '!invalid', 'Prof. Statistics', 'TEACHER', true, false, false, true, NOW())
         RETURNING id INTO t_uid;
-        INSERT INTO teachers (user_id, school_id, specialization, is_coordinator)
-        VALUES (t_uid, 1, 'Data Science', true);
+        INSERT INTO teachers (user_id, school_id, specialization)
+        VALUES (t_uid, 1, 'Data Science');
     END IF;
 
     -- Allocations

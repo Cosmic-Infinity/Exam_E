@@ -7,6 +7,12 @@ while ! nc -z db 5432; do
 done
 echo "PostgreSQL started"
 
+BOOTSTRAP="${RUN_BOOTSTRAP:-1}"
+if [ "$BOOTSTRAP" != "1" ]; then
+    echo "Bootstrap disabled for this service. Skipping migrations/import pipeline."
+    exec "$@"
+fi
+
 # Run migrations
 # Using --fake-initial because the schema may already exist from init_db.sql
 python manage.py migrate --noinput --fake-initial
@@ -55,6 +61,10 @@ python scripts/import_students.py "Data/test_data/1_students.csv"
 # Step 3: Enrollments (Depends on Students and Allocations)
 echo "Importing Enrollments..."
 python scripts/bulk_enroll.py --csv "Data/test_data/5_enrollments.csv" --session "2024-2025"
+
+# Step 4: Auto-link exam docs and student paper pages from mediafiles
+echo "Linking exam media from backend/mediafiles..."
+python manage.py import_exam_media --overwrite-existing
 
 echo "--- Automatic Data Import Complete ---"
 # --- END DATA IMPORT ---

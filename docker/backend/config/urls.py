@@ -10,6 +10,10 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     # ── Django admin ─────────────────────────────────────
+    path('admin/stats/', views.admin_stats_dashboard, name='admin_stats_dashboard'),
+    path('admin/stats/api/grievances/', views.admin_stats_grievances, name='admin_stats_grievances'),
+    path('admin/stats/api/scores/', views.admin_stats_scores, name='admin_stats_scores'),
+    path('admin/stats/api/students/', views.admin_stats_students, name='admin_stats_students'),
     path('api/stats/dashboard/data/', views.stats_dashboard_data, name='stats_dashboard_data'),
     path('api/stats/subjects/', views.stats_subjects, name='stats_subjects'),
     path('api/stats/sections/', views.stats_sections, name='stats_sections'),

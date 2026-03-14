@@ -18,26 +18,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const response = await fetch("/api/auth/login/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          email: email,
-          password: password,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        toast.error(error.error || "Invalid credentials");
-        setLoading(false);
-        return;
-      }
-
-      const data = await response.json();
+      const data = await AuthService.login(email, password);
 
       // Convert role from TEACHER to student/faculty
       const userRole = data.role === "TEACHER" || data.role === "CONTROLLER" ? "faculty" : "student";
@@ -47,13 +28,15 @@ const Login = () => {
         role: userRole,
         fullName: data.full_name,
         backendRole: data.role, // Store backend role to determine permissions on dashboard
+        isCourseCoordinator: Boolean(data.is_course_coordinator),
+        isController: Boolean(data.is_controller),
       });
 
       toast.success(`Welcome, ${userRole === "faculty" ? "Faculty" : "Student"}!`);
       navigate(userRole === "faculty" ? "/dashboard/faculty" : "/dashboard/student");
     } catch (error) {
       console.error("Login error:", error);
-      toast.error("An error occurred. Please try again.");
+      toast.error(error instanceof Error ? error.message : "An error occurred. Please try again.");
     } finally {
       setLoading(false);
     }

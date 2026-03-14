@@ -10,12 +10,13 @@ This document outlines the workflows for populating the `Exam_E` database, speci
 | :--- | :--- | :--- | :--- |
 | **Student** | `STUDENT` | `False` | Application User. |
 | **Teacher** | `TEACHER` | `False` | Standard Faculty. Viewing stats requires Course Coordinator link. |
-| **Course Coordinator** | `TEACHER` | `False` | **Linked to Course via `coordinator_id`**. isCoordinator=true See below. |
+| **Course Coordinator** | `TEACHER` | `False` | **Real faculty capability** linked via `Course.coordinator_id`; grants stats access for assigned courses only. |
 | **Controller** | `CONTROLLER`| `False` | Faculty with Global Stats View. Can also teach courses. |
 
 
 ### Assigning Course Coordinators
 A **Course Coordinator** is a `TEACHER` user assigned to manage a course's statistics and grievances. The `Course` model has a `coordinator_id` field (ForeignKey to User).
+This coordinator capability is **not imported from CSV teacher data** and must be assigned explicitly.
 1.  **Via Django Admin Panel**: Go to `Courses`, select a course, and select a Teacher in the "Coordinator" dropdown. This will set the `Course.coordinator_id` field.
 2.  **Via Script**: Ensure the `Course` table is updated with the `user_id` of the teacher in the `coordinator_id` column.
 
@@ -27,22 +28,23 @@ The system now runs these imports **automatically** on startup inside the Docker
 
 ```bash
 # 1. Base Data (Schools, Streams)
-python scripts/import_academic_data.py --founders Data/schools_streams.csv
+python scripts/import_academic_data.py --founders "Data/test_data/0. schools_streams.csv"
 
 # 2. Faculty & Catalog
-python scripts/import_academic_data.py --teachers Data/teachers.csv
-python scripts/import_academic_data.py --courses Data/courses.csv
+python scripts/import_academic_data.py --teachers "Data/test_data/2_teachers.csv"
+python scripts/import_academic_data.py --courses "Data/test_data/3_courses.csv"
 
 # 3. Schedule (Allocations)
-python scripts/import_academic_data.py --allocations Data/allocations.csv
+python scripts/import_academic_data.py --allocations "Data/test_data/4_allocations.csv"
 
-# 4. Students (Batch files)
-for f in Data/2301.csv Data/2302.csv Data/2303.csv Data/2304.csv Data/2305.csv; do
-    python scripts/import_students.py "$f"
-done
+# 4. Students
+python scripts/import_students.py "Data/test_data/1_students.csv"
 
 # 5. Enrollments (Linking Students to Classes)
-python scripts/bulk_enroll.py --csv Data/enrollments.csv --session "Spring 2026"
+python scripts/bulk_enroll.py --csv "Data/test_data/5_enrollments.csv" --session "2024-2025"
+
+# 6. Exam media linking (papers + QP/AK)
+python manage.py import_exam_media --overwrite-existing
 ```
 
 ---
@@ -89,7 +91,8 @@ _Students do not upload papers. A dedicated department digitizes them, and page 
 ### Ground-Truth Storage
 - `exam_papers.pages` is the only paper file-path source.
 - Deprecated single-path fallbacks are removed.
-- Linking of pages to enrollments/exams must be done using allocation/enrollment ground-truth relationships.
+- Auto-linking maps folders named `ROLLNO_COURSECODE` under `backend/mediafiles/papers` to matching enrollments.
+- Question papers and answer keys are linked from `backend/mediafiles/exam_docs` into `Exam.question_paper_path` / `Exam.answer_key_path`.
 
 ## 6. Storage Strategy: `Data/` vs `mediafiles/`
 
@@ -97,10 +100,10 @@ The system uses a hybrid storage approach to handle large volumes of scanned ans
 
 | Directory | Purpose | Handling |
 | :--- | :--- | :--- |
-| **`Data/`**  | **Bulk Digitized Papers**. Contains the massive archive of scanned answer sheets (PDFs/JPGs) organized by semester/subject. | **Read-Only / Linked**. The system *links* these files directly in the database (e.g., storing `Data/Papers/...` paths). It does **NOT** copy them to `mediafiles` to save storage space. |
-| **`mediafiles/`** | **Ad-Hoc Uploads**. Stores files uploaded manually via the Django Admin interface (e.g., profile pictures, individual supplementary exam files). | **Managed by Django**. Files uploaded here are standard media files handled by Django's `FileField`. |
+| **`Data/`**  | Academic CSV seed files and other non-media bootstrap content. | Used by import scripts (`import_academic_data`, `import_students`, `bulk_enroll`). |
+| **`mediafiles/`** | Ground-truth media storage for testing/import flow. | Auto-link source for papers (`mediafiles/papers`) and exam docs (`mediafiles/exam_docs`), plus regular Django uploads. |
 
-> **Key Takeaway**: The automated import scripts strictly use `Data/`. They do not touch `mediafiles/`. If you are bulk importing, place your files in `Data/`.
+> **Key Takeaway**: CSV data comes from `Data/test_data`, while paper/doc linking comes from `backend/mediafiles`.
 
 ---
 

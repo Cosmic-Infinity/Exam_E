@@ -24,7 +24,7 @@
     - Expected values are copied from exam schema; awarded values start as `null` for unchecked papers.
 2.  **Coordinator Source of Truth** ✅:
     - `Course.coordinator` is now the only coordinator authority.
-    - Legacy `Teacher.is_coordinator` paths were removed.
+    - CSV/bootstrap imports do not set teacher coordinator flags; coordinator access is assigned in admin by linking teachers to courses.
 3.  **Deprecated Contract Cleanup** ✅:
     - Removed deprecated `ExamPaper.file_path`; `pages` is now the only paper asset source.
     - Removed legacy marks compatibility paths (`q1/p1` root shape) in favor of section-based `marks_json`.
@@ -32,9 +32,13 @@
     - Marks table is now dynamically built from schema-driven parts instead of fixed columns.
     - UI displays awarded/expected (`x/max`) at part and question totals.
     - On teacher save, blank part inputs are normalized to `0` before API update.
+5.  **Media Auto-Linking Restored for Testing** ✅:
+    - Startup now runs `import_exam_media` to auto-link paper pages from `backend/mediafiles/papers` by `ROLLNO_COURSECODE`.
+    - Question paper and answer key paths are auto-linked from `backend/mediafiles/exam_docs`.
+    - Admin stats route `/admin/stats/` and its chart APIs are restored for Django admin users.
 
 ### ⚠️ Current Limitations
-- Automatic exam-paper linking from legacy subject-folder mapping has been removed.
+- Auto-created exams (when missing) default to MIDSEM with configurable default marks; adjust in admin if needed.
 
 ---
 

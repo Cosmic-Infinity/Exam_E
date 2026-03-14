@@ -67,7 +67,7 @@ Frontend would fetch student 230501's data!
 ## Changes Made
 
 ### 1. **New File**: UserSessionContext ✅
-Created `src/context/UserSessionContext.tsx`:
+Created `src/app/context/UserSessionContext.tsx`:
 ```tsx
 export interface UserSession {
   universityId: string;        // student ID or faculty ID
@@ -227,17 +227,17 @@ const handleLogin = async (e: React.FormEvent) => {
 ## File Changes Summary
 
 **Deleted**:
-- ~~`src/context/AuthContext.tsx`~~ (Replaced by UserSessionContext)
+- ~~`src/app/context/AuthContext.tsx`~~ (Replaced by UserSessionContext)
 
 **Created**:
-- `src/context/UserSessionContext.tsx` (New session management)
+- `src/app/context/UserSessionContext.tsx` (New session management)
 
 **Modified**:
 - `src/App.tsx` - Import & wrap UserSessionProvider
-- `src/pages/Login.tsx` - Use useUserSession hook
-- `src/pages/StudentDashboard.tsx` - Use UserSessionContext, access universityId
-- `src/pages/EvaluationViewer.tsx` - Read ID from context, remove URL params
-- `src/services/evaluationService.ts` - Updated security comments
+- `src/app/pages/auth/Login.tsx` - Use useUserSession hook
+- `src/app/pages/dashboard/StudentDashboard.tsx` - Use UserSessionContext, access universityId
+- `src/app/pages/evaluation/EvaluationViewer.tsx` - Read ID from context, remove URL params
+- `src/app/services/evaluationService.ts` - Updated security comments
 
 ---
 

@@ -84,6 +84,10 @@ Action: Django adds tasks to Redis. Celery workers pick them up one by one and t
 
 **Bulk Password Management**: A dedicated tool in the admin panel to filter students by school, stream, section, or semester and generate credentials in bulk.
 
+**Media Auto-Import for Testing**: On startup, the backend auto-links exam assets from `backend/mediafiles`:
+- Student answer pages from `backend/mediafiles/papers/<ROLLNO>_<COURSECODE>/...`
+- Question papers and answer keys from `backend/mediafiles/exam_docs/`
+
 
 # 6. Authentication, Authorization & Security
 
@@ -111,7 +115,8 @@ The Django admin (`http://localhost/admin/`) is the central control hub for the 
   - Integrated with Celery for background email delivery.
 - **Academic Setup**:
   - Automated CSV imports via `docker/backend/entrypoint.sh` using `Data/test_data/`.
-  - Course coordinator assignment: Link teachers to courses for statistics access.
+  - Automatic media linking via `python manage.py import_exam_media --overwrite-existing`.
+  - Course coordinator is a real faculty capability, assigned by linking a teacher to `Course.coordinator`.
 - **Stats Dashboard**:
   - Real-time evaluation progress, grievance analytics, and score distribution.
 

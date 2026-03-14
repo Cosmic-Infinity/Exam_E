@@ -217,7 +217,7 @@ def _get_accessible_courses(user):
     """
     Returns courses accessible to user for statistics.
     """
-    if user.role == 'CONTROLLER':
+  if user.role == 'CONTROLLER' or (user.is_authenticated and user.is_staff):
         return Course.objects.all()  # See all courses
     elif user.role == 'TEACHER':
         # Only courses where this teacher is the coordinator
@@ -234,6 +234,7 @@ def _get_accessible_courses(user):
   - Can only view statistics for courses they explicitly coordinate
   - If assigned to teach specific courses, can grade those papers
 - **STUDENT** → No courses → No statistics access
+- **DJANGO ADMIN (`is_staff`)** → ALL courses in admin statistics dashboard and admin stats APIs
 
 ---
 
@@ -256,7 +257,7 @@ All require `[IsAuthenticated, IsTeacher]`
 | Endpoint                               | Method  |       Role(s)       |              Purpose               |
 | -------------------------------------- | :-----: | :-----------------: | :--------------------------------: |
 | `/api/teacher/allocations/`            |   GET   | TEACHER, CONTROLLER | List courses assigned as teacher\* |
-| `/api/teacher/allocations/{id}/exams/` |   GET   | TEACHER, CONTROLLER |       List exams for course        |
+| `/api/teacher/exams/{id}/`             |   GET   | TEACHER, CONTROLLER |       List exams for course        |
 | `/api/teacher/papers/`                 |   GET   | TEACHER, CONTROLLER |        List papers to grade        |
 | `/api/teacher/paper/{id}/`             | GET/PUT | TEACHER, CONTROLLER |     View/grade specific paper      |
 
@@ -283,13 +284,19 @@ All require `[IsAuthenticated]` + course access check
 
 | Endpoint                     | Method |        Role(s)         |          Scope          |
 | ---------------------------- | :----: | :--------------------: | :---------------------: |
-| `/api/stats/dashboard/data/` |  GET   | TEACHER\* / CONTROLLER | Accessible courses list |
-| `/api/stats/subjects/`       |  GET   | TEACHER\* / CONTROLLER |     Course catalog      |
-| `/api/stats/sections/`       |  GET   | TEACHER\* / CONTROLLER |     Course sections     |
-| `/api/stats/grievances/`     |  GET   | TEACHER\* / CONTROLLER |    Grievance metrics    |
-| `/api/stats/scores/`         |  GET   | TEACHER\* / CONTROLLER |   Score distribution    |
+| `/api/stats/dashboard/data/` |  GET   | TEACHER\* / CONTROLLER / ADMIN | Accessible courses list |
+| `/api/stats/subjects/`       |  GET   | TEACHER\* / CONTROLLER / ADMIN |     Course catalog      |
+| `/api/stats/sections/`       |  GET   | TEACHER\* / CONTROLLER / ADMIN |     Course sections     |
+| `/api/stats/grievances/`     |  GET   | TEACHER\* / CONTROLLER / ADMIN |    Grievance metrics    |
+| `/api/stats/scores/`         |  GET   | TEACHER\* / CONTROLLER / ADMIN |   Score distribution    |
 
 \*TEACHER must be course coordinator
+
+Admin dashboard endpoints (Django admin only):
+- `/admin/stats/`
+- `/admin/stats/api/grievances/`
+- `/admin/stats/api/scores/`
+- `/admin/stats/api/students/`
 
 ---
 
@@ -297,7 +304,7 @@ All require `[IsAuthenticated]` + course access check
 
 ### **User Session Context**
 
-**[frontend/src/context/UserSessionContext.tsx](docker/frontend/src/context/UserSessionContext.tsx)**
+**[frontend/src/app/context/UserSessionContext.tsx](docker/frontend/src/app/context/UserSessionContext.tsx)**
 
 ```tsx
 interface UserSession {
@@ -305,7 +312,7 @@ interface UserSession {
   role: "student" | "faculty"; // Derived role
   fullName: string;
   backendRole?: string; // Raw: STUDENT | TEACHER | CONTROLLER
-  isCourseCoordinator?: boolean; // backendRole === "TEACHER"
+  isCourseCoordinator?: boolean; // Derived from backend coordinator mapping
   isController?: boolean; // backendRole === "CONTROLLER"
 }
 ```
@@ -629,4 +636,4 @@ A CONTROLLER named "Dr. Smith" who examines 5 courses:
 | [core/api/stats.py](docker/backend/core/api/stats.py)                                             | Statistics APIs + course access logic |
 | [config/settings.py](docker/backend/config/settings.py)                                           |       JWT + CORS configuration        |
 | [config/urls.py](docker/backend/config/urls.py)                                                   |         API route definitions         |
-| [frontend/src/context/UserSessionContext.tsx](docker/frontend/src/context/UserSessionContext.tsx) |      Frontend user session state      |
+| [frontend/src/app/context/UserSessionContext.tsx](docker/frontend/src/app/context/UserSessionContext.tsx) |      Frontend user session state      |

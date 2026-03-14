@@ -68,7 +68,9 @@ Automatically on the first boot:
 - **Superuser**: Created automatically (Credentials below).
 - **Academic Data**: Imports Schools, Teachers, Courses from `Data/` CSVs.
 - **Student Data**: Imports Students & Enrollments from `Data/` CSVs. 
-- **Exam Linking**: Scans `Data/` folders (e.g., `Data/CN`, `Data/HPC`) and links PDFs to student records.
+- **Exam Media Linking**: Scans `backend/mediafiles/papers` and `backend/mediafiles/exam_docs` and auto-links:
+	- paper pages to `ExamPaper.pages` using `ROLLNO_COURSECODE` folder names,
+	- question paper and answer key paths to exams.
 
 ### Default Superuser Credentials (SYSTEM ADMIN)
 
@@ -97,6 +99,11 @@ While the system is automated, you can manually trigger commands if needed.
 If you need an additional admin:
 ```bash
 docker compose exec backend python manage.py createsuperuser
+```
+
+### Manual Media Re-Link (if files changed)
+```bash
+docker compose exec backend python manage.py import_exam_media --overwrite-existing
 ```
 
 ### Accessing the System

@@ -28,8 +28,8 @@ BEGIN
     ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email; -- Ensure email matches if ID exists
 
     -- 2. Create Teacher Profile
-    INSERT INTO teachers (user_id, school_id, specialization, is_coordinator)
-    VALUES (coord_user_id, existing_school_id, 'Statistics', true)
+    INSERT INTO teachers (user_id, school_id, specialization)
+    VALUES (coord_user_id, existing_school_id, 'Statistics')
     ON CONFLICT (user_id) DO NOTHING;
 
     -- 3. Create Course

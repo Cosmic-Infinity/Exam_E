@@ -1,6 +1,3 @@
-from django.contrib.admin.views.decorators import staff_member_required
-from django.shortcuts import render
-from django.http import JsonResponse
 from django.db.models import Count, Avg, F, Q
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -20,23 +17,6 @@ def _get_accessible_courses(user):
         # Teachers can only view stats if they are explicitly assigned as the coordinator
         return Course.objects.filter(coordinator=user)
     return Course.objects.none()
-
-# --- Legacy Admin View (Template) ---
-@staff_member_required
-def stats_dashboard(request):
-    """
-    Renders the HTML statistics dashboard for Staff/Admins within Django Admin.
-    """
-    # Get active allocations
-    allocations = CourseAllocation.objects.select_related('course').filter(session__is_active=True)
-    # Unique courses for dropdown
-    dashboard_courses = sorted(list(set([(a.course.course_code, a.course.title) for a in allocations])))
-    
-    context = {
-        'title': 'Statistics Dashboard',
-        'courses': dashboard_courses,
-    }
-    return render(request, 'admin/core/stats_dashboard.html', context)
 
 # --- New Data APIs (JSON) for Frontend ---
 

@@ -197,13 +197,7 @@ const EvaluationViewer = () => {
   const [scriptGrievance, setScriptGrievance] = useState<{ text: string; date: string } | null>(null);
 
   // Derived pages list
-  const pagesList =
-    currentScript?.pages && currentScript.pages.length > 0
-      ? currentScript.pages
-      : // Fallback if file_path is single image?
-        currentScript?.file_path && !currentScript.pages
-        ? [currentScript.file_path]
-        : Array.from({ length: DEFAULT_TOTAL_PAGES }, (_, i) => String(i + 1));
+  const pagesList = currentScript?.pages && currentScript.pages.length > 0 ? currentScript.pages : Array.from({ length: DEFAULT_TOTAL_PAGES }, (_, i) => String(i + 1));
 
   const totalPages = pagesList.length;
 

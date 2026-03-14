@@ -202,7 +202,6 @@ CREATE TABLE public.exam_papers (
     enrollment_id integer,
     exam_id integer,
     pages jsonb,  -- Array of page file paths: ["papers/ROLLNO_COURSECODE/page1.jpg", "papers/ROLLNO_COURSECODE/page2.jpg", ...]
-    file_path text,  -- Deprecated; pages array is the source of truth
     marks_json jsonb,
     total_score numeric(5,2),
     evaluation_status character varying(20) DEFAULT 'PENDING'::character varying,
@@ -365,8 +364,7 @@ ALTER TABLE public.students OWNER TO postgres;
 CREATE TABLE public.teachers (
     user_id integer NOT NULL,
     school_id integer,
-    specialization character varying(100),
-    is_coordinator boolean DEFAULT false
+    specialization character varying(100)
 );
 
 

@@ -47,7 +47,6 @@ class StudentPaperDetailSerializer(serializers.ModelSerializer):
         fields = [
             'paper_id', 
             'exam', 
-            'file_path',
             'pages',
             'marks_json', 
             'total_score', 

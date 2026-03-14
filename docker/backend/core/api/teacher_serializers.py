@@ -62,7 +62,6 @@ class ExamPaperDetailSerializer(serializers.ModelSerializer):
             'paper_id', 
             'student_university_id', 
             'student_name', 
-            'file_path',
             'pages',
             'marks_json', 
             'total_score', 
@@ -72,7 +71,7 @@ class ExamPaperDetailSerializer(serializers.ModelSerializer):
             'question_paper_path',
             'answer_key_path'
         ]
-        read_only_fields = ['paper_id', 'student_university_id', 'student_name', 'file_path', 'pages', 'question_paper_schema', 'exam_total_marks', 'question_paper_path', 'answer_key_path']
+        read_only_fields = ['paper_id', 'student_university_id', 'student_name', 'pages', 'question_paper_schema', 'exam_total_marks', 'question_paper_path', 'answer_key_path']
 
     def get_pages(self, obj):
         if not obj.pages:

@@ -136,7 +136,6 @@ class Migration(migrations.Migration):
             fields=[
                 ('paper_id', models.AutoField(primary_key=True, serialize=False)),
                 ('pages', models.JSONField(blank=True, null=True)),
-                ('file_path', models.TextField(blank=True, null=True)),
                 ('marks_json', models.JSONField(blank=True, null=True)),
                 ('total_score', models.DecimalField(blank=True, decimal_places=2, max_digits=5, null=True)),
                 ('evaluation_status', models.CharField(choices=[('PENDING', 'Pending'), ('IN_PROGRESS', 'In Progress'), ('COMPLETED', 'Completed'), ('REVALUATION', 'Revaluation')], default='PENDING', max_length=20)),
@@ -190,7 +189,6 @@ class Migration(migrations.Migration):
             fields=[
                 ('user', models.OneToOneField(db_column='user_id', on_delete=django.db.models.deletion.DO_NOTHING, primary_key=True, related_name='teacher_profile', serialize=False, to=settings.AUTH_USER_MODEL)),
                 ('specialization', models.CharField(blank=True, max_length=100, null=True)),
-                ('is_coordinator', models.BooleanField(default=False)),
                 ('school', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.DO_NOTHING, to='core.school')),
             ],
             options={

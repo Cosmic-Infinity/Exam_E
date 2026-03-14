@@ -56,10 +56,6 @@ python scripts/import_students.py "Data/test_data/1_students.csv"
 echo "Importing Enrollments..."
 python scripts/bulk_enroll.py --csv "Data/test_data/5_enrollments.csv" --session "2024-2025"
 
-# Step 4: Link Exam Papers (from Filesystem)
-echo "Linking File System Papers to Database..."
-python manage.py link_exam_data
-
 echo "--- Automatic Data Import Complete ---"
 # --- END DATA IMPORT ---
 

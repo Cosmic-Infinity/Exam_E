@@ -45,9 +45,6 @@ def _build_marks_template_from_schema(schema):
         'sections': [],
     }
 
-    # Keep q1/p1 style keys at root for current frontend compatibility.
-    legacy_marks = {}
-
     for section_index, section in enumerate(sections, start=1):
         questions_payload = []
         for fallback_q_index, question in enumerate(section.get('questions', []), start=1):
@@ -61,13 +58,6 @@ def _build_marks_template_from_schema(schema):
                 part_marks[part_key] = 0
                 part_max[part_key] = float(max_mark or 0)
 
-            legacy_key = f'q{int(q_no)}'
-            if legacy_key not in legacy_marks:
-                legacy_marks[legacy_key] = {}
-
-            for part_key, value in part_marks.items():
-                legacy_marks[legacy_key][part_key] = value
-
             questions_payload.append({
                 'q_no': int(q_no),
                 'parts': part_marks,
@@ -80,8 +70,6 @@ def _build_marks_template_from_schema(schema):
             'choose': section.get('choose'),
             'questions': questions_payload,
         })
-
-    marks_template.update(legacy_marks)
     return marks_template
 
 

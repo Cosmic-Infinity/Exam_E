@@ -2,23 +2,17 @@
 # Current Development Status & Roadmap
 
 > **Last Updated:** March 14, 2026  
-> **Summary:** Core exam data pipeline is complete. The system now supports schema-driven marks-template auto-generation for exam papers, coordinator consistency automation, automatic linking of scanned answer sheets to students based on fuzzy logic, and secure file serving for question papers and answer keys.
+> **Summary:** Core exam data pipeline is complete. The system now supports schema-driven marks-template auto-generation for exam papers, course-table coordinator authority, and secure file serving for question papers and answer keys.
 
 ---
 
 ## 🚀 Recent Progress (March 6, 2026)
 
-The project has achieved **Full Exam Data Lifecycle Automation**:
-
-1.  **Exam Data Linking & Management** ✅:
-    - **Automated Mapping**: Created `link_exam_data` command to map physical folder names (e.g., "HPC", "CN") to curriculum codes (e.g., "CS201", "CS101").
-    - **Test Data Support**: Restored support for the legacy `Data/Papers/MidSem` folder structure to ensure existing test datasets (containing JPGs) are correctly ingested.
-    - **Status Automation**: Exam papers are automatically set to `COMPLETED` upon import to ensure immediate visibility in the Student Portal.
-2.  **Infrastructure & File Serving** ✅:
+1.  **Infrastructure & File Serving** ✅:
     - **Digital Asset Serving**: configured Django (`urls.py`) to serve the `/Data/` directory securely in development mode, resolving "damaged file" errors on download.
     - **Frontend Viewer**: Updated `EvaluationViewer` to correctly handle file paths and gracefully display "No answer sheet found" states.
-    - **Zero-Touch Entrypoint**: Updated `entrypoint.sh` to run the full import pipeline (`import_academic_data`, `import_students`, `bulk_enroll`, `link_exam_data`) automatically on container start.
-3.  **Admin Experience** ✅:
+    - **Zero-Touch Entrypoint**: Updated `entrypoint.sh` to run the import pipeline (`import_academic_data`, `import_students`, `bulk_enroll`) automatically on container start.
+2.  **Admin Experience** ✅:
     - **Visual Debugging**: Added image previews to the Django Admin `ExamPaper` list view to quickly verify correct file linking.
 
 ## 🚀 Recent Progress (March 14, 2026)
@@ -26,16 +20,15 @@ The project has achieved **Full Exam Data Lifecycle Automation**:
 1.  **Schema-to-Marks Automation** ✅:
     - Added Celery-driven auto generation of `ExamPaper.marks_json` templates whenever `Exam.question_paper_schema` is created/updated.
     - Generation uses active enrollments for the exact exam allocation (course + section + session), with enrollment data as source of truth.
-2.  **Coordinator Source of Truth Sync** ✅:
-    - Course admin coordinator assignment now synchronizes `Teacher.is_coordinator` automatically.
-    - If coordinator is moved/removed in Course, stale teacher coordinator flags are cleared when no coordinated course remains.
-3.  **Teacher Admin UX Guardrail** ✅:
-    - In Teacher admin, course selection is disabled until `is_coordinator` is checked.
-    - Server-side validation still enforces that a course must be selected when coordinator is enabled.
+2.  **Coordinator Source of Truth** ✅:
+    - `Course.coordinator` is now the only coordinator authority.
+    - Legacy `Teacher.is_coordinator` paths were removed.
+3.  **Deprecated Contract Cleanup** ✅:
+    - Removed deprecated `ExamPaper.file_path`; `pages` is now the only paper asset source.
+    - Removed legacy marks compatibility paths (`q1/p1` root shape) in favor of section-based `marks_json`.
 
 ### ⚠️ Current Limitations
-- **Hardcoded Course Mapping**: The `link_exam_data` script currently uses a hardcoded dictionary to map folder names (e.g., "HPC") to course codes. This will be moved to a configuration file or database table in a future update (Issue #45).
-- **PDF-Only Support**: The new linking logic strictly expects `.pdf` files. Images (.jpg/.png) are not currently supported for automated linking.
+- Automatic exam-paper linking from legacy subject-folder mapping has been removed.
 
 ---
 

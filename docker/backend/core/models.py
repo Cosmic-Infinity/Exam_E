@@ -140,7 +140,6 @@ class Teacher(models.Model):
     school = models.ForeignKey(School, on_delete=models.DO_NOTHING, null=True, blank=True)
     specialization = models.CharField(max_length=100, null=True, blank=True)
     # Controller capabilities are handled by User.role == 'CONTROLLER'
-    is_coordinator = models.BooleanField(default=False) # Legacy flag, use Course.coordinator field
 
     class Meta:
         db_table = 'teachers'
@@ -212,7 +211,6 @@ class ExamPaper(models.Model):
     enrollment = models.ForeignKey(Enrollment, on_delete=models.DO_NOTHING)
     exam = models.ForeignKey('Exam', on_delete=models.DO_NOTHING, null=True, blank=True)
     pages = models.JSONField(null=True, blank=True)  # Array of page file paths: ["papers/ROLLNO_COURSECODE/page1.jpg", "papers/ROLLNO_COURSECODE/page2.jpg", ...]
-    file_path = models.TextField(null=True, blank=True)  # Deprecated; pages array is the source of truth
     marks_json = models.JSONField(null=True, blank=True)
     total_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     evaluation_status = models.CharField(max_length=20, default='PENDING', choices=[

@@ -66,7 +66,6 @@ Extension of the `users` table containing faculty specifics.
 | `user_id`        | Integer (PK, FK) | **Manual/Script** | **Link to User**. Same value as `users.id`.                      |
 | `school_id`      | Integer (FK)     | **Manual/Script** | **Department**. Which school (`schools.school_id`) employs them? |
 | `specialization` | Varchar(100)     | **Manual Input**  | Expertise.                                                       |
-| `is_coordinator` | Boolean          | **Manual Input**  | **Privilege Flag**. Indicates if the teacher has any administrative course coordination duties. <br> _Default: `false`_ |
 
 ## 6. academic_sessions
 
@@ -125,7 +124,6 @@ The catalog of subjects (Metadata only).
 | `enrollment_id`     | Integer (FK) | **Digitization Script** | **Context**. Extracted from folder/filename mapping.   |
 | `exam_id`           | Integer (FK) | **App Logic**           | **Exam Event**. Links to the specific exam definition. |
 | `pages`             | JSON         | **Digitization Script** | **File Paths**. Array of paths to the answer sheet images/PDFs. <br> _Example: `["Data/CS201/2305101.pdf"]`_ |
-| `file_path`         | Text         | **Legacy/Backup**       | Single file path (Deprecated in favor of `pages`). <br> _Nullable_ |
 | `marks_json`        | JSONB        | **App (Teacher)**       | Detailed scores. <br> _Nullable_                       |
 | `total_score`       | Numeric      | **App (Teacher)**       | Result. <br> _Nullable_                                |
 | `evaluation_status` | Varchar(20)  | **DB Default**          | Workflow state. <br> _Values: `'PENDING'`, `'COMPLETED'`_ |

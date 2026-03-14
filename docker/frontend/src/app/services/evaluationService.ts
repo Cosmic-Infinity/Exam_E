@@ -30,7 +30,6 @@ type TeacherPaperDetail = {
   paper_id: number;
   student_university_id: string;
   student_name: string;
-  file_path: string;
   marks_json: unknown;
   total_score: number | null;
   evaluation_status: "PENDING" | "IN_PROGRESS" | "COMPLETED";
@@ -64,7 +63,6 @@ type StudentPaperDetail = {
     course_code: string;
     course_title: string;
   };
-  file_path: string;
   marks_json: unknown;
   total_score: number | null;
   evaluation_status: "PENDING" | "IN_PROGRESS" | "COMPLETED";
@@ -104,28 +102,48 @@ function normalizeMarks(raw: unknown): MarksRow[] {
   // Case 1: already in frontend array format
   if (Array.isArray(raw)) return raw as MarksRow[];
 
-  // Case 2: backend JSON object format (q1/p1... style)
-  if (raw && typeof raw === "object") {
-    const obj = raw as Record<string, Record<string, number | string>>;
+  // Case 2: ground-truth backend schema format ({ sections: [...] })
+  if (raw && typeof raw === "object" && Array.isArray((raw as { sections?: unknown[] }).sections)) {
+    const marksObj = raw as {
+      sections: Array<{
+        questions?: Array<{
+          q_no?: number;
+          parts?: Record<string, number | string>;
+        }>;
+      }>;
+    };
 
     const rows: MarksRow[] = [];
-    for (let q = 1; q <= 5; q++) {
-      const qKey = `q${q}`;
-      const parts = obj[qKey] || {};
+    const cols = ["a", "b", "c", "d", "e"] as const;
 
-      rows.push({
-        q: `Q${q}`,
-        parts: {
-          a: String(parts.p1 ?? "0"),
-          b: String(parts.p2 ?? "0"),
-          c: String(parts.p3 ?? "0"),
-          d: String(parts.p4 ?? "0"),
-          e: String(parts.p5 ?? "0"),
-        },
-      });
+    for (const section of marksObj.sections) {
+      for (const question of section.questions || []) {
+        const qNo = question.q_no ?? rows.length + 1;
+        const partValues = question.parts || {};
+        const sortedPartKeys = Object.keys(partValues).sort((a, b) => {
+          const ai = Number(a.replace("p", ""));
+          const bi = Number(b.replace("p", ""));
+          return ai - bi;
+        });
+
+        const parts: Record<string, string> = { a: "0", b: "0", c: "0", d: "0", e: "0" };
+        cols.forEach((col, idx) => {
+          const key = sortedPartKeys[idx];
+          if (key) {
+            parts[col] = String(partValues[key] ?? "0");
+          }
+        });
+
+        rows.push({
+          q: `Q${qNo}`,
+          parts,
+        });
+      }
     }
 
-    return rows;
+    if (rows.length > 0) {
+      return rows;
+    }
   }
 
   return createEmptyMarks();
@@ -133,6 +151,62 @@ function normalizeMarks(raw: unknown): MarksRow[] {
 
 function cacheKey(rollNo: string, subjectCode: string): string {
   return `${rollNo}::${subjectCode.toLowerCase()}`;
+}
+
+function buildSectionMarksPayload(raw: unknown, rows: MarksRow[]) {
+  if (!raw || typeof raw !== "object" || !Array.isArray((raw as { sections?: unknown[] }).sections)) {
+    return raw;
+  }
+
+  const cols = ["a", "b", "c", "d", "e"] as const;
+  const rowMap = new Map<number, MarksRow>();
+  for (const row of rows) {
+    const qNo = Number(String(row.q).replace(/[^0-9]/g, ""));
+    if (!Number.isNaN(qNo) && qNo > 0) {
+      rowMap.set(qNo, row);
+    }
+  }
+
+  const payload = JSON.parse(JSON.stringify(raw)) as {
+    sections: Array<{
+      questions?: Array<{
+        q_no?: number;
+        parts?: Record<string, number | string>;
+      }>;
+    }>;
+  };
+
+  for (const section of payload.sections) {
+    for (const question of section.questions || []) {
+      const qNo = question.q_no;
+      if (!qNo || !question.parts) {
+        continue;
+      }
+
+      const row = rowMap.get(qNo);
+      if (!row) {
+        continue;
+      }
+
+      const partKeys = Object.keys(question.parts).sort((a, b) => {
+        const ai = Number(a.replace("p", ""));
+        const bi = Number(b.replace("p", ""));
+        return ai - bi;
+      });
+
+      partKeys.forEach((partKey, idx) => {
+        const col = cols[idx];
+        if (!col) {
+          return;
+        }
+
+        const value = row.parts[col];
+        question.parts![partKey] = value === "-" || value === "" ? 0 : Number(value) || 0;
+      });
+    }
+  }
+
+  return payload;
 }
 
 async function fetchTeacherScriptsInternal(): Promise<AnswerScript[]> {
@@ -201,7 +275,7 @@ export async function getScript(rollNo: string, subjectCode: string, role: "stud
   if (cached && role === "faculty") {
     const detail = (await AuthService.get(`/teacher/paper/${cached.id}/`)) as TeacherPaperDetail;
 
-      return {
+    return {
       id: String(detail.paper_id),
       rollNo: detail.student_university_id,
       subjectCode: cached.subjectCode,
@@ -209,13 +283,12 @@ export async function getScript(rollNo: string, subjectCode: string, role: "stud
       status: statusToScriptStatus(detail.evaluation_status),
       hasGrievance: false,
       marks: normalizeMarks(detail.marks_json),
-      file_path: detail.file_path ? `/${detail.file_path}` : undefined,
       question_paper_path: detail.question_paper_path ? `/${detail.question_paper_path}` : undefined,
       answer_key_path: detail.answer_key_path ? `/${detail.answer_key_path}` : undefined,
       question_paper_schema: detail.question_paper_schema,
       pages: detail.pages ? detail.pages.map((p) => `/${p}`) : undefined,
     };
-  }  // 2) Try teacher discovery only for faculty
+  } // 2) Try teacher discovery only for faculty
   if (role === "faculty") {
     try {
       const teacherScripts = await fetchTeacherScriptsInternal();
@@ -231,7 +304,6 @@ export async function getScript(rollNo: string, subjectCode: string, role: "stud
           status: statusToScriptStatus(detail.evaluation_status),
           hasGrievance: false,
           marks: normalizeMarks(detail.marks_json),
-          file_path: detail.file_path ? `/${detail.file_path}` : undefined,
           question_paper_path: detail.question_paper_path ? `/${detail.question_paper_path}` : undefined,
           answer_key_path: detail.answer_key_path ? `/${detail.answer_key_path}` : undefined,
           question_paper_schema: detail.question_paper_schema,
@@ -262,7 +334,6 @@ export async function getScript(rollNo: string, subjectCode: string, role: "stud
     status: statusToScriptStatus(detail.evaluation_status),
     hasGrievance: false,
     marks: normalizeMarks(detail.marks_json),
-    file_path: detail.file_path ? `/${detail.file_path}` : undefined,
     question_paper_path: detail.question_paper_path ? `/${detail.question_paper_path}` : undefined,
     answer_key_path: detail.answer_key_path ? `/${detail.answer_key_path}` : undefined,
     question_paper_schema: detail.question_paper_schema,
@@ -275,8 +346,11 @@ export async function saveMarks(rollNo: string, subjectCode: string, marks: Mark
   const script = await getScript(rollNo, subjectCode, role);
   if (!script) throw new Error("Paper not found");
 
+  const detail = (await AuthService.get(`/teacher/paper/${script.id}/`)) as TeacherPaperDetail;
+  const marksPayload = buildSectionMarksPayload(detail.marks_json, marks);
+
   await AuthService.put(`/teacher/paper/${script.id}/`, {
-    marks_json: marks,
+    marks_json: marksPayload,
     total_score: computeTotal(marks),
     evaluation_status: "COMPLETED",
   });

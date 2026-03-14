@@ -188,7 +188,6 @@ Fetches the full details of a specific paper, including all page images, questio
     "paper_id": 101,
     "student_university_id": "2305128",
     "student_name": "Alice Smith",
-    "file_path": "papers/2305128_CS302/page1.jpg",
     "pages": [
       "papers/2305128_CS302/page1.jpg",
       "papers/2305128_CS302/page2.jpg",
@@ -400,7 +399,6 @@ Fetches the full details of a specific paper, including all page images, questio
       "course_code": "CS302",
       "course_title": "Database Management Systems"
     },
-    "file_path": "papers/2305129_CS302/page1.jpg",
     "pages": [
       "papers/2305129_CS302/page1.jpg",
       "papers/2305129_CS302/page2.jpg",
@@ -409,8 +407,18 @@ Fetches the full details of a specific paper, including all page images, questio
     "question_paper_path": "exam_docs/CS302_MIDSEM_qp.pdf",
     "answer_key_path": "exam_docs/CS302_MIDSEM_key.pdf",
     "marks_json": {
-      "q1": { "p1": 1, "p2": 1, "p3": 0, "p4": 1, "p5": 1 },
-      "q2": { "p1": 2, "p2": 2.5 }
+      "template_version": 2,
+      "generated_from_schema": true,
+      "sections": [
+        {
+          "section_index": 1,
+          "type": "COMPULSORY",
+          "questions": [
+            { "q_no": 1, "parts": { "p1": 1, "p2": 1, "p3": 0, "p4": 1, "p5": 1 } },
+            { "q_no": 2, "parts": { "p1": 2, "p2": 2.5 } }
+          ]
+        }
+      ]
     },
     "total_score": "28.50",
     "evaluation_status": "COMPLETED",
@@ -595,7 +603,6 @@ Retrieves full details of a specific paper including all page images, marks brea
       "course_code": "CS201",
       "course_title": "Machine Learning"
     },
-    "file_path": null,
     "pages": [
       "papers/2205101_CS201/page1.jpg",
       "papers/2205101_CS201/page2.jpg",
@@ -619,4 +626,3 @@ Retrieves full details of a specific paper including all page images, marks brea
 - Contains an array of relative file paths to JPEG images
 - Images are served via `/media/` path: `http://localhost:8000/media/papers/2205101_CS201/page1.jpg`
 - Order in array determines display sequence in frontend
-- Deprecated `file_path` field is ignored in favor of `pages` array

@@ -84,36 +84,12 @@ _Before papers can be uploaded, the "Exam Event" must be created._
 
 ## 5. Exam Paper Digitization & Linking
 
-_Students do not upload papers. A dedicated department digitizes them, and the system automatically links them._
+_Students do not upload papers. A dedicated department digitizes them, and page paths are attached directly to `exam_papers.pages`._
 
-### Folder Structure (Test Data Configuration)
-The system currently uses a legacy structure for test data, where pages are grouped by subject and assigned to enrolled students for demonstration:
-
-```text
-Data/Papers/
-  ├── MidSem/
-  │   ├── [Subject_Folder]/  (e.g., "CN", "HPC")
-  │   │   ├── page1.jpg
-  │   │   └── ...
-  │   └── Answer Keys/
-  ├── EndSem/
-  │   └── ...
-  └── Questions/
-```
-
-### Automated Linking (The 'link_exam_data' Command)
-The `link_exam_data` script performs the following:
-
-1.  **Legacy Mapping**: Maps folders like "HPC" to "CS201" and "CN" to "CS101".
-2.  **Exam Creation**: Automatically generates Exam Events (MidSem/EndSem) for all active course allocations.
-3.  **Demo Assignment**: Assigns the set of images in the subject folder to the **first enrolled student** found for that course.
-    - **Purpose**: This ensures that when you log in as a test student (e.g., `2305101`), you have visible papers to view and evaluate.
-4.  **Status Update**: Automatically sets `exam_papers.evaluation_status` to `'COMPLETED'` so it is immediately visible.
-
-If you add new data, you can trigger this manually:
-```bash
-docker compose exec backend python manage.py link_exam_data
-```
+### Ground-Truth Storage
+- `exam_papers.pages` is the only paper file-path source.
+- Deprecated single-path fallbacks are removed.
+- Linking of pages to enrollments/exams must be done using allocation/enrollment ground-truth relationships.
 
 ## 6. Storage Strategy: `Data/` vs `mediafiles/`
 

@@ -342,7 +342,7 @@ const EvaluationViewer = () => {
         button.scrollIntoView({
           behavior: "smooth",
           block: "nearest",
-          inline: "center",
+          inline: "nearest",
         });
       }, 0);
     }
@@ -757,76 +757,71 @@ const EvaluationViewer = () => {
             {/* Left: Answer Sheet as Image */}
             <ResizablePanel defaultSize={55} minSize={35}>
               <div className="h-full flex flex-col bg-card/30">
-                {/* Page nav tabs with horizontal scroll */}
-                <div className="border-b border-border px-3 py-2 shrink-0 flex items-center gap-1">
-                  <span className="text-xs text-muted-foreground mr-2 shrink-0">Pages:</span>
-                  <div
-                    ref={paginationContainerRef}
-                    className="flex-1 min-w-0 overflow-x-auto"
-                    style={{
-                      scrollbarWidth: "thin",
-                      scrollbarColor: "hsl(var(--border)) transparent",
-                    }}
-                  >
-                    <div className="flex gap-1 pb-0.5">
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                        <button
-                          key={p}
-                          ref={(el) => {
-                            if (el) pageButtonRefs.current[p] = el;
-                          }}
-                          onClick={() => setActivePage(p)}
-                          className={`shrink-0 w-7 h-7 rounded-md text-xs font-mono font-semibold transition-colors ${
-                            activePage === p ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground hover:bg-card/80 border border-border"
-                          }`}
-                        >
-                          {p}
-                        </button>
-                      ))}
+                {/* Vertical pagination + viewer row */}
+                <div className="flex-1 h-full min-h-0 flex flex-row overflow-hidden">
+                  <div className="w-16 h-full shrink-0 border-r border-border bg-card/40 flex flex-col" style={{ maxHeight: "calc(100vh - 150px)", flexShrink: 0 }}>
+                    <div className="px-2 py-2 border-b border-border/70 text-center shrink-0">
+                      <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Pages</span>
+                    </div>
+                    <div ref={paginationContainerRef} className="pagination-visible-scroll flex-1 h-full max-h-full overflow-y-scroll overflow-x-hidden px-2 py-2" style={{ maxHeight: "calc(100vh - 150px)" }}>
+                      <div className="flex flex-col items-center gap-1">
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                          <button
+                            key={p}
+                            ref={(el) => {
+                              if (el) pageButtonRefs.current[p] = el;
+                            }}
+                            onClick={() => setActivePage(p)}
+                            className={`w-10 h-8 rounded-md text-xs font-mono font-semibold transition-colors ${
+                              activePage === p ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground hover:bg-card/80 border border-border"
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Answer Sheet Image Viewer */}
-                <div className="flex-1 relative flex items-center justify-center p-4 gap-2 overflow-hidden">
-                  <button
-                    onClick={handlePrev}
-                    disabled={activePage === 1}
-                    className="absolute left-2 z-20 w-8 h-14 rounded-lg bg-card/80 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card disabled:opacity-30 transition-all shrink-0"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                    </svg>
-                  </button>
+                  <div className="flex-1 relative flex items-center justify-center p-4 gap-2 overflow-hidden">
+                    <button
+                      onClick={handlePrev}
+                      disabled={activePage === 1}
+                      className="absolute left-2 z-20 w-8 h-14 rounded-lg bg-card/80 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card disabled:opacity-30 transition-all shrink-0"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                      </svg>
+                    </button>
 
-                  <div className="relative flex items-center justify-center h-full" style={{ maxHeight: "100%", maxWidth: "100%" }} ref={answerSheetContainerRef}>
-                    <div style={{ transform: `rotate(${rotation}deg)` }}>
-                      <AnswerSheetImage
-                        page={activePage}
-                        subjectCode={subjectCode}
-                        rollNo={rollNo}
-                        totalPages={totalPages}
-                        src={currentScript?.pages ? currentScript.pages[activePage - 1] : undefined}
+                    <div className="relative flex items-center justify-center h-full" style={{ maxHeight: "100%", maxWidth: "100%" }} ref={answerSheetContainerRef}>
+                      <div style={{ transform: `rotate(${rotation}deg)` }}>
+                        <AnswerSheetImage
+                          page={activePage}
+                          subjectCode={subjectCode}
+                          rollNo={rollNo}
+                          totalPages={totalPages}
+                          src={currentScript?.pages ? currentScript.pages[activePage - 1] : undefined}
+                        />
+                      </div>
+                      {/* Drawing Canvas Overlay - Always present, cursor/events change based on drawMode */}
+                      <canvas
+                        ref={canvasRef}
+                        onMouseDown={handleCanvasMouseDown}
+                        onMouseMove={handleCanvasMouseMove}
+                        onMouseUp={handleCanvasMouseUp}
+                        onMouseLeave={handleCanvasMouseUp}
+                        className="absolute inset-0 z-10 transition-opacity"
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          pointerEvents: drawMode ? "auto" : "none",
+                          cursor: drawMode ? "crosshair" : "default",
+                          backgroundColor: "transparent",
+                          opacity: drawMode ? 1 : 0.5,
+                        }}
                       />
                     </div>
-                    {/* Drawing Canvas Overlay - Always present, cursor/events change based on drawMode */}
-                    <canvas
-                      ref={canvasRef}
-                      onMouseDown={handleCanvasMouseDown}
-                      onMouseMove={handleCanvasMouseMove}
-                      onMouseUp={handleCanvasMouseUp}
-                      onMouseLeave={handleCanvasMouseUp}
-                      className="absolute inset-0 z-10 transition-opacity"
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        pointerEvents: drawMode ? "auto" : "none",
-                        cursor: drawMode ? "crosshair" : "default",
-                        backgroundColor: "transparent",
-                        opacity: drawMode ? 1 : 0.5,
-                      }}
-                    />
-                  </div>
 
                   {/* Rotation Buttons - Top Right Corner */}
                   <div className="absolute top-2 right-2 z-30 flex flex-col gap-1">
@@ -943,15 +938,16 @@ const EvaluationViewer = () => {
                     </div>
                   </div>
 
-                  <button
-                    onClick={handleNext}
-                    disabled={activePage === totalPages}
-                    className="absolute right-2 z-20 w-8 h-14 rounded-lg bg-card/80 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card disabled:opacity-30 transition-all shrink-0"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
-                  </button>
+                    <button
+                      onClick={handleNext}
+                      disabled={activePage === totalPages}
+                      className="absolute right-2 z-20 w-8 h-14 rounded-lg bg-card/80 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card disabled:opacity-30 transition-all shrink-0"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="border-t border-border px-4 py-1.5 text-center shrink-0">

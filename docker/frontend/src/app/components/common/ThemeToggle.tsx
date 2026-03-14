@@ -15,7 +15,7 @@ const ThemeToggle = () => {
           className="sr-only"
         />
         <span className={`text-xs font-medium transition-colors ${theme === "dark" ? "text-primary" : "text-muted-foreground"}`}>
-          🌙 Dark
+          Dark
         </span>
       </label>
       <div className="w-px h-4 bg-border" />
@@ -29,7 +29,7 @@ const ThemeToggle = () => {
           className="sr-only"
         />
         <span className={`text-xs font-medium transition-colors ${theme === "light" ? "text-primary" : "text-muted-foreground"}`}>
-          ☀️ Light
+          Light
         </span>
       </label>
     </div>

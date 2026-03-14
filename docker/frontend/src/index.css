@@ -115,3 +115,17 @@
     font-family: var(--mono);
   }
 }
+
+.pagination-visible-scroll {
+  scrollbar-width: auto;
+}
+
+.pagination-visible-scroll::-webkit-scrollbar {
+  width: 8px;
+  display: block;
+}
+
+.pagination-visible-scroll::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 4px;
+}

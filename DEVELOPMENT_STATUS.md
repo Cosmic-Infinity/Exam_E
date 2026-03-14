@@ -1,8 +1,8 @@
 ```markdown
 # Current Development Status & Roadmap
 
-> **Last Updated:** March 6, 2026  
-> **Summary:** Core exam data pipeline is complete. The system now supports end-to-end data import, automatic linking of scanned answer sheets to students based on fuzzy logic, and secure file serving for question papers and answer keys.
+> **Last Updated:** March 14, 2026  
+> **Summary:** Core exam data pipeline is complete. The system now supports schema-driven marks-template auto-generation for exam papers, coordinator consistency automation, automatic linking of scanned answer sheets to students based on fuzzy logic, and secure file serving for question papers and answer keys.
 
 ---
 
@@ -20,6 +20,18 @@ The project has achieved **Full Exam Data Lifecycle Automation**:
     - **Zero-Touch Entrypoint**: Updated `entrypoint.sh` to run the full import pipeline (`import_academic_data`, `import_students`, `bulk_enroll`, `link_exam_data`) automatically on container start.
 3.  **Admin Experience** ✅:
     - **Visual Debugging**: Added image previews to the Django Admin `ExamPaper` list view to quickly verify correct file linking.
+
+## 🚀 Recent Progress (March 14, 2026)
+
+1.  **Schema-to-Marks Automation** ✅:
+    - Added Celery-driven auto generation of `ExamPaper.marks_json` templates whenever `Exam.question_paper_schema` is created/updated.
+    - Generation uses active enrollments for the exact exam allocation (course + section + session), with enrollment data as source of truth.
+2.  **Coordinator Source of Truth Sync** ✅:
+    - Course admin coordinator assignment now synchronizes `Teacher.is_coordinator` automatically.
+    - If coordinator is moved/removed in Course, stale teacher coordinator flags are cleared when no coordinated course remains.
+3.  **Teacher Admin UX Guardrail** ✅:
+    - In Teacher admin, course selection is disabled until `is_coordinator` is checked.
+    - Server-side validation still enforces that a course must be selected when coordinator is enabled.
 
 ### ⚠️ Current Limitations
 - **Hardcoded Course Mapping**: The `link_exam_data` script currently uses a hardcoded dictionary to map folder names (e.g., "HPC") to course codes. This will be moved to a configuration file or database table in a future update (Issue #45).

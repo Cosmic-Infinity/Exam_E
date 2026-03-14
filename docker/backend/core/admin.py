@@ -107,6 +107,23 @@ class CourseAdmin(admin.ModelAdmin):
             kwargs["queryset"] = User.objects.filter(role__in=['TEACHER', 'CONTROLLER'])
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
+    def save_model(self, request, obj, form, change):
+        previous_coordinator_id = None
+        if change and obj.pk:
+            previous_coordinator_id = Course.objects.filter(pk=obj.pk).values_list('coordinator_id', flat=True).first()
+
+        super().save_model(request, obj, form, change)
+
+        new_coordinator_id = obj.coordinator_id
+
+        if new_coordinator_id:
+            Teacher.objects.filter(user_id=new_coordinator_id).update(is_coordinator=True)
+
+        if previous_coordinator_id and previous_coordinator_id != new_coordinator_id:
+            still_coordinates_any = Course.objects.filter(coordinator_id=previous_coordinator_id).exists()
+            if not still_coordinates_any:
+                Teacher.objects.filter(user_id=previous_coordinator_id).update(is_coordinator=False)
+
 @admin.register(CourseAllocation)
 class CourseAllocationAdmin(admin.ModelAdmin):
     list_display = ('course', 'section_name', 'session', 'teacher', 'semester')
@@ -352,6 +369,9 @@ class TeacherAdmin(admin.ModelAdmin):
                 except Exception:
                     pass
 
+            if not self.initial.get('is_coordinator') and not getattr(self.instance, 'is_coordinator', False):
+                self.fields['coordinated_course'].widget.attrs['disabled'] = 'disabled'
+
         def clean(self):
             cleaned_data = super().clean()
             is_coordinator = cleaned_data.get('is_coordinator')
@@ -360,10 +380,16 @@ class TeacherAdmin(admin.ModelAdmin):
             # VALIDATION RULE: If checked, must pick a course
             if is_coordinator and not course:
                 self.add_error('coordinated_course', "You marked this teacher as a Coordinator. You must select which course they coordinate.")
+
+            if not is_coordinator:
+                cleaned_data['coordinated_course'] = None
             
             return cleaned_data
 
     form = TeacherAdminForm
+
+    class Media:
+        js = ('admin/core/js/teacher_admin_toggle.js',)
 
     def save_model(self, request, obj, form, change):
         # 1. Save the Teacher model (updates is_coordinator flag)

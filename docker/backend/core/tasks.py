@@ -12,12 +12,77 @@ import logging
 import string
 import random
 import uuid
+from copy import deepcopy
 from celery import shared_task
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from django.conf import settings
+from django.db import transaction
+from core.models import Exam, Enrollment, ExamPaper
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_schema_sections(schema):
+    if not schema:
+        return []
+
+    if isinstance(schema, dict) and isinstance(schema.get('sections'), list):
+        return schema.get('sections', [])
+
+    # Backward-compatible parser for array-only schema payloads.
+    if isinstance(schema, list):
+        return [{'type': 'COMPULSORY', 'questions': schema}]
+
+    return []
+
+
+def _build_marks_template_from_schema(schema):
+    sections = _extract_schema_sections(schema)
+    marks_template = {
+        'template_version': 2,
+        'generated_from_schema': True,
+        'sections': [],
+    }
+
+    # Keep q1/p1 style keys at root for current frontend compatibility.
+    legacy_marks = {}
+
+    for section_index, section in enumerate(sections, start=1):
+        questions_payload = []
+        for fallback_q_index, question in enumerate(section.get('questions', []), start=1):
+            q_no = question.get('q_no') or fallback_q_index
+            parts = question.get('parts', []) if isinstance(question.get('parts'), list) else []
+
+            part_marks = {}
+            part_max = {}
+            for p_index, max_mark in enumerate(parts, start=1):
+                part_key = f'p{p_index}'
+                part_marks[part_key] = 0
+                part_max[part_key] = float(max_mark or 0)
+
+            legacy_key = f'q{int(q_no)}'
+            if legacy_key not in legacy_marks:
+                legacy_marks[legacy_key] = {}
+
+            for part_key, value in part_marks.items():
+                legacy_marks[legacy_key][part_key] = value
+
+            questions_payload.append({
+                'q_no': int(q_no),
+                'parts': part_marks,
+                'max_parts': part_max,
+            })
+
+        marks_template['sections'].append({
+            'section_index': section_index,
+            'type': section.get('type', 'COMPULSORY'),
+            'choose': section.get('choose'),
+            'questions': questions_payload,
+        })
+
+    marks_template.update(legacy_marks)
+    return marks_template
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=30)
@@ -173,3 +238,64 @@ def generate_and_email_passwords_task(self, user_ids: list[int], algorithm: str)
             logger.error(f"An error occurred for user {user_id} in generate_and_email_passwords_task: {e}")
     
     logger.info("Finished bulk password generation task.")
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=30)
+def generate_exam_paper_marks_template_task(self, exam_id: int):
+    """
+    Auto-creates/refreshes marks templates for all ACTIVE enrollments of an exam
+    whenever the exam schema is set/updated.
+    """
+    try:
+        exam = Exam.objects.select_related('allocation__course').get(pk=exam_id)
+    except Exam.DoesNotExist:
+        logger.warning('generate_exam_paper_marks_template_task: exam %s not found', exam_id)
+        return
+
+    if not exam.question_paper_schema:
+        logger.info('Exam %s has no schema; skipping marks template generation.', exam_id)
+        return
+
+    marks_template = _build_marks_template_from_schema(exam.question_paper_schema)
+
+    enrollments = Enrollment.objects.filter(
+        allocation=exam.allocation,
+        status='ACTIVE',
+    ).select_related('student', 'allocation__course')
+
+    if not enrollments.exists():
+        logger.info('No ACTIVE enrollments found for exam %s allocation %s', exam_id, exam.allocation_id)
+        return
+
+    created_count = 0
+    updated_count = 0
+
+    with transaction.atomic():
+        for enrollment in enrollments:
+            paper, created = ExamPaper.objects.get_or_create(
+                enrollment=enrollment,
+                exam=exam,
+                defaults={
+                    'marks_json': deepcopy(marks_template),
+                    'evaluation_status': 'PENDING',
+                    'total_score': None,
+                },
+            )
+
+            if created:
+                created_count += 1
+                continue
+
+            # Fresh-system policy: overwrite template from latest schema.
+            paper.marks_json = deepcopy(marks_template)
+            paper.total_score = None
+            paper.evaluation_status = 'PENDING'
+            paper.save(update_fields=['marks_json', 'total_score', 'evaluation_status'])
+            updated_count += 1
+
+    logger.info(
+        'Exam %s marks template generation completed: created=%s updated=%s',
+        exam_id,
+        created_count,
+        updated_count,
+    )

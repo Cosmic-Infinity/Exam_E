@@ -49,7 +49,7 @@ const PAGE_COLORS = [
   "from-indigo-900/38 to-slate-900/48",
 ];
 
-const AnswerSheetImage = ({ page, subjectCode, rollNo, src }: { page: number; subjectCode: string; rollNo: string; src?: string }) => {
+const AnswerSheetImage = ({ page, subjectCode, rollNo, src, totalPages }: { page: number; subjectCode: string; rollNo: string; src?: string; totalPages?: number }) => {
   if (src) {
     // If src is provided, use the real image
     // Ensure we are pointing to the backend URL if it's a relative path

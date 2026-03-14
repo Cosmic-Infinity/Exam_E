@@ -20,12 +20,18 @@
 1.  **Schema-to-Marks Automation** ✅:
     - Added Celery-driven auto generation of `ExamPaper.marks_json` templates whenever `Exam.question_paper_schema` is created/updated.
     - Generation uses active enrollments for the exact exam allocation (course + section + session), with enrollment data as source of truth.
+    - Updated marks template to **v3** shape with `expected_marks` + nullable `awarded_marks` and question totals.
+    - Expected values are copied from exam schema; awarded values start as `null` for unchecked papers.
 2.  **Coordinator Source of Truth** ✅:
     - `Course.coordinator` is now the only coordinator authority.
     - Legacy `Teacher.is_coordinator` paths were removed.
 3.  **Deprecated Contract Cleanup** ✅:
     - Removed deprecated `ExamPaper.file_path`; `pages` is now the only paper asset source.
     - Removed legacy marks compatibility paths (`q1/p1` root shape) in favor of section-based `marks_json`.
+4.  **Frontend Evaluation Upgrade** ✅:
+    - Marks table is now dynamically built from schema-driven parts instead of fixed columns.
+    - UI displays awarded/expected (`x/max`) at part and question totals.
+    - On teacher save, blank part inputs are normalized to `0` before API update.
 
 ### ⚠️ Current Limitations
 - Automatic exam-paper linking from legacy subject-folder mapping has been removed.

@@ -391,7 +391,8 @@ CONSTRAINT users_role_check CHECK (
 
 5. Business Logic:
    ├─ Grade the paper
-   ├─ Save marks_json, total_score
+  ├─ Save v3 marks_json (expected marks + awarded marks), total_score
+  ├─ Normalize blank awarded inputs to 0 on save
    └─ Update evaluation_status
 
 6. Response: 200 OK with updated paper data

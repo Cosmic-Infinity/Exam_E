@@ -108,35 +108,40 @@ function normalizeMarks(raw: unknown): MarksRow[] {
       sections: Array<{
         questions?: Array<{
           q_no?: number;
-          parts?: Record<string, number | string>;
+          parts?: Array<{
+            part_no?: number;
+            expected_marks?: number;
+            awarded_marks?: number | null;
+          }>;
+          expected_total?: number;
         }>;
       }>;
     };
 
     const rows: MarksRow[] = [];
-    const cols = ["a", "b", "c", "d", "e"] as const;
+    const labels = "abcdefghijklmnopqrstuvwxyz";
 
     for (const section of marksObj.sections) {
       for (const question of section.questions || []) {
         const qNo = question.q_no ?? rows.length + 1;
-        const partValues = question.parts || {};
-        const sortedPartKeys = Object.keys(partValues).sort((a, b) => {
-          const ai = Number(a.replace("p", ""));
-          const bi = Number(b.replace("p", ""));
-          return ai - bi;
+        const sortedParts = [...(question.parts || [])].sort((a, b) => (a.part_no || 0) - (b.part_no || 0));
+        const parts: Record<string, string> = {};
+        const expectedParts: Record<string, number> = {};
+
+        sortedParts.forEach((part, idx) => {
+          const col = labels[idx] || `p${idx + 1}`;
+          const awarded = part.awarded_marks;
+          parts[col] = awarded === null || awarded === undefined ? "" : String(awarded);
+          expectedParts[col] = Number(part.expected_marks ?? 0);
         });
 
-        const parts: Record<string, string> = { a: "0", b: "0", c: "0", d: "0", e: "0" };
-        cols.forEach((col, idx) => {
-          const key = sortedPartKeys[idx];
-          if (key) {
-            parts[col] = String(partValues[key] ?? "0");
-          }
-        });
+        const expectedTotal = Number(question.expected_total ?? sortedParts.reduce((acc, p) => acc + Number(p.expected_marks ?? 0), 0));
 
         rows.push({
           q: `Q${qNo}`,
           parts,
+          expectedParts,
+          expectedTotal,
         });
       }
     }
@@ -158,7 +163,6 @@ function buildSectionMarksPayload(raw: unknown, rows: MarksRow[]) {
     return raw;
   }
 
-  const cols = ["a", "b", "c", "d", "e"] as const;
   const rowMap = new Map<number, MarksRow>();
   for (const row of rows) {
     const qNo = Number(String(row.q).replace(/[^0-9]/g, ""));
@@ -171,7 +175,12 @@ function buildSectionMarksPayload(raw: unknown, rows: MarksRow[]) {
     sections: Array<{
       questions?: Array<{
         q_no?: number;
-        parts?: Record<string, number | string>;
+        parts?: Array<{
+          part_no?: number;
+          expected_marks?: number;
+          awarded_marks?: number | null;
+        }>;
+        awarded_total?: number | null;
       }>;
     }>;
   };
@@ -188,21 +197,19 @@ function buildSectionMarksPayload(raw: unknown, rows: MarksRow[]) {
         continue;
       }
 
-      const partKeys = Object.keys(question.parts).sort((a, b) => {
-        const ai = Number(a.replace("p", ""));
-        const bi = Number(b.replace("p", ""));
-        return ai - bi;
+      const sortedParts = [...question.parts].sort((a, b) => (a.part_no || 0) - (b.part_no || 0));
+      const rowPartKeys = Object.keys(row.parts).sort();
+
+      let awardedTotal = 0;
+      sortedParts.forEach((part, idx) => {
+        const rowKey = rowPartKeys[idx];
+        const value = rowKey ? row.parts[rowKey] : "";
+        const awarded = value === "-" || value === "" ? 0 : Number(value) || 0;
+        part.awarded_marks = awarded;
+        awardedTotal += awarded;
       });
 
-      partKeys.forEach((partKey, idx) => {
-        const col = cols[idx];
-        if (!col) {
-          return;
-        }
-
-        const value = row.parts[col];
-        question.parts![partKey] = value === "-" || value === "" ? 0 : Number(value) || 0;
-      });
+      question.awarded_total = awardedTotal;
     }
   }
 

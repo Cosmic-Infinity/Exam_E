@@ -17,6 +17,8 @@ export interface Subject {
 export interface MarksRow {
   q: string;
   parts: Record<string, string>;
+  expectedParts: Record<string, number>;
+  expectedTotal: number;
 }
 
 export interface StudentResult {
@@ -61,20 +63,18 @@ export const SUBJECTS: Subject[] = [
   { code: "ME2001", name: "Engineering Mathematics" },
 ];
 
-export const SUBJECT_MAP: Record<string, string> = Object.fromEntries(
-  SUBJECTS.map((s) => [s.code.toLowerCase(), s.name])
-);
+export const SUBJECT_MAP: Record<string, string> = Object.fromEntries(SUBJECTS.map((s) => [s.code.toLowerCase(), s.name]));
 
 export const EMPTY_MARKS: MarksRow[] = [
-  { q: "Q1", parts: { a: "0", b: "0", c: "0", d: "0", e: "0" } },
-  { q: "Q2", parts: { a: "0", b: "0", c: "0", d: "0", e: "0" } },
-  { q: "Q3", parts: { a: "0", b: "0", c: "0", d: "0", e: "0" } },
-  { q: "Q4", parts: { a: "0", b: "0", c: "0", d: "0", e: "0" } },
-  { q: "Q5", parts: { a: "0", b: "0", c: "0", d: "0", e: "0" } },
+  { q: "Q1", parts: { a: "0", b: "0", c: "0", d: "0", e: "0" }, expectedParts: { a: 0, b: 0, c: 0, d: 0, e: 0 }, expectedTotal: 0 },
+  { q: "Q2", parts: { a: "0", b: "0", c: "0", d: "0", e: "0" }, expectedParts: { a: 0, b: 0, c: 0, d: 0, e: 0 }, expectedTotal: 0 },
+  { q: "Q3", parts: { a: "0", b: "0", c: "0", d: "0", e: "0" }, expectedParts: { a: 0, b: 0, c: 0, d: 0, e: 0 }, expectedTotal: 0 },
+  { q: "Q4", parts: { a: "0", b: "0", c: "0", d: "0", e: "0" }, expectedParts: { a: 0, b: 0, c: 0, d: 0, e: 0 }, expectedTotal: 0 },
+  { q: "Q5", parts: { a: "0", b: "0", c: "0", d: "0", e: "0" }, expectedParts: { a: 0, b: 0, c: 0, d: 0, e: 0 }, expectedTotal: 0 },
 ];
 
 export function createEmptyMarks(): MarksRow[] {
-  return EMPTY_MARKS.map((r) => ({ ...r, parts: { ...r.parts } }));
+  return EMPTY_MARKS.map((r) => ({ ...r, parts: { ...r.parts }, expectedParts: { ...r.expectedParts } }));
 }
 
 export function computeTotal(marks: MarksRow[]): number {

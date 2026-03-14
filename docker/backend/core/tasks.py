@@ -40,7 +40,7 @@ def _extract_schema_sections(schema):
 def _build_marks_template_from_schema(schema):
     sections = _extract_schema_sections(schema)
     marks_template = {
-        'template_version': 2,
+        'template_version': 3,
         'generated_from_schema': True,
         'sections': [],
     }
@@ -51,17 +51,22 @@ def _build_marks_template_from_schema(schema):
             q_no = question.get('q_no') or fallback_q_index
             parts = question.get('parts', []) if isinstance(question.get('parts'), list) else []
 
-            part_marks = {}
-            part_max = {}
+            parts_payload = []
+            expected_total = 0.0
             for p_index, max_mark in enumerate(parts, start=1):
-                part_key = f'p{p_index}'
-                part_marks[part_key] = 0
-                part_max[part_key] = float(max_mark or 0)
+                expected_marks = float(max_mark or 0)
+                expected_total += expected_marks
+                parts_payload.append({
+                    'part_no': p_index,
+                    'expected_marks': expected_marks,
+                    'awarded_marks': None,
+                })
 
             questions_payload.append({
                 'q_no': int(q_no),
-                'parts': part_marks,
-                'max_parts': part_max,
+                'expected_total': expected_total,
+                'awarded_total': None,
+                'parts': parts_payload,
             })
 
         marks_template['sections'].append({

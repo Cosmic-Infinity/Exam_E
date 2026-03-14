@@ -124,9 +124,39 @@ The catalog of subjects (Metadata only).
 | `enrollment_id`     | Integer (FK) | **Digitization Script** | **Context**. Extracted from folder/filename mapping.   |
 | `exam_id`           | Integer (FK) | **App Logic**           | **Exam Event**. Links to the specific exam definition. |
 | `pages`             | JSON         | **Digitization Script** | **File Paths**. Array of paths to the answer sheet images/PDFs. <br> _Example: `["Data/CS201/2305101.pdf"]`_ |
-| `marks_json`        | JSONB        | **App (Teacher)**       | Detailed scores. <br> _Nullable_                       |
+| `marks_json`        | JSONB        | **App (Teacher)**       | Structured marks payload (v3): section/question/part with `expected_marks`, nullable `awarded_marks`, and totals. <br> _Nullable_                       |
 | `total_score`       | Numeric      | **App (Teacher)**       | Result. <br> _Nullable_                                |
 | `evaluation_status` | Varchar(20)  | **DB Default**          | Workflow state. <br> _Values: `'PENDING'`, `'COMPLETED'`_ |
+
+### `marks_json` (v3) ground-truth shape
+
+```json
+{
+     "template_version": 3,
+     "generated_from_schema": true,
+     "sections": [
+          {
+               "section_index": 1,
+               "type": "COMPULSORY",
+               "questions": [
+                    {
+                         "q_no": 1,
+                         "expected_total": 10,
+                         "awarded_total": null,
+                         "parts": [
+                              { "part_no": 1, "expected_marks": 5, "awarded_marks": null },
+                              { "part_no": 2, "expected_marks": 5, "awarded_marks": null }
+                         ]
+                    }
+               ]
+          }
+     ]
+}
+```
+
+- `expected_marks`/`expected_total` come directly from `question_paper_schema`.
+- `awarded_marks`/`awarded_total` remain `null` until grading starts.
+- Teacher save flow sends explicit numeric awarded values; blank UI inputs are normalized to `0` on save.
 
 ## 11. grievances
 

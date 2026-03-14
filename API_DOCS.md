@@ -313,13 +313,37 @@ Updates the marks and evaluation status for a specific paper.
   ```json
   {
     "marks_json": {
-      "q1": { "p1": 1, "p2": 1, "p3": 0, "p4": 1, "p5": 1 },
-      "q2": { "p1": 2, "p2": 2.5 }
+      "template_version": 3,
+      "generated_from_schema": true,
+      "sections": [
+        {
+          "section_index": 1,
+          "type": "COMPULSORY",
+          "questions": [
+            {
+              "q_no": 1,
+              "expected_total": 5,
+              "awarded_total": 4,
+              "parts": [
+                { "part_no": 1, "expected_marks": 1, "awarded_marks": 1 },
+                { "part_no": 2, "expected_marks": 1, "awarded_marks": 1 },
+                { "part_no": 3, "expected_marks": 1, "awarded_marks": 0 },
+                { "part_no": 4, "expected_marks": 1, "awarded_marks": 1 },
+                { "part_no": 5, "expected_marks": 1, "awarded_marks": 1 }
+              ]
+            }
+          ]
+        }
+      ]
     },
-    "total_score": "8.50",
+    "total_score": "4.00",
     "evaluation_status": "COMPLETED"
   }
   ```
+- **Notes**:
+  - `expected_marks` values come from the question paper schema and must not be edited during grading.
+  - `awarded_marks` is initially `null` on ungraded papers.
+  - On save, frontend converts any blank teacher input to `0` and sends explicit numeric values.
 - **Output (200 OK)**: Returns the updated paper object.
 
 ---
@@ -407,15 +431,34 @@ Fetches the full details of a specific paper, including all page images, questio
     "question_paper_path": "exam_docs/CS302_MIDSEM_qp.pdf",
     "answer_key_path": "exam_docs/CS302_MIDSEM_key.pdf",
     "marks_json": {
-      "template_version": 2,
+      "template_version": 3,
       "generated_from_schema": true,
       "sections": [
         {
           "section_index": 1,
           "type": "COMPULSORY",
           "questions": [
-            { "q_no": 1, "parts": { "p1": 1, "p2": 1, "p3": 0, "p4": 1, "p5": 1 } },
-            { "q_no": 2, "parts": { "p1": 2, "p2": 2.5 } }
+            {
+              "q_no": 1,
+              "expected_total": 5,
+              "awarded_total": 4,
+              "parts": [
+                { "part_no": 1, "expected_marks": 1, "awarded_marks": 1 },
+                { "part_no": 2, "expected_marks": 1, "awarded_marks": 1 },
+                { "part_no": 3, "expected_marks": 1, "awarded_marks": 0 },
+                { "part_no": 4, "expected_marks": 1, "awarded_marks": 1 },
+                { "part_no": 5, "expected_marks": 1, "awarded_marks": 1 }
+              ]
+            },
+            {
+              "q_no": 2,
+              "expected_total": 5,
+              "awarded_total": 4.5,
+              "parts": [
+                { "part_no": 1, "expected_marks": 2, "awarded_marks": 2 },
+                { "part_no": 2, "expected_marks": 3, "awarded_marks": 2.5 }
+              ]
+            }
           ]
         }
       ]
@@ -609,10 +652,24 @@ Retrieves full details of a specific paper including all page images, marks brea
       "papers/2205101_CS201/page3.jpg"
     ],
     "marks_json": {
-      "q1": 15,
-      "q2": 18,
-      "q3": 20,
-      "q4": 25
+      "template_version": 3,
+      "generated_from_schema": true,
+      "sections": [
+        {
+          "section_index": 1,
+          "type": "COMPULSORY",
+          "questions": [
+            {
+              "q_no": 1,
+              "expected_total": 20,
+              "awarded_total": 15,
+              "parts": [
+                { "part_no": 1, "expected_marks": 20, "awarded_marks": 15 }
+              ]
+            }
+          ]
+        }
+      ]
     },
     "total_score": 78,
     "evaluation_status": "COMPLETED",

@@ -110,7 +110,7 @@ _Generated dynamically during the grading process._
 
 | Table                    | Trigger                        | Source                                       |
 | :----------------------- | :----------------------------- | :------------------------------------------- |
-| **exam_papers (update)** | **Teacher** grades a paper     | Frontend sends `marks_json` & `total_score`. |
+| **exam_papers (update)** | **Teacher** grades a paper     | Frontend sends v3 `marks_json` (`expected_*` + `awarded_*`) & `total_score`. Blank part inputs are normalized to `0` on save. |
 | **grievances**           | **Student** challenges a grade | Frontend sends `paper_id` & `comment`.       |
 
 ## Summary of Required Scripts

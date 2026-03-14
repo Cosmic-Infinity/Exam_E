@@ -43,7 +43,10 @@ python scripts/import_students.py "Data/test_data/1_students.csv"
 # 5. Enrollments (Linking Students to Classes)
 python scripts/bulk_enroll.py --csv "Data/test_data/5_enrollments.csv" --session "2024-2025"
 
-# 6. Exam media linking (papers + QP/AK)
+# 6. Seed extra paper/doc files into mediafiles from Data/Papers and link by enrollments
+python manage.py seed_media_from_data --pages-per-paper 5 --assign-missing-teachers --overwrite-existing
+
+# 7. (Optional) Re-link only, if mediafiles were edited manually
 python manage.py import_exam_media --overwrite-existing
 ```
 

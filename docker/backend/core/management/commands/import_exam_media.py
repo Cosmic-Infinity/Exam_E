@@ -196,10 +196,12 @@ class Command(BaseCommand):
 			if p.is_file() and not p.name.startswith('.')
 		]
 
+		qp_files = [p for p in doc_files if self._is_question_paper_file(p.stem.upper())]
+		ak_files = [p for p in doc_files if self._is_answer_key_file(p.stem.upper())]
+
 		for exam in Exam.objects.select_related('allocation__course').all():
-			course_code = exam.allocation.course.course_code.upper()
-			qp_candidate = self._pick_exam_doc(doc_files, course_code, exam.exam_type, 'QP')
-			ak_candidate = self._pick_exam_doc(doc_files, course_code, exam.exam_type, 'AK')
+			qp_candidate = self._pick_exam_doc(qp_files, exam.exam_type, exam.exam_id)
+			ak_candidate = self._pick_exam_doc(ak_files, exam.exam_type, exam.exam_id)
 			changed = False
 
 			if qp_candidate:
@@ -248,28 +250,27 @@ class Command(BaseCommand):
 		rel = file_path.relative_to(media_root).as_posix()
 		return f'media/{rel}'
 
-	def _pick_exam_doc(self, doc_files, course_code, exam_type, kind):
-		matched = []
-		for file_path in doc_files:
-			stem_upper = file_path.stem.upper()
-			if course_code not in stem_upper:
-				continue
-
-			if kind == 'QP' and not self._is_question_paper_file(stem_upper):
-				continue
-			if kind == 'AK' and not self._is_answer_key_file(stem_upper):
-				continue
-
-			matched.append(file_path)
-
-		if not matched:
+	def _pick_exam_doc(self, doc_files, exam_type, seed):
+		if not doc_files:
 			return None
 
-		exam_type_matches = [p for p in matched if exam_type.upper() in p.stem.upper()]
+		sorted_files = sorted(doc_files, key=lambda p: p.name.lower())
+		exam_type_matches = [p for p in sorted_files if self._is_exam_type_file(p.stem.upper(), exam_type)]
 		if exam_type_matches:
-			return sorted(exam_type_matches, key=lambda p: p.name.lower())[0]
+			return exam_type_matches[seed % len(exam_type_matches)]
 
-		return sorted(matched, key=lambda p: p.name.lower())[0]
+		return sorted_files[seed % len(sorted_files)]
+
+	def _is_exam_type_file(self, stem_upper, exam_type):
+		tokens = set(filter(None, re.split(r'[^A-Z0-9]+', stem_upper)))
+		exam_type_upper = (exam_type or '').upper()
+		if exam_type_upper == 'MIDSEM':
+			return bool({'MID', 'MIDSEM', 'MIDSEMS', 'MIDTERM'} & tokens)
+		if exam_type_upper == 'ENDSEM':
+			return bool({'END', 'ENDSEM', 'ENDSEMS', 'FINAL'} & tokens)
+		if exam_type_upper == 'QUIZ':
+			return bool({'QUIZ', 'QUIZZES'} & tokens)
+		return False
 
 	def _is_question_paper_file(self, stem_upper):
 		tokens = set(filter(None, re.split(r'[^A-Z0-9]+', stem_upper)))

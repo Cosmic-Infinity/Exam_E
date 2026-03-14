@@ -1,24 +1,12 @@
-import { useState, useEffect, useRef } from "react";
+import { Fragment, useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useUserSession } from "@/app/context/UserSessionContext";
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/app/components/ui/resizable";
-import {
-  getScript,
-  saveMarks,
-  submitGrievance,
-  acceptGrievance,
-  rejectGrievance,
-  downloadFile,
-  getStudentResults,
-} from "@/app/services/evaluationService";
-import { MarksRow, SUBJECT_MAP, createEmptyMarks, computeTotal, AnswerScript } from "@/app/types/evaluation";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/app/components/ui/resizable";
+import { getScript, saveMarks, submitGrievance, acceptGrievance, rejectGrievance, downloadFile, getStudentResults } from "@/app/services/evaluationService";
+import { MarksRow, SUBJECT_MAP, createEmptyMarks, computeTotal, getCountedRowIndexes, AnswerScript } from "@/app/types/evaluation";
 import ThemeToggle from "@/app/components/common/ThemeToggle";
 import { getCachedPage, cachePages } from "@/app/utils/cacheManager";
 
@@ -65,17 +53,17 @@ const AnswerSheetImage = ({ page, subjectCode, rollNo, src }: { page: number; su
   if (src) {
     // If src is provided, use the real image
     // Ensure we are pointing to the backend URL if it's a relative path
-    const imageSrc = src.startsWith("http") ? src : `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}${src}`;
-    
+    const imageSrc = src.startsWith("http") ? src : `${import.meta.env.VITE_API_URL || "http://localhost:8000"}${src}`;
+
     return (
       <div className="w-full h-full bg-black/5 flex flex-col items-center justify-center overflow-auto">
-        <img 
-          src={imageSrc} 
-          alt={`Page ${page}`} 
-          className="max-h-full max-w-full object-contain shadow-lg" 
+        <img
+          src={imageSrc}
+          alt={`Page ${page}`}
+          className="max-h-full max-w-full object-contain shadow-lg"
           onError={(e) => {
             console.error("Failed to load image:", imageSrc);
-            e.currentTarget.style.display = 'none'; // Fallback to simulation if load fails
+            e.currentTarget.style.display = "none"; // Fallback to simulation if load fails
           }}
         />
       </div>
@@ -169,7 +157,7 @@ const EvaluationViewer = () => {
   const { subjectId } = useParams();
   const [searchParams] = useSearchParams();
   const roleParam = searchParams.get("role");
-  const role = (roleParam === "faculty" ? "faculty" : "student");
+  const role = roleParam === "faculty" ? "faculty" : "student";
   const mode = searchParams.get("mode") || "graded";
   const navigate = useNavigate();
   const { user } = useUserSession();
@@ -246,7 +234,7 @@ const EvaluationViewer = () => {
   const [recheckOpen, setRecheckOpen] = useState(false);
   const [missingType, setMissingType] = useState<"pages" | "complete" | null>(null);
   const [missingPages, setMissingPages] = useState("");
-  
+
   // Loading & Error states
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -260,7 +248,7 @@ const EvaluationViewer = () => {
       try {
         const script = await getScript(rollNo, subjectId || "", role);
         if (!active) return;
-        
+
         if (!script) {
           setNotFound(true);
           setLoading(false);
@@ -617,12 +605,12 @@ const EvaluationViewer = () => {
       }
 
       const toastId = toast.loading(`Generating PDF (${currentScript.pages.length} pages)...`);
-      
+
       // Initialize PDF (A4 default)
       const pdf = new jsPDF();
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      
+
       let pagesAdded = 0;
 
       for (let i = 0; i < currentScript.pages.length; i++) {
@@ -631,31 +619,30 @@ const EvaluationViewer = () => {
 
         try {
           const imgData = await fetchImageForPDF(filePath);
-          
+
           if (pagesAdded > 0) pdf.addPage();
-          
+
           // Get image dimensions to fit within PDF page while maintaining aspect ratio
           const imgProps = pdf.getImageProperties(imgData);
           const ratio = imgProps.width / imgProps.height;
-          
+
           // Use nearly full page width (with small margin), calculate height
           const margin = 10;
-          const displayWidth = pageWidth - (margin * 2);
+          const displayWidth = pageWidth - margin * 2;
           const displayHeight = displayWidth / ratio;
-          
+
           // Center the image if it fits, else scale to fit height
-          if (displayHeight > pageHeight - (margin * 2)) {
-             // Too tall, scale by height
-             const scaledHeight = pageHeight - (margin * 2);
-             const scaledWidth = scaledHeight * ratio;
-             pdf.addImage(imgData, "JPEG", (pageWidth - scaledWidth)/2, margin, scaledWidth, scaledHeight);
+          if (displayHeight > pageHeight - margin * 2) {
+            // Too tall, scale by height
+            const scaledHeight = pageHeight - margin * 2;
+            const scaledWidth = scaledHeight * ratio;
+            pdf.addImage(imgData, "JPEG", (pageWidth - scaledWidth) / 2, margin, scaledWidth, scaledHeight);
           } else {
-             // Fits by width
-             pdf.addImage(imgData, "JPEG", margin, margin, displayWidth, displayHeight);
+            // Fits by width
+            pdf.addImage(imgData, "JPEG", margin, margin, displayWidth, displayHeight);
           }
-          
+
           pagesAdded++;
-          
         } catch (error) {
           console.error(`Error processing page ${i + 1}`, error);
         }
@@ -672,28 +659,23 @@ const EvaluationViewer = () => {
         toast.message("Fetching student marks for summary...", { id: toastId });
         try {
           const results = await getStudentResults(rollNo);
-          
+
           if (results && results.length > 0) {
             pdf.addPage();
             pdf.setFontSize(16);
             pdf.text("Student Marks Summary", 14, 20);
-            
+
             pdf.setFontSize(10);
             pdf.text(`Student ID: ${rollNo}`, 14, 28);
             pdf.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 33);
 
-            const tableData = results.map(r => [
-              r.subjectCode,
-              r.subjectName,
-              r.marks !== null ? r.marks : "Pending",
-              r.recheckStatus === "not-submitted" ? "No Recheck" : r.recheckStatus
-            ]);
+            const tableData = results.map((r) => [r.subjectCode, r.subjectName, r.marks !== null ? r.marks : "Pending", r.recheckStatus === "not-submitted" ? "No Recheck" : r.recheckStatus]);
 
             autoTable(pdf, {
               startY: 40,
               head: [["Subject Code", "Subject Name", "Marks", "Status"]],
               body: tableData,
-              theme: 'striped',
+              theme: "striped",
             });
           }
         } catch (e) {
@@ -704,7 +686,7 @@ const EvaluationViewer = () => {
 
       const fileName = `${subjectCode}_${includeMarks ? "Full_Report" : "Answer_Sheet"}.pdf`;
       pdf.save(fileName);
-      
+
       toast.success("PDF downloaded successfully!", { id: toastId });
       setDownloadDropdownOpen(false);
     } catch (error) {
@@ -717,12 +699,13 @@ const EvaluationViewer = () => {
 
   // Download full sheet as PDF
   const handleDownloadFullSheet = () => generatePDF(false);
-  
+
   // Download full sheet + Marks as PDF
   const handleDownloadWithMarks = () => generatePDF(true);
 
+  const countedRowIndexes = getCountedRowIndexes(marks);
   const totalMarks = computeTotal(marks);
-  const marksColumns = Array.from(new Set(marks.flatMap((row) => Object.keys(row.parts)))).sort();
+  const hasOptionalRule = marks.some((row) => (row.sectionType || "").toUpperCase() === "OPTIONAL" && Number(row.sectionChoose || 0) > 0);
   const modeLabel = isFresh ? "New Evaluation" : hasGrievance ? "Grievance Review" : "Graded";
 
   return (
@@ -1113,60 +1096,78 @@ const EvaluationViewer = () => {
                       </button>
                     )}
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs border border-border rounded-lg overflow-hidden">
-                      <thead>
-                        <tr className="bg-card">
-                          <th className="px-2 py-1.5 text-left text-[10px] font-semibold text-muted-foreground border-b border-r border-border">Q</th>
-                          {marksColumns.map((col) => (
-                            <th key={col} className="px-2 py-1.5 text-center text-[10px] font-semibold text-muted-foreground border-b border-r border-border last:border-r-0 uppercase">
-                              {col}
-                            </th>
-                          ))}
-                          <th className="px-2 py-1.5 text-center text-[10px] font-semibold text-primary border-b border-border">Awarded/Max</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {marks.map((row, i) => {
-                          const rowTotal = Object.values(row.parts).reduce((s, v) => s + ((v as string) === "-" || (v as string) === "" ? 0 : parseInt(v as string) || 0), 0);
-                          const rowExpectedTotal = row.expectedTotal ?? Object.values(row.expectedParts || {}).reduce((s, v) => s + (Number(v) || 0), 0);
-                          return (
-                            <tr key={row.q} className={i % 2 === 1 ? "bg-muted/20" : ""}>
-                              <td className="px-2 py-1 font-mono font-semibold text-foreground text-xs border-r border-border">{row.q}</td>
-                              {marksColumns.map((col) => (
-                                <td key={col} className="px-1 py-0.5 text-center border-r border-border last:border-r-0">
-                                  {isFaculty ? (
-                                    <div className="flex items-center justify-center gap-1">
-                                      <input
-                                        type="text"
-                                        value={row.parts[col] ?? ""}
-                                        onChange={(e) => handleMarkChange(i, col, e.target.value)}
-                                        className="w-11 text-center font-mono text-xs bg-background border border-border rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-primary/50 text-foreground"
-                                      />
-                                      <span className="text-[10px] text-muted-foreground">/{row.expectedParts?.[col] ?? 0}</span>
-                                    </div>
-                                  ) : (
-                                    <span
-                                      className={`font-mono text-xs ${row.parts[col] === "-" ? "text-muted-foreground/50" : "text-foreground"}`}
-                                    >{`${row.parts[col] || "0"}/${row.expectedParts?.[col] ?? 0}`}</span>
-                                  )}
-                                </td>
-                              ))}
-                              <td className="px-2 py-1 text-center font-mono font-semibold text-primary text-xs">{`${rowTotal}/${rowExpectedTotal}`}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                      <tfoot>
-                        <tr className="bg-card border-t border-border">
-                          <td colSpan={marksColumns.length + 1} className="px-2 py-1.5 text-right text-[10px] font-semibold text-muted-foreground uppercase tracking-wider border-r border-border">
-                            Grand Total
-                          </td>
-                          <td className="px-2 py-1.5 text-center font-mono text-sm font-bold text-primary">{totalMarks}</td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
+                  {currentScript?.marksUnavailable ? (
+                    <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
+                      <p>Question-wise marks are not available for this paper yet.</p>
+                      {isFaculty ? <p className="mt-1 text-[11px] font-normal text-amber-800">Ask the administrator to update question schema.</p> : null}
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5 rounded-lg border border-border p-1.5 bg-card/30">
+                      {marks.map((row, i) => {
+                        const partKeys = Object.keys(row.parts).sort();
+                        const rowTotal = partKeys.reduce((sum, key) => {
+                          const value = row.parts[key] ?? "";
+                          return sum + (value === "-" || value === "" ? 0 : parseFloat(value) || 0);
+                        }, 0);
+                        const rowExpectedTotal = row.expectedTotal ?? partKeys.reduce((sum, key) => sum + (Number(row.expectedParts?.[key]) || 0), 0);
+                        const isCounted = countedRowIndexes.has(i);
+                        const showSectionHeader = i === 0 || (marks[i - 1]?.sectionIndex ?? i) !== (row.sectionIndex ?? i + 1);
+                        const sectionType = (row.sectionType || "COMPULSORY").toUpperCase();
+                        const sectionChoose = row.sectionChoose;
+                        const sectionTitle =
+                          sectionType === "OPTIONAL" && sectionChoose
+                            ? `Section ${row.sectionIndex || "-"} - OPTIONAL (Best ${sectionChoose} counted)`
+                            : `Section ${row.sectionIndex || "-"} - ${sectionType}`;
+
+                        return (
+                          <Fragment key={`${row.q}-${i}`}>
+                            {showSectionHeader && <div className="px-1 pt-0.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{sectionTitle}</div>}
+
+                            <div className="rounded-md border border-border bg-background px-1.5 py-1">
+                              <div className="flex items-center gap-2">
+                                <div className="font-mono font-semibold text-foreground text-xs w-8 shrink-0">{row.q}</div>
+
+                                <div className="flex-1 overflow-x-auto">
+                                  <div className="flex items-center gap-1 min-w-max">
+                                    {partKeys.map((col) => (
+                                      <div key={col} className="flex items-center gap-1 rounded border border-border bg-card px-1 py-0.5">
+                                        <span className="text-[10px] font-semibold uppercase text-muted-foreground">{col}</span>
+                                        {isFaculty ? (
+                                          <input
+                                            type="text"
+                                            value={row.parts[col] ?? ""}
+                                            onChange={(e) => handleMarkChange(i, col, e.target.value)}
+                                            className="w-9 text-center font-mono text-[11px] bg-background border border-border rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-primary/50 text-foreground"
+                                          />
+                                        ) : (
+                                          <span className={`w-9 text-center font-mono text-[11px] ${row.parts[col] === "-" ? "text-muted-foreground/50" : "text-foreground"}`}>
+                                            {row.parts[col] || "0"}
+                                          </span>
+                                        )}
+                                        <span className="text-[10px] text-muted-foreground">/{row.expectedParts?.[col] ?? 0}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                <div className="text-xs font-mono font-semibold text-primary text-right shrink-0">
+                                  {`${rowTotal}/${rowExpectedTotal}`}
+                                  {!isCounted && sectionType === "OPTIONAL" ? <span className="ml-1 text-[10px] text-warning">(excluded)</span> : null}
+                                </div>
+                              </div>
+                            </div>
+                          </Fragment>
+                        );
+                      })}
+
+                      <div className="border-t border-border pt-1.5">
+                        <div className="flex items-center justify-between rounded-md bg-card px-2 py-1">
+                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Grand Total{hasOptionalRule ? " (Section Rules Applied)" : ""}</span>
+                          <span className="font-mono text-sm font-bold text-primary">{totalMarks}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="mx-3 border-t border-border" />
@@ -1287,6 +1288,6 @@ const EvaluationViewer = () => {
       </div>
     </div>
   );
-};;
+};
 
 export default EvaluationViewer;

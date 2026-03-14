@@ -122,6 +122,11 @@ function normalizeMarks(raw: unknown): MarksRow[] {
     const labels = "abcdefghijklmnopqrstuvwxyz";
 
     for (const section of marksObj.sections) {
+      const sectionIndex = Number((section as { section_index?: number }).section_index ?? 0) || undefined;
+      const sectionType = String((section as { type?: string }).type || "COMPULSORY").toUpperCase();
+      const sectionChoose =
+        (section as { choose?: number | null }).choose === null || (section as { choose?: number | null }).choose === undefined ? null : Number((section as { choose?: number | null }).choose);
+
       for (const question of section.questions || []) {
         const qNo = question.q_no ?? rows.length + 1;
         const sortedParts = [...(question.parts || [])].sort((a, b) => (a.part_no || 0) - (b.part_no || 0));
@@ -142,6 +147,10 @@ function normalizeMarks(raw: unknown): MarksRow[] {
           parts,
           expectedParts,
           expectedTotal,
+          sectionIndex,
+          sectionType,
+          sectionChoose,
+          questionNo: Number(qNo),
         });
       }
     }
@@ -302,6 +311,7 @@ export async function getScript(rollNo: string, subjectCode: string, role: "stud
       answer_key_path: normalizeAssetPath(detail.answer_key_path),
       question_paper_schema: detail.question_paper_schema,
       pages: detail.pages ? detail.pages.map((p) => normalizeAssetPath(p)).filter((p): p is string => Boolean(p)) : undefined,
+      marksUnavailable: detail.marks_json === null,
     };
   } // 2) Try teacher discovery only for faculty
   if (role === "faculty") {
@@ -323,6 +333,7 @@ export async function getScript(rollNo: string, subjectCode: string, role: "stud
           answer_key_path: normalizeAssetPath(detail.answer_key_path),
           question_paper_schema: detail.question_paper_schema,
           pages: detail.pages ? detail.pages.map((p) => normalizeAssetPath(p)).filter((p): p is string => Boolean(p)) : undefined,
+          marksUnavailable: detail.marks_json === null,
         };
       }
     } catch {
@@ -353,6 +364,7 @@ export async function getScript(rollNo: string, subjectCode: string, role: "stud
     answer_key_path: normalizeAssetPath(detail.answer_key_path),
     question_paper_schema: detail.question_paper_schema,
     pages: detail.pages ? detail.pages.map((p: string) => normalizeAssetPath(p)).filter((p): p is string => Boolean(p)) : undefined,
+    marksUnavailable: detail.marks_json === null,
   };
 }
 

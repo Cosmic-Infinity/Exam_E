@@ -13,9 +13,35 @@ if [ "$BOOTSTRAP" != "1" ]; then
     exec "$@"
 fi
 
+SNAPSHOT_FILE="${DB_SNAPSHOT_FILE:-/app/Data/db_snapshots/exam_e_snapshot.sql}"
+SNAPSHOT_LOADED=0
+
+if [ -f "$SNAPSHOT_FILE" ]; then
+    echo "Database snapshot found at: $SNAPSHOT_FILE"
+    echo "Restoring snapshot before migrations/imports..."
+
+    export PGPASSWORD="${DATABASE_PASSWORD:-postgres}"
+    DB_HOST="${DATABASE_HOST:-db}"
+    DB_PORT="${DATABASE_PORT:-5432}"
+    DB_NAME="${DATABASE_NAME:-exam_e}"
+    DB_USER="${DATABASE_USER:-postgres}"
+
+    psql -v ON_ERROR_STOP=1 -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;"
+    psql -v ON_ERROR_STOP=1 -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f "$SNAPSHOT_FILE"
+
+    SNAPSHOT_LOADED=1
+    echo "Snapshot restore complete."
+else
+    echo "No database snapshot found at $SNAPSHOT_FILE. Proceeding with normal bootstrap flow."
+fi
+
 # Run migrations
 # Using --fake-initial because the schema may already exist from init_db.sql
-python manage.py migrate --noinput --fake-initial
+if [ "$SNAPSHOT_LOADED" = "1" ]; then
+    python manage.py migrate --noinput
+else
+    python manage.py migrate --noinput --fake-initial
+fi
 
 # --- AUTOMATIC SUPERUSER CREATION ---
 echo "Checking for superuser..."
@@ -36,6 +62,11 @@ EOF
 
 # Collect static files
 python manage.py collectstatic --noinput
+
+if [ "$SNAPSHOT_LOADED" = "1" ]; then
+    echo "Snapshot mode active. Skipping CSV/media bootstrap import pipeline."
+    exec "$@"
+fi
 
 # --- AUTOMATIC DATA IMPORT ---
 echo "--- Starting post-migration data check/import ---"

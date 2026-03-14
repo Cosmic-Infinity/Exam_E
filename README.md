@@ -3,6 +3,8 @@
 > **Quick Start**: Go to [SETUP_AND_RUN.md](SETUP_AND_RUN.md) for first-boot instructions.
 > **Status**: Active Development. See [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md) for the latest changelog (March 6, 2026).
 
+> **Team Acceleration Tip**: You can export a DB snapshot and auto-load it on boot (`export_db_snapshot.sh` or `export_db_snapshot.ps1`). See the "Database Snapshot Export + Auto-Load" section in [SETUP_AND_RUN.md](SETUP_AND_RUN.md).
+
 ## 1. The Core Philosophy
 
 "Optimize for Speed & Security, Not Raw Compute." Since you are a small team with a hard deadline, choose tools that handle the heavy lifting (Admin panels, Auth, Security) for you. Do not reinvent the wheel.

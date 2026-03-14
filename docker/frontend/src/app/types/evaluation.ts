@@ -19,6 +19,10 @@ export interface MarksRow {
   parts: Record<string, string>;
   expectedParts: Record<string, number>;
   expectedTotal: number;
+  sectionIndex?: number;
+  sectionType?: string;
+  sectionChoose?: number | null;
+  questionNo?: number;
 }
 
 export interface StudentResult {
@@ -44,6 +48,7 @@ export interface AnswerScript {
   answer_key_path?: string;
   question_paper_schema?: unknown;
   pages?: string[];
+  marksUnavailable?: boolean;
 }
 
 export const SUBJECTS: Subject[] = [
@@ -78,13 +83,53 @@ export function createEmptyMarks(): MarksRow[] {
 }
 
 export function computeTotal(marks: MarksRow[]): number {
-  return marks.reduce(
-    (sum, row) =>
-      sum +
-      Object.values(row.parts).reduce(
-        (s, v) => s + (v === "-" || v === "" ? 0 : parseInt(v) || 0),
-        0
-      ),
-    0
-  );
+  const countedIndexes = getCountedRowIndexes(marks);
+
+  return marks.reduce((sum, row, idx) => {
+    if (!countedIndexes.has(idx)) return sum;
+    return sum + Object.values(row.parts).reduce((s, v) => s + (v === "-" || v === "" ? 0 : parseFloat(v) || 0), 0);
+  }, 0);
+}
+
+function getRowAwardedTotal(row: MarksRow): number {
+  return Object.values(row.parts).reduce((s, v) => s + (v === "-" || v === "" ? 0 : parseFloat(v) || 0), 0);
+}
+
+export function getCountedRowIndexes(marks: MarksRow[]): Set<number> {
+  const sectionMap = new Map<number, { type: string; choose: number | null; rows: Array<{ idx: number; total: number; questionNo: number }> }>();
+
+  marks.forEach((row, idx) => {
+    const sectionIndex = row.sectionIndex ?? idx + 1;
+    const sectionType = (row.sectionType || "COMPULSORY").toUpperCase();
+    const choose = row.sectionChoose ?? null;
+    const questionNo = (row.questionNo ?? Number(String(row.q).replace(/[^0-9]/g, ""))) || idx + 1;
+
+    if (!sectionMap.has(sectionIndex)) {
+      sectionMap.set(sectionIndex, { type: sectionType, choose, rows: [] });
+    }
+
+    sectionMap.get(sectionIndex)!.rows.push({ idx, total: getRowAwardedTotal(row), questionNo });
+  });
+
+  const counted = new Set<number>();
+
+  sectionMap.forEach((section) => {
+    const isOptional = section.type === "OPTIONAL";
+    const choose = section.choose;
+
+    if (!isOptional || !choose || choose <= 0 || choose >= section.rows.length) {
+      section.rows.forEach((r) => counted.add(r.idx));
+      return;
+    }
+
+    const ranked = [...section.rows].sort((a, b) => {
+      if (b.total !== a.total) return b.total - a.total;
+      if (a.questionNo !== b.questionNo) return a.questionNo - b.questionNo;
+      return a.idx - b.idx;
+    });
+
+    ranked.slice(0, choose).forEach((r) => counted.add(r.idx));
+  });
+
+  return counted;
 }

@@ -106,6 +106,13 @@ docker compose exec backend python manage.py createsuperuser
 docker compose exec backend python manage.py import_exam_media --overwrite-existing
 ```
 
+### Seed More Test Media from Data (then auto-link)
+```bash
+docker compose exec backend python manage.py seed_media_from_data --pages-per-paper 5 --assign-missing-teachers --overwrite-existing
+```
+This command copies additional source pages from `Data/Papers/*` into `backend/mediafiles/papers/<ROLLNO>_<COURSECODE>`,
+copies question/answer docs into `backend/mediafiles/exam_docs`, and then runs `import_exam_media` to link assets via active enrollments.
+
 ### Accessing the System
 
 | System          | URL                                                              | Description                                        |
@@ -116,6 +123,66 @@ docker compose exec backend python manage.py import_exam_media --overwrite-exist
 | **Database**    | `localhost:5433`                                                 | Direct SQL Access (Use DBeaver/PgAdmin, not browser) |
 
 ---
+
+## 8. Database Snapshot Export + Auto-Load
+
+To speed up team onboarding, you can export a full DB snapshot and let backend boot auto-load it.
+
+### Export current database snapshot
+
+From the `docker/` folder:
+
+```bash
+sh export_db_snapshot.sh
+```
+
+Windows PowerShell:
+
+```powershell
+.\export_db_snapshot.ps1
+```
+
+This writes to:
+
+```text
+Data/db_snapshots/exam_e_snapshot.sql
+```
+
+You can also provide a custom output path:
+
+```bash
+sh export_db_snapshot.sh ../Data/db_snapshots/my_team_snapshot.sql
+```
+
+PowerShell with custom path:
+
+```powershell
+.\export_db_snapshot.ps1 -SnapshotPath ../Data/db_snapshots/my_team_snapshot.sql
+```
+
+### Auto-load behavior on backend startup
+
+Backend entrypoint now checks this file first:
+
+```text
+/app/Data/db_snapshots/exam_e_snapshot.sql
+```
+
+If present:
+- restores snapshot into `exam_e`,
+- runs migrations,
+- skips CSV/media bootstrap imports.
+
+If absent:
+- continues existing normal bootstrap flow (migrations + CSV/media imports).
+
+To reset and re-run with snapshot logic:
+
+```bash
+docker compose down -v
+docker compose up --build -d
+```
+
 
 ## 5. Connecting to the Database (DBeaver/PgAdmin)
 

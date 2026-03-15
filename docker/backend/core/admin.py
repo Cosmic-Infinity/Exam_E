@@ -104,8 +104,8 @@ class CourseAdmin(admin.ModelAdmin):
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "coordinator":
-            # Only allow selecting Teachers as coordinators (Controllers are also teachers)
-            kwargs["queryset"] = User.objects.filter(role__in=['TEACHER', 'CONTROLLER'])
+            # Faculty dropdowns must show only TEACHER users.
+            kwargs["queryset"] = User.objects.filter(role='TEACHER')
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 @admin.register(CourseAllocation)
@@ -126,6 +126,11 @@ class EnrollmentAdmin(admin.ModelAdmin):
     list_filter = ('status', 'enrollment_type')
     search_fields = ('student__university_id', 'allocation__course__course_code')
     autocomplete_fields = ['student', 'allocation']
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "student":
+            kwargs["queryset"] = User.objects.filter(role='STUDENT')
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 @admin.register(Exam)
 class ExamAdmin(admin.ModelAdmin):
@@ -251,6 +256,11 @@ class StudentAdmin(admin.ModelAdmin):
     autocomplete_fields = ['user', 'stream']
     actions = ['generate_and_email_student_credentials']
 
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "user":
+            kwargs["queryset"] = User.objects.filter(role='STUDENT')
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
     def changelist_view(self, request, extra_context=None):
         if extra_context is None:
             extra_context = {}
@@ -342,8 +352,40 @@ class GrievanceAdmin(admin.ModelAdmin):
     list_display = ('id', 'paper', 'grievance_type_label', 'status', 'assigned_faculty')
     list_filter = ('status', GrievanceTypeListFilter)
     search_fields = ('paper__enrollment__student__university_id',)
-    autocomplete_fields = ['paper', 'assigned_faculty']
-    actions = ['assign_to_same_faculty', 'assign_random_faculty']
+    autocomplete_fields = ['paper']
+    actions = ['assign_to_same_faculty', 'assign_random_faculty', 'unassign_faculty']
+
+    def _same_subject_faculty_queryset(self, grievance):
+        if not grievance or not grievance.paper or not grievance.paper.exam:
+            return User.objects.filter(role='TEACHER').none()
+
+        allocation = grievance.paper.exam.allocation
+        if allocation is None:
+            return User.objects.filter(role='TEACHER').none()
+
+        return User.objects.filter(
+            role='TEACHER',
+            courseallocation__course=allocation.course,
+            courseallocation__session=allocation.session,
+        ).distinct().order_by('full_name')
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == 'assigned_faculty':
+            object_id = None
+            if request.resolver_match:
+                object_id = request.resolver_match.kwargs.get('object_id')
+
+            if object_id:
+                grievance = Grievance.objects.select_related(
+                    'paper__exam__allocation__course',
+                    'paper__exam__allocation__session',
+                ).filter(pk=object_id).first()
+                kwargs['queryset'] = self._same_subject_faculty_queryset(grievance)
+            else:
+                # On add forms, keep it empty until a grievance paper context exists.
+                kwargs['queryset'] = User.objects.filter(role='TEACHER').none()
+
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     @admin.display(description='Grievance Type')
     def grievance_type_label(self, obj):
@@ -404,6 +446,16 @@ class GrievanceAdmin(admin.ModelAdmin):
         self.message_user(
             request,
             f"Assigned {updated} grievance(s) randomly. Skipped {skipped} with no eligible faculty pool.",
+        )
+
+    @admin.action(description='Unassign faculty from selected grievances')
+    def unassign_faculty(self, request, queryset):
+        updated = queryset.exclude(assigned_faculty__isnull=True).update(assigned_faculty=None)
+        skipped = queryset.count() - updated
+
+        self.message_user(
+            request,
+            f"Unassigned faculty from {updated} grievance(s). Skipped {skipped} already unassigned.",
         )
 
 

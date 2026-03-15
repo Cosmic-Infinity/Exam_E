@@ -325,6 +325,11 @@ interface UserSession {
 }
 ```
 
+Current behavior (March 2026):
+- On app load, frontend restores `sessionStorage` state first for fast UX.
+- It then validates against backend via `GET /api/me/`.
+- If `/api/me/` returns `401`, frontend treats it as "no active session", clears stale sessionStorage, and redirects users through normal login flow.
+
 ### **Protected Routes**
 
 **[frontend/src/App.tsx](docker/frontend/src/App.tsx)**
@@ -340,6 +345,9 @@ interface UserSession {
 - Check `user.role` before rendering
 - Redirect unauthorized users to appropriate dashboard
 - Show/hide features based on `isCourseCoordinator` / `isController`
+
+Runtime route mapping note:
+- Route paths are shared between desktop and mobile; `App.tsx` selects mobile page components at runtime for handheld devices.
 
 ---
 

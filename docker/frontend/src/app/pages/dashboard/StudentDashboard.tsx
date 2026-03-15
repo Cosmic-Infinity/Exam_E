@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useUserSession } from "@/app/context/UserSessionContext";
@@ -64,8 +64,34 @@ const StudentDashboard = () => {
   };
 }, [rollNo]);
 
- const selected = Array.isArray(results)
-  ? results.find((r) => r.subjectCode === selectedCode)
+  const uniqueResults = useMemo(() => {
+    const bySubject = new Map<string, StudentResult>();
+
+    for (const result of results) {
+      const key = result.subjectCode.toLowerCase();
+      const existing = bySubject.get(key);
+
+      if (!existing) {
+        bySubject.set(key, result);
+        continue;
+      }
+
+      // Prefer entries that contain published marks or progressed recheck status.
+      const existingHasMarks = existing.marks !== null;
+      const candidateHasMarks = result.marks !== null;
+      const existingHasRecheck = existing.recheckStatus !== "not-submitted";
+      const candidateHasRecheck = result.recheckStatus !== "not-submitted";
+
+      if ((!existingHasMarks && candidateHasMarks) || (!existingHasRecheck && candidateHasRecheck)) {
+        bySubject.set(key, result);
+      }
+    }
+
+    return Array.from(bySubject.values());
+  }, [results]);
+
+ const selected = Array.isArray(uniqueResults)
+  ? uniqueResults.find((r) => r.subjectCode === selectedCode)
   : undefined;
 
 
@@ -156,7 +182,7 @@ const StudentDashboard = () => {
                   className="w-full rounded-lg border border-border bg-background px-2.5 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
                 >
                   <option value="">— Select subject —</option>
-                  {results.map((r) => (
+                  {uniqueResults.map((r) => (
                     <option key={r.subjectCode} value={r.subjectCode}>
                       {r.subjectCode} — {r.subjectName}
                     </option>
@@ -224,7 +250,7 @@ const StudentDashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {results.map((r, i) => {
+                    {uniqueResults.map((r, i) => {
                       const cfg = recheckConfig[r.recheckStatus];
                       return (
                         <tr key={r.subjectCode} className={`border-b border-border last:border-0 hover:bg-muted/20 transition-colors ${i % 2 === 1 ? "bg-muted/20" : ""}`}>

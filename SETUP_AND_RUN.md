@@ -50,10 +50,10 @@ To wipe the database and start fresh with the latest CSV/PDF data:
 
 ```bash
 # 1. Stop all containers and remove volumes (DELETES DB DATA)
-docker compose -f docker/docker-compose.yml down -v
+docker compose down -v
 
 # 2. Rebuild and Start (Will auto-run all import scripts on boot)
-docker compose -f docker/docker-compose.yml up --build -d
+docker compose up --build -d
 ```
 
 ---
@@ -117,10 +117,16 @@ copies question/answer docs into `backend/mediafiles/exam_docs`, and then runs `
 
 | System          | URL                                                              | Description                                        |
 | :-------------- | :--------------------------------------------------------------- | :------------------------------------------------- |
-| **Admin Panel** | [http://localhost:8000/admin](http://localhost:8000/admin)       | **System Admin Only**. Data Entry & User Management. |
+| **Admin Panel** | [http://localhost/admin](http://localhost/admin)                 | **System Admin Only** (via nginx). Django direct also works at `http://localhost:8000/admin`. |
 | **API Docs**    | See `API_DOCS.md` file                                           | Backend API Documentation (No live Swagger UI yet) |
-| **Frontend**    | [http://localhost:8080](http://localhost:8080)                   | **Main App**. Student/Teacher/Portal.              |
+| **Frontend**    | [http://localhost](http://localhost)                             | **Main App** via nginx reverse proxy (recommended). Dev frontend-only remains at `http://localhost:8080`. |
 | **Database**    | `localhost:5433`                                                 | Direct SQL Access (Use DBeaver/PgAdmin, not browser) |
+
+### LAN/Hotspot Access (DEBUG)
+
+- Backend allows wildcard hosts and permissive CORS in DEBUG for team devices on local network.
+- Vite proxies `/api`, `/media`, and `/Data` to backend.
+- Frontend asset resolver uses current hostname for relative assets, so mobile devices can open papers/keys from LAN URLs.
 
 ---
 

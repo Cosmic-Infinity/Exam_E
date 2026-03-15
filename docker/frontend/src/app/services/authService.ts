@@ -104,8 +104,9 @@ class AuthService {
       });
 
       if (!response.ok) {
+        // No active session is an expected state (e.g. first load before login).
         if (response.status === 401) {
-          throw new Error("Unauthorized");
+          return null;
         }
         throw new Error("Failed to fetch user data");
       }
@@ -186,7 +187,10 @@ class AuthService {
     // Other errors
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`API error: ${response.status}`, errorText);
+      // Avoid noisy logs for expected permission responses handled by callers.
+      if (response.status !== 403) {
+        console.error(`API error: ${response.status}`, errorText);
+      }
       throw new Error(`API error: ${response.status}`);
     }
 

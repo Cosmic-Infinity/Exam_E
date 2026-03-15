@@ -2,6 +2,13 @@
 
 This document outlines the REST APIs exposed by the Django backend for consumption by the React frontend.
 
+## Sync Notes (March 16, 2026)
+
+- Frontend runtime now auto-selects mobile page components for the same route paths; API paths are unchanged.
+- In DEBUG, frontend development proxy supports `/api`, `/media`, and `/Data`.
+- `/api/stats/students/` is active and used for score-range drill-down.
+- `/api/me/` remains the session validation endpoint used on frontend session restore.
+
 ---
 
 ## 🔐 0. Role & Permission System

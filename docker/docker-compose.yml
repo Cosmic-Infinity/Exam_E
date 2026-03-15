@@ -31,7 +31,7 @@ services:
     environment:
       - DEBUG=1
       - SECRET_KEY=changesmeplease-replace-in-production
-      - DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,[::1],backend
+      - DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,[::1],backend,*
       - DATABASE_ENGINE=django.db.backends.postgresql
       - DATABASE_NAME=exam_e
       - DATABASE_USER=postgres
@@ -42,6 +42,7 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/1
       - COOKIE_SECURE=0              # set to 1 in production (HTTPS only)
+      # In DEBUG mode, CORS/CSRF will accept all origins (see settings.py logic)
       - CORS_ALLOWED_ORIGINS=http://localhost:8080,http://localhost,http://127.0.0.1
       - CSRF_TRUSTED_ORIGINS=http://localhost:8080,http://localhost,http://127.0.0.1
       # SMTP Settings (Loaded from .env by Docker Compose)
@@ -98,6 +99,8 @@ services:
     ports:
       - "8080:8080"
     environment:
+      # In debug mode, frontend will auto-detect API base from current hostname.
+      # This env is a fallback but the runtime JS will override it for LAN access.
       - VITE_API_BASE_URL=http://localhost:8000
     command: npm run dev
     stdin_open: true

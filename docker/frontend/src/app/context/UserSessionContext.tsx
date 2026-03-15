@@ -60,6 +60,12 @@ export const UserSessionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       // Validate with backend in the background
       try {
         const me = await AuthService.getCurrentUser();
+        if (!me) {
+          sessionStorage.removeItem("userSession");
+          setUserState(null);
+          return;
+        }
+
         const userRole = me.role === "TEACHER" || me.role === "CONTROLLER" ? "faculty" : "student";
 
         setUserState({

@@ -1,7 +1,7 @@
 # 🎓 Exam Evaluation System (Exam_E)
 
 > **Quick Start**: Go to [SETUP_AND_RUN.md](SETUP_AND_RUN.md) for first-boot instructions.
-> **Status**: Active Development. See [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md) for the latest changelog (March 6, 2026).
+> **Status**: Active Development. See [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md) for the latest changelog (March 16, 2026).
 
 > **Team Acceleration Tip**: You can export a DB snapshot and auto-load it on boot (`export_db_snapshot.sh` or `export_db_snapshot.ps1`). See the "Database Snapshot Export + Auto-Load" section in [SETUP_AND_RUN.md](SETUP_AND_RUN.md).
 
@@ -26,6 +26,10 @@
 
 Entry Point: http://localhost (Nginx reverse proxy).
 
+Current development access:
+- `http://localhost` (recommended via nginx)
+- `http://<your-lan-ip>` from hotspot/LAN devices in DEBUG mode
+
 Nginx (Port 80):
 
 Rule A: Request for `/Data/*` (e.g., Papers) -> Served directly from disk (Alias to `/app/Data`).
@@ -35,6 +39,10 @@ Rule B: Request for `/api/*` -> Proxy to Backend (Port 8000).
 Rule C: Request for `/` -> Proxy to Frontend (Port 8080).
 
 Application (Django/Gunicorn): Runs via `python manage.py runserver` in dev. Handles logic, auth, and DB queries.
+
+Frontend Runtime Routing (current):
+- Desktop and mobile views share route paths, and `App.tsx` selects mobile page variants at runtime based on user-agent + touch heuristics.
+- Mobile-specific pages currently include login, student/faculty dashboards, grievance page, statistics pages, and evaluator view.
 
 Database (Postgres): 
 - **Internal**: `db:5432` (Accessed by Django).

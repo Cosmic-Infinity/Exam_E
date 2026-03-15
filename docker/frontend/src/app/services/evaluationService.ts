@@ -600,8 +600,11 @@ export function downloadFile(filePath: string, fileName: string): void {
       throw new Error("Invalid file path");
     }
 
-    // Support already rooted paths while defaulting relative paths to /media.
-    const url = normalized.startsWith("/media/") || normalized.startsWith("/Data/") ? normalized : `/media${normalized}`;
+    // Keep absolute URLs untouched; only prefix /media for relative/rooted non-media paths.
+    const isAbsolute = normalized.startsWith("http://") || normalized.startsWith("https://");
+    const url = isAbsolute
+      ? normalized
+      : (normalized.startsWith("/media/") || normalized.startsWith("/Data/") ? normalized : `/media${normalized}`);
 
     const link = document.createElement("a");
     link.href = url;

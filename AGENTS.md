@@ -45,3 +45,10 @@ This repository contains a **university‑level paper evaluation and student vie
  - Most of the team is developing on a Windows environment, but this application is being built to be deployed in linux docker containers.
  - Remember to use appropriate shell commands accordingly.
  - One of the team mambers may be on MacOS.
+
+ ### 6. Testing credinals for API calls
+
+ - Django admin: django admin = admin@kiit.ac.in, pass= admin
+ - Faculty : id = kavita.mishra@example.com, pass= Check@123
+
+ - Student : id = 2305101@kiit.ac.in, pass=Check@123

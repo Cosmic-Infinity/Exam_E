@@ -1,7 +1,7 @@
 ```markdown
 # Current Development Status & Roadmap
 
-> **Last Updated:** March 14, 2026  
+> **Last Updated:** March 16, 2026  
 > **Summary:** Core exam data pipeline is complete. The system now supports schema-driven marks-template auto-generation for exam papers, course-table coordinator authority, and secure file serving for question papers and answer keys.
 
 ---
@@ -36,6 +36,21 @@
     - Startup now runs `import_exam_media` to auto-link paper pages from `backend/mediafiles/papers` by `ROLLNO_COURSECODE`.
     - Question paper and answer key paths are auto-linked from `backend/mediafiles/exam_docs`.
     - Admin stats route `/admin/stats/` and its chart APIs are restored for Django admin users.
+
+## 🚀 Recent Progress (March 16, 2026)
+
+1.  **Mobile Runtime Route Set** ✅:
+    - `App.tsx` now selects mobile page variants at runtime while keeping route paths unchanged.
+    - Mobile views now cover login, student/faculty dashboards, grievance handling, statistics pages, controller views, and evaluation viewer.
+2.  **Mobile Evaluator UX Stabilization** ✅:
+    - Theme controls are icon-only across mobile pages.
+    - Drawing annotations in mobile evaluator persist per page until explicitly cleared.
+3.  **LAN/Hotspot Development Reliability** ✅:
+    - Debug stack supports LAN device testing with permissive DEBUG host/CORS behavior.
+    - Vite proxy includes `/api`, `/media`, and `/Data`.
+    - Frontend asset URL resolution now adapts to the active hostname for local network usage.
+4.  **Session Restore Hardening** ✅:
+    - `UserSessionContext` validates stored session via `/api/me/` and clears stale frontend session state when backend session is absent.
 
 ### ⚠️ Current Limitations
 - Auto-created exams (when missing) default to MIDSEM with configurable default marks; adjust in admin if needed.

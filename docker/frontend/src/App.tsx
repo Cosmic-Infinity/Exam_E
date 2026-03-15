@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Toaster } from "@/app/components/ui/toaster";
 import { Toaster as Sonner } from "@/app/components/ui/sonner";
 import { TooltipProvider } from "@/app/components/ui/tooltip";
@@ -15,8 +16,29 @@ import ControllerSubjectStatistics from "./app/pages/dashboard/ControllerSubject
 import EvaluationViewer from "./app/pages/evaluation/EvaluationViewer";
 import NotFound from "./app/pages/NotFound";
 import ProtectedRoute from "./app/components/common/ProtectedRoute";
+import LoginMobile from "./app/pages/mobile/LoginMobile";
+import StudentDashboardMobile from "./app/pages/mobile/StudentDashboardMobile";
+import FacultyDashboardMobile from "./app/pages/mobile/FacultyDashboardMobile";
+import FacultyGrievanceMobile from "./app/pages/mobile/FacultyGrievanceMobile";
+import StatisticsMobile from "./app/pages/mobile/StatisticsMobile";
+import ControllerStatisticsMobile from "./app/pages/mobile/ControllerStatisticsMobile";
+import ControllerSubjectStatisticsMobile from "./app/pages/mobile/ControllerSubjectStatisticsMobile";
+import EvaluationViewerMobile from "./app/pages/mobile/EvaluationViewerMobile";
+import MobileNotFound from "./app/pages/mobile/MobileNotFound";
 
 const queryClient = new QueryClient();
+
+const detectMobileDevice = (): boolean => {
+  if (typeof window === "undefined") return false;
+
+  const ua = window.navigator.userAgent || window.navigator.vendor || "";
+  const mobileUaMatch = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(ua);
+
+  // iPadOS can report as Mac; touch points help identify handheld/tablet usage.
+  const touchMac = window.navigator.platform === "MacIntel" && window.navigator.maxTouchPoints > 1;
+
+  return mobileUaMatch || touchMac;
+};
 
 // Loading component shown while session is being restored
 const SessionLoadingScreen = () => (
@@ -36,17 +58,28 @@ const SessionLoadingScreen = () => (
 // Routes wrapper that checks loading state
 const AppRoutes = () => {
   const { isLoading } = useUserSession();
+  const [isMobileDevice] = useState<boolean>(() => detectMobileDevice());
+
+  const LoginPage = isMobileDevice ? LoginMobile : Login;
+  const StudentDashboardPage = isMobileDevice ? StudentDashboardMobile : StudentDashboard;
+  const FacultyDashboardPage = isMobileDevice ? FacultyDashboardMobile : FacultyDashboard;
+  const FacultyGrievanceRoutePage = isMobileDevice ? FacultyGrievanceMobile : FacultyGrievancePage;
+  const StatisticsRoutePage = isMobileDevice ? StatisticsMobile : StatisticsPage;
+  const ControllerStatisticsRoutePage = isMobileDevice ? ControllerStatisticsMobile : ControllerStatisticsPage;
+  const ControllerSubjectStatisticsRoutePage = isMobileDevice ? ControllerSubjectStatisticsMobile : ControllerSubjectStatistics;
+  const EvaluationRoutePage = isMobileDevice ? EvaluationViewerMobile : EvaluationViewer;
+  const NotFoundPage = isMobileDevice ? MobileNotFound : NotFound;
 
   if (isLoading) return <SessionLoadingScreen />;
 
   return (
     <Routes>
-      <Route path="/" element={<Login />} />
+      <Route path="/" element={<LoginPage />} />
       <Route
         path="/dashboard/student"
         element={
           <ProtectedRoute allowedRoles={["student"]}>
-            <StudentDashboard />
+            <StudentDashboardPage />
           </ProtectedRoute>
         }
       />
@@ -54,7 +87,7 @@ const AppRoutes = () => {
         path="/dashboard/faculty"
         element={
           <ProtectedRoute allowedRoles={["faculty"]}>
-            <FacultyDashboard />
+            <FacultyDashboardPage />
           </ProtectedRoute>
         }
       />
@@ -62,7 +95,7 @@ const AppRoutes = () => {
         path="/dashboard/faculty/grievances"
         element={
           <ProtectedRoute allowedRoles={["faculty"]}>
-            <FacultyGrievancePage />
+            <FacultyGrievanceRoutePage />
           </ProtectedRoute>
         }
       />
@@ -70,7 +103,7 @@ const AppRoutes = () => {
         path="/dashboard/statistics"
         element={
           <ProtectedRoute allowedRoles={["faculty"]} requireCoordinator>
-            <StatisticsPage />
+            <StatisticsRoutePage />
           </ProtectedRoute>
         }
       />
@@ -78,7 +111,7 @@ const AppRoutes = () => {
         path="/dashboard/controller-statistics"
         element={
           <ProtectedRoute allowedRoles={["faculty"]} requireController>
-            <ControllerStatisticsPage />
+            <ControllerStatisticsRoutePage />
           </ProtectedRoute>
         }
       />
@@ -86,7 +119,7 @@ const AppRoutes = () => {
         path="/dashboard/controller-subject-statistics"
         element={
           <ProtectedRoute allowedRoles={["faculty"]} requireController>
-            <ControllerSubjectStatistics />
+            <ControllerSubjectStatisticsRoutePage />
           </ProtectedRoute>
         }
       />
@@ -94,11 +127,11 @@ const AppRoutes = () => {
         path="/evaluation/:subjectId"
         element={
           <ProtectedRoute allowedRoles={["student", "faculty"]}>
-            <EvaluationViewer />
+            <EvaluationRoutePage />
           </ProtectedRoute>
         }
       />
-      <Route path="*" element={<NotFound />} />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 };

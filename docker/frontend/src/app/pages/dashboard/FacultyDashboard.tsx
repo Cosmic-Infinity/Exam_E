@@ -71,7 +71,7 @@ const FacultyDashboard = () => {
             setHasCoordinatedCourses(false);
           }
         } catch (error) {
-          console.error("Failed to check coordinator status:", error);
+          // 403 is expected for non-coordinator teachers.
           setHasCoordinatedCourses(false);
         }
       }

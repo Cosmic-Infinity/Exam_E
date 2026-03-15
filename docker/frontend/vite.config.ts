@@ -17,6 +17,16 @@ export default defineConfig(() => ({
         target: "http://backend:8000",
         changeOrigin: true,
       },
+      "/media": {
+        // Serve uploaded assets from Django in development.
+        target: "http://backend:8000",
+        changeOrigin: true,
+      },
+      "/Data": {
+        // Serve question papers/answer keys mounted under /Data in DEBUG.
+        target: "http://backend:8000",
+        changeOrigin: true,
+      },
     },
   },
   plugins: [react()],

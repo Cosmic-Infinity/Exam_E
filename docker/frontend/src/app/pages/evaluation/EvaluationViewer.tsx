@@ -11,6 +11,7 @@ import type { StudentGrievanceItem } from "@/app/services/evaluationService";
 import { MarksRow, SUBJECT_MAP, createEmptyMarks, computeTotal, getCountedRowIndexes, AnswerScript } from "@/app/types/evaluation";
 import ThemeToggle from "@/app/components/common/ThemeToggle";
 import { cachePages } from "@/app/utils/cacheManager";
+import { resolveAssetUrl } from "@/app/utils/assetResolver";
 
 // Default fallback for simulation
 const DEFAULT_TOTAL_PAGES = 30;
@@ -97,8 +98,8 @@ const buildThumbnailPages = (active: number, total: number, targetCount: number)
 const AnswerSheetImage = ({ page, subjectCode, rollNo, src, totalPages }: { page: number; subjectCode: string; rollNo: string; src?: string; totalPages?: number }) => {
   if (src) {
     // If src is provided, use the real image
-    // Ensure we are pointing to the backend URL if it's a relative path
-    const imageSrc = src.startsWith("http") ? src : `${import.meta.env.VITE_API_URL || "http://localhost:8000"}${src}`;
+    // Use resolveAssetUrl to handle LAN/hotspot access correctly
+    const imageSrc = resolveAssetUrl(src) || src;
 
     return (
       <div className="w-full h-full bg-black/5 flex flex-col items-center justify-center overflow-auto">
@@ -581,22 +582,36 @@ const EvaluationViewer = () => {
     const suffix = type === "question-paper" ? "Question_Paper" : "Answer_Key";
     const extMatch = rawPath.match(/\.([a-zA-Z0-9]+)(?:\?|#|$)/);
     const ext = extMatch?.[1] || "pdf";
-    downloadFile(rawPath, `${subjectCode}_${suffix}.${ext}`);
+    const resolvedPath = resolveAssetUrl(rawPath) || rawPath;
+    downloadFile(resolvedPath, `${subjectCode}_${suffix}.${ext}`);
     setPreviewDropdownOpen(false);
   };
 
   const getCachedPreviewUrl = async (rawPath?: string): Promise<string | undefined> => {
-    if (!rawPath) return undefined;
-    if (!("caches" in window)) return rawPath;
+    const resolvedPath = resolveAssetUrl(rawPath);
+    if (!resolvedPath) return undefined;
+    if (!("caches" in window)) return resolvedPath;
 
     try {
-      const request = new Request(rawPath, { method: "GET", credentials: "include" });
+      const request = new Request(resolvedPath, { method: "GET", credentials: "include" });
       const cache = await caches.open(PREVIEW_DOC_CACHE);
       let response = await cache.match(request);
 
+      const isPdfResponse = (res?: Response | null) => {
+        if (!res) return false;
+        const contentType = (res.headers.get("content-type") || "").toLowerCase();
+        return contentType.includes("application/pdf") || contentType.includes("application/octet-stream");
+      };
+
+      // If cache contains non-PDF payload (e.g., HTML error page), invalidate and refetch.
+      if (response && !isPdfResponse(response)) {
+        await cache.delete(request);
+        response = undefined;
+      }
+
       if (!response) {
-        const fetched = await fetch(rawPath, { credentials: "include" });
-        if (!fetched.ok) return rawPath;
+        const fetched = await fetch(resolvedPath, { credentials: "include" });
+        if (!fetched.ok || !isPdfResponse(fetched)) return resolvedPath;
         await cache.put(request, fetched.clone());
         response = fetched;
       }
@@ -604,7 +619,7 @@ const EvaluationViewer = () => {
       const blob = await response.blob();
       return URL.createObjectURL(blob);
     } catch {
-      return rawPath;
+      return resolvedPath;
     }
   };
 
@@ -858,18 +873,29 @@ const EvaluationViewer = () => {
     }
   };
 
-  // Helper to fetch image as base64 for PDF
-  const fetchImageForPDF = async (url: string): Promise<string> => {
-    const fetchUrl = url.startsWith("/media/") ? url : `/media/${url}`;
-    const response = await fetch(fetchUrl);
-    if (!response.ok) throw new Error(`Failed to fetch image: ${url}`);
+  // Helper to fetch image as base64 for PDF with MIME-aware format detection.
+  const fetchImageForPDF = async (url: string): Promise<{ dataUrl: string; format: "JPEG" | "PNG"; sourceUrl: string }> => {
+    const fetchUrl = resolveAssetUrl(url) || (url.startsWith("/media/") ? url : `/media/${url}`);
+    const response = await fetch(fetchUrl, { credentials: "include" });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image (${response.status}) from ${fetchUrl}`);
+    }
+
+    const contentType = (response.headers.get("content-type") || "").toLowerCase();
+    if (!contentType.startsWith("image/")) {
+      throw new Error(`Expected image content but received '${contentType || "unknown"}' from ${fetchUrl}`);
+    }
+
     const blob = await response.blob();
-    return new Promise((resolve, reject) => {
+    const dataUrl = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result as string);
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
+
+    const format: "JPEG" | "PNG" = contentType.includes("png") ? "PNG" : "JPEG";
+    return { dataUrl, format, sourceUrl: fetchUrl };
   };
 
   const generatePDF = async (includeMarks: boolean) => {
@@ -895,12 +921,12 @@ const EvaluationViewer = () => {
         if (!filePath) continue;
 
         try {
-          const imgData = await fetchImageForPDF(filePath);
+          const { dataUrl, format } = await fetchImageForPDF(filePath);
 
           if (pagesAdded > 0) pdf.addPage();
 
           // Get image dimensions to fit within PDF page while maintaining aspect ratio
-          const imgProps = pdf.getImageProperties(imgData);
+          const imgProps = pdf.getImageProperties(dataUrl);
           const ratio = imgProps.width / imgProps.height;
 
           // Use nearly full page width (with small margin), calculate height
@@ -913,10 +939,10 @@ const EvaluationViewer = () => {
             // Too tall, scale by height
             const scaledHeight = pageHeight - margin * 2;
             const scaledWidth = scaledHeight * ratio;
-            pdf.addImage(imgData, "JPEG", (pageWidth - scaledWidth) / 2, margin, scaledWidth, scaledHeight);
+            pdf.addImage(dataUrl, format, (pageWidth - scaledWidth) / 2, margin, scaledWidth, scaledHeight);
           } else {
             // Fits by width
-            pdf.addImage(imgData, "JPEG", margin, margin, displayWidth, displayHeight);
+            pdf.addImage(dataUrl, format, margin, margin, displayWidth, displayHeight);
           }
 
           pagesAdded++;
@@ -1417,9 +1443,9 @@ const EvaluationViewer = () => {
                       {/* PDF Viewer or Fallback */}
                       <div ref={previewScrollRef} className="overflow-y-auto bg-black/5" style={{ height: `${previewPanelHeight}px` }}>
                         {activePreview === "question-paper" && currentScript?.question_paper_path ? (
-                          <iframe src={cachedPreviewPaths["question-paper"] || currentScript.question_paper_path} className="w-full h-full border-0" title="Question Paper" />
+                          <iframe src={cachedPreviewPaths["question-paper"] || resolveAssetUrl(currentScript.question_paper_path)} className="w-full h-full border-0" title="Question Paper" />
                         ) : activePreview === "answer-key" && currentScript?.answer_key_path ? (
-                          <iframe src={cachedPreviewPaths["answer-key"] || currentScript.answer_key_path} className="w-full h-full border-0" title="Answer Key" />
+                          <iframe src={cachedPreviewPaths["answer-key"] || resolveAssetUrl(currentScript.answer_key_path)} className="w-full h-full border-0" title="Answer Key" />
                         ) : (
                           <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
                             <span>{activePreview === "question-paper" ? "Question Paper not available" : "Answer Key not available"}</span>

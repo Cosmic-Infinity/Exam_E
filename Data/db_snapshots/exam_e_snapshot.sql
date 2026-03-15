@@ -26,7 +26,7 @@ ALTER TABLE IF EXISTS ONLY public.students DROP CONSTRAINT IF EXISTS students_us
 ALTER TABLE IF EXISTS ONLY public.students DROP CONSTRAINT IF EXISTS students_stream_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.streams DROP CONSTRAINT IF EXISTS streams_school_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.grievances DROP CONSTRAINT IF EXISTS grievances_paper_id_fkey;
-ALTER TABLE IF EXISTS ONLY public.grievances DROP CONSTRAINT IF EXISTS grievances_assigned_coordinator_fkey;
+ALTER TABLE IF EXISTS ONLY public.grievances DROP CONSTRAINT IF EXISTS grievances_assigned_faculty_fkey;
 ALTER TABLE IF EXISTS ONLY public.exams DROP CONSTRAINT IF EXISTS exams_allocation_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.exam_papers DROP CONSTRAINT IF EXISTS exam_papers_exam_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.exam_papers DROP CONSTRAINT IF EXISTS exam_papers_enrollment_id_fkey;
@@ -530,7 +530,7 @@ CREATE TABLE public.grievances (
     id integer NOT NULL,
     paper_id integer,
     student_comment text,
-    assigned_coordinator integer,
+    assigned_faculty integer,
     status character varying(20) DEFAULT 'OPEN'::character varying
 );
 
@@ -1214,7 +1214,7 @@ COPY public.exams (exam_id, allocation_id, exam_type, total_marks, passing_marks
 -- Data for Name: grievances; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.grievances (id, paper_id, student_comment, assigned_coordinator, status) FROM stdin;
+COPY public.grievances (id, paper_id, student_comment, assigned_faculty, status) FROM stdin;
 \.
 
 
@@ -1988,11 +1988,11 @@ ALTER TABLE ONLY public.exams
 
 
 --
--- Name: grievances grievances_assigned_coordinator_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: grievances grievances_assigned_faculty_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.grievances
-    ADD CONSTRAINT grievances_assigned_coordinator_fkey FOREIGN KEY (assigned_coordinator) REFERENCES public.users(id);
+    ADD CONSTRAINT grievances_assigned_faculty_fkey FOREIGN KEY (assigned_faculty) REFERENCES public.users(id);
 
 
 --

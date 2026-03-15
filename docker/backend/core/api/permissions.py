@@ -27,3 +27,18 @@ class IsController(BasePermission):
     def has_permission(self, request, view):
         return bool(request.user and request.user.is_authenticated
                     and request.user.role == 'CONTROLLER')
+
+
+class CanAccessStatistics(BasePermission):
+    """Allows statistics access to controller, staff admin, or coordinator teachers."""
+    message = 'Statistics access requires controller, admin, or coordinator teacher role.'
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not (user and user.is_authenticated):
+            return False
+        if user.is_staff or user.role == 'CONTROLLER':
+            return True
+        if user.role == 'TEACHER':
+            return user.coordinated_courses.exists()
+        return False

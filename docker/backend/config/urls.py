@@ -3,8 +3,16 @@ from django.urls import path, include
 from rest_framework_simplejwt.views import TokenRefreshView
 from core.api import stats as views
 from core.api.auth import LoginView, LogoutView, CustomTokenObtainPairView, MeView, CookieTokenRefreshView, ChangePasswordView
-from core.api.teacher import TeacherAllocationListView, TeacherExamListView, TeacherPaperListView, TeacherPaperDetailView
-from core.api.student import StudentEnrollmentListView, StudentPaperListView, StudentPaperDetailView, StudentGrievanceCreateView
+from core.api.teacher import (
+    TeacherAllocationListView,
+    TeacherExamListView,
+    TeacherPaperListView,
+    TeacherPaperDetailView,
+    TeacherGrievanceListView,
+    TeacherGrievanceDecisionView,
+    TeacherGrievanceStatsView,
+)
+from core.api.student import StudentEnrollmentListView, StudentPaperListView, StudentPaperDetailView, StudentGrievanceCreateView, StudentGrievanceListView
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -42,12 +50,16 @@ urlpatterns += [
     path('api/teacher/exams/<int:allocation_id>/', TeacherExamListView.as_view(), name='teacher_exams'),
     path('api/teacher/papers/', TeacherPaperListView.as_view(), name='teacher_papers'),
     path('api/teacher/paper/<int:pk>/', TeacherPaperDetailView.as_view(), name='teacher_paper_detail'),
+    path('api/teacher/grievances/', TeacherGrievanceListView.as_view(), name='teacher_grievance_list'),
+    path('api/teacher/grievances/stats/', TeacherGrievanceStatsView.as_view(), name='teacher_grievance_stats'),
+    path('api/teacher/grievances/<int:grievance_id>/decision/', TeacherGrievanceDecisionView.as_view(), name='teacher_grievance_decision'),
 
     # Student URLs
     path('api/student/enrollments/', StudentEnrollmentListView.as_view(), name='student_enrollments'),
     path('api/student/papers/', StudentPaperListView.as_view(), name='student_papers'),
     path('api/student/paper/<int:pk>/', StudentPaperDetailView.as_view(), name='student_paper_detail'),
     path('api/student/grievance/', StudentGrievanceCreateView.as_view(), name='student_grievance_create'),
+    path('api/student/grievances/', StudentGrievanceListView.as_view(), name='student_grievance_list'),
 ]
 
 if settings.DEBUG:

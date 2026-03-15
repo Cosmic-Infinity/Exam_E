@@ -24,6 +24,7 @@ type TeacherPaperListItem = {
   student_name: string;
   total_score: number | null;
   evaluation_status: "PENDING" | "IN_PROGRESS" | "COMPLETED";
+  has_grievance?: boolean;
 };
 
 type TeacherPaperDetail = {
@@ -33,6 +34,9 @@ type TeacherPaperDetail = {
   marks_json: unknown;
   total_score: number | null;
   evaluation_status: "PENDING" | "IN_PROGRESS" | "COMPLETED";
+  has_grievance?: boolean;
+  grievance_text?: string | null;
+  grievance_date?: number | null;
   question_paper_path?: string;
   answer_key_path?: string;
   question_paper_schema?: unknown;
@@ -82,6 +86,51 @@ type StudentEnrollmentItem = {
   };
   enrollment_type: string;
   status: string;
+};
+
+export type StudentGrievanceItem = {
+  id: number;
+  paper: number;
+  student_comment: string;
+  status: "OPEN" | "RESOLVED" | "REJECTED";
+};
+
+export type FacultyGrievanceFilter = "all" | "my_section" | "other_section";
+
+export type FacultyGrievanceItem = {
+  id: number;
+  paper_id: number;
+  status: "OPEN" | "RESOLVED" | "REJECTED";
+  student_comment: string;
+  student_university_id: string;
+  student_name: string;
+  subject_code: string;
+  subject_title: string;
+  section_name: string;
+  original_faculty_id: number | null;
+  original_faculty_name: string | null;
+  assigned_faculty_id: number | null;
+  assigned_faculty_name: string | null;
+  grievance_type: "PAGE_MISSING" | "FULL_SHEET_MISSING" | "GENERAL";
+  grievance_type_label: string;
+  assignment_status: "ASSIGNED_TO_YOU" | "ASSIGNED_TO_ANOTHER_FACULTY" | "UNASSIGNED_AT_PRESENT";
+  can_resolve: boolean;
+};
+
+export type FacultyGrievanceStats = {
+  assigned_open_count: number;
+  to_resolve_count: number;
+  resolved_count: number;
+  rejected_count: number;
+  visible_open_count: number;
+  total_visible_count: number;
+  by_section: Array<{
+    section_name: string;
+    total: number;
+    open: number;
+    resolved: number;
+    rejected: number;
+  }>;
 };
 
 type PaperMeta = {
@@ -263,7 +312,7 @@ async function fetchTeacherScriptsInternal(): Promise<AnswerScript[]> {
           subjectCode,
           submissionDate: "",
           status: statusToScriptStatus(paper.evaluation_status),
-          hasGrievance: false,
+          hasGrievance: Boolean(paper.has_grievance),
           marks: createEmptyMarks(),
         });
       }
@@ -305,7 +354,9 @@ export async function getScript(rollNo: string, subjectCode: string, role: "stud
       subjectCode: cached.subjectCode,
       submissionDate: "",
       status: statusToScriptStatus(detail.evaluation_status),
-      hasGrievance: false,
+      hasGrievance: Boolean(detail.has_grievance),
+      grievanceText: detail.grievance_text || undefined,
+      grievanceDate: detail.grievance_date ? `Ref #${detail.grievance_date}` : undefined,
       marks: normalizeMarks(detail.marks_json),
       question_paper_path: normalizeAssetPath(detail.question_paper_path),
       answer_key_path: normalizeAssetPath(detail.answer_key_path),
@@ -327,7 +378,34 @@ export async function getScript(rollNo: string, subjectCode: string, role: "stud
           subjectCode: subjectCode,
           submissionDate: "",
           status: statusToScriptStatus(detail.evaluation_status),
-          hasGrievance: false,
+          hasGrievance: Boolean(detail.has_grievance),
+          grievanceText: detail.grievance_text || undefined,
+          grievanceDate: detail.grievance_date ? `Ref #${detail.grievance_date}` : undefined,
+          marks: normalizeMarks(detail.marks_json),
+          question_paper_path: normalizeAssetPath(detail.question_paper_path),
+          answer_key_path: normalizeAssetPath(detail.answer_key_path),
+          question_paper_schema: detail.question_paper_schema,
+          pages: detail.pages ? detail.pages.map((p) => normalizeAssetPath(p)).filter((p): p is string => Boolean(p)) : undefined,
+          marksUnavailable: detail.marks_json === null,
+        };
+      }
+
+      // Cross-section grievance assignment fallback.
+      const grievanceItems = await getFacultyGrievances("all");
+      const matchedGrievance = grievanceItems.find((item) => item.student_university_id === rollNo && item.subject_code.toLowerCase() === subjectCode.toLowerCase());
+
+      if (matchedGrievance) {
+        const detail = (await AuthService.get(`/teacher/paper/${matchedGrievance.paper_id}/`)) as TeacherPaperDetail;
+
+        return {
+          id: String(detail.paper_id),
+          rollNo: detail.student_university_id,
+          subjectCode: matchedGrievance.subject_code,
+          submissionDate: "",
+          status: statusToScriptStatus(detail.evaluation_status),
+          hasGrievance: Boolean(detail.has_grievance),
+          grievanceText: detail.grievance_text || undefined,
+          grievanceDate: detail.grievance_date ? `Ref #${detail.grievance_date}` : undefined,
           marks: normalizeMarks(detail.marks_json),
           question_paper_path: normalizeAssetPath(detail.question_paper_path),
           answer_key_path: normalizeAssetPath(detail.answer_key_path),
@@ -394,36 +472,98 @@ export async function submitGrievance(_rollNo: string, subjectCode: string, text
   });
 }
 
-/**
- * Backend currently has no explicit teacher grievance decision endpoint.
- * Keep these wrappers for UI compatibility.
- */
-export async function acceptGrievance(rollNo: string, subjectCode: string, updatedMarks: MarksRow[]): Promise<void> {
-  await saveMarks(rollNo, subjectCode, updatedMarks);
+export async function getStudentGrievancesBySubject(subjectCode: string): Promise<StudentGrievanceItem[]> {
+  const paper = await resolveStudentPaperBySubject(subjectCode);
+  if (!paper) return [];
+
+  return (await AuthService.get(`/student/grievances/?paper=${paper.paper_id}`)) as StudentGrievanceItem[];
 }
 
-export async function rejectGrievance(_rollNo: string, _subjectCode: string): Promise<void> {
-  return;
+export async function getFacultyGrievances(filter: FacultyGrievanceFilter): Promise<FacultyGrievanceItem[]> {
+  const query = encodeURIComponent(filter);
+  return (await AuthService.get(`/teacher/grievances/?filter=${query}`)) as FacultyGrievanceItem[];
+}
+
+export async function getFacultyGrievanceStats(): Promise<FacultyGrievanceStats> {
+  return (await AuthService.get("/teacher/grievances/stats/")) as FacultyGrievanceStats;
+}
+
+export async function decideFacultyGrievance(
+  grievanceId: number,
+  payload: {
+    status: "RESOLVED" | "REJECTED";
+    marks_json?: unknown;
+    total_score?: number;
+  },
+): Promise<void> {
+  await AuthService.post(`/teacher/grievances/${grievanceId}/decision/`, payload);
+}
+
+/**
+ * Compatibility wrappers used by EvaluationViewer.
+ */
+export async function acceptGrievance(rollNo: string, subjectCode: string, updatedMarks: MarksRow[], grievanceId?: number): Promise<void> {
+  const script = await getScript(rollNo, subjectCode, "faculty");
+  if (!script) throw new Error("Paper not found");
+
+  const resolvedGrievanceId = grievanceId ?? Number((script.grievanceDate || "").replace(/[^0-9]/g, ""));
+  if (!resolvedGrievanceId) {
+    throw new Error("No actionable grievance found for this script.");
+  }
+
+  const detail = (await AuthService.get(`/teacher/paper/${script.id}/`)) as TeacherPaperDetail;
+  const marksPayload = buildSectionMarksPayload(detail.marks_json, updatedMarks);
+
+  await decideFacultyGrievance(resolvedGrievanceId, {
+    status: "RESOLVED",
+    marks_json: marksPayload,
+    total_score: computeTotal(updatedMarks),
+  });
+}
+
+export async function rejectGrievance(rollNo: string, subjectCode: string, grievanceId?: number): Promise<void> {
+  const script = await getScript(rollNo, subjectCode, "faculty");
+  if (!script) throw new Error("Paper not found");
+
+  const resolvedGrievanceId = grievanceId ?? Number((script.grievanceDate || "").replace(/[^0-9]/g, ""));
+  if (!resolvedGrievanceId) {
+    throw new Error("No actionable grievance found for this script.");
+  }
+
+  await decideFacultyGrievance(resolvedGrievanceId, { status: "REJECTED" });
 }
 
 /** Student results from backend (no hardcoded subjects) */
 export async function getStudentResults(_rollNo: string): Promise<StudentResult[]> {
-  const [enrollments, papers] = await Promise.all([fetchStudentEnrollmentsInternal(), fetchStudentPapersInternal()]);
+  const [enrollments, papers, grievances] = await Promise.all([
+    fetchStudentEnrollmentsInternal(),
+    fetchStudentPapersInternal(),
+    AuthService.get("/student/grievances/") as Promise<StudentGrievanceItem[]>,
+  ]);
 
   const papersByCourse = new Map<string, StudentPaperListItem>();
   for (const p of papers) {
     papersByCourse.set(p.exam.course_code.toLowerCase(), p);
   }
 
+  const grievanceByPaper = new Map<number, StudentGrievanceItem>();
+  for (const g of grievances) {
+    if (!grievanceByPaper.has(g.paper)) {
+      grievanceByPaper.set(g.paper, g);
+    }
+  }
+
   return enrollments.map((enr) => {
     const subjectCode = enr.allocation.course.course_code;
     const paper = papersByCourse.get(subjectCode.toLowerCase());
+    const latestGrievance = paper ? grievanceByPaper.get(paper.paper_id) : undefined;
+    const recheckStatus = latestGrievance ? (latestGrievance.status === "OPEN" ? "under-review" : latestGrievance.status === "RESOLVED" ? "updated" : "unchanged") : "not-submitted";
 
     return {
       subjectCode,
       subjectName: enr.allocation.course.title || subjectCode,
       marks: paper && paper.evaluation_status === "COMPLETED" ? (paper.total_score ?? 0) : null,
-      recheckStatus: "not-submitted",
+      recheckStatus,
     };
   });
 }

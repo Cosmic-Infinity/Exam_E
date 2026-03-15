@@ -6,6 +6,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from ..models import Grievance, ExamPaper, CourseAllocation, User, Course
+from .permissions import CanAccessStatistics
 
 # --- Helper ---
 def _is_admin_staff(user):
@@ -151,7 +152,7 @@ def admin_stats_students(request):
 # --- New Data APIs (JSON) for Frontend ---
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, CanAccessStatistics])
 def stats_dashboard_data(request):
     """
     API: Returns list of accessible courses for the dashboard dropdown/overview.
@@ -160,7 +161,7 @@ def stats_dashboard_data(request):
     return Response({'courses': list(courses)})
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, CanAccessStatistics])
 def stats_grievances(request):
     """
     API: Returns grievance statistics.
@@ -171,7 +172,7 @@ def stats_grievances(request):
     return Response(payload, status=status)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, CanAccessStatistics])
 def stats_scores(request):
     """
     API: Returns score distribution for a specific course/section.
@@ -180,7 +181,7 @@ def stats_scores(request):
     return Response(payload, status=status)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, CanAccessStatistics])
 def stats_students_in_range(request):
     """
     API: Returns students in a specific score range for a course.
@@ -200,7 +201,7 @@ def stats_students_in_range(request):
     return Response(payload, status=status)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, CanAccessStatistics])
 def stats_subjects(request):
     """
     API: Returns all subjects with their evaluation progress.
@@ -217,7 +218,7 @@ def stats_subjects(request):
     return Response({'subjects': list(courses_with_stats)})
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, CanAccessStatistics])
 def stats_sections(request):
     """
     API: Returns sections for a specific course with their evaluation progress.

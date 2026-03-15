@@ -35,16 +35,6 @@ class LoginView(APIView):
     @method_decorator(ratelimit(key='ip', rate='5/m', block=True))
     def post(self, request):
         email = request.data.get('email')
-        university_id = request.data.get('university_id') # Backward compatibility attempted? No, let's force expected behavior.
-        
-        # If the user tries to send university_id, maybe we should map it to email if possible?
-        # But the requirement says "university email id is SUPPOSED TO BE the login id".
-        # So we expect email.
-        
-        # However, to be nice during migration, if email is missing but university_id is present, we could check if university_id looks like an email.
-        if not email and university_id and '@' in university_id:
-             email = university_id
-
         password = request.data.get('password')
 
         if not email or not password:
@@ -85,7 +75,7 @@ class LoginView(APIView):
 class CustomTokenObtainPairView(TokenObtainPairView):
     """
     POST /api/token/
-    Body: { "university_id": "...", "password": "..." }
+    Body: { "email": "...", "password": "..." }
     Returns: { access, refresh, university_id, full_name, role }
     Use this if the React frontend prefers bearer-token storage over cookies.
     """

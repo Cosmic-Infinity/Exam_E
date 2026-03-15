@@ -73,7 +73,7 @@ BEGIN
             
             -- Grievance
             IF i = 5 THEN
-                INSERT INTO grievances (paper_id, student_comment, assigned_coordinator, status)
+                INSERT INTO grievances (paper_id, student_comment, assigned_faculty, status)
                 VALUES (pap_id, 'Please check Q3', t_uid, 'OPEN');
             END IF;
         ELSE

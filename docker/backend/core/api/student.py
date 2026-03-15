@@ -5,7 +5,8 @@ from core.api.student_serializers import (
     StudentEnrollmentSerializer, 
     StudentPaperListSerializer, 
     StudentPaperDetailSerializer,
-    GrievanceCreateSerializer
+    GrievanceCreateSerializer,
+    StudentGrievanceListSerializer,
 )
 
 class IsStudent(permissions.BasePermission):
@@ -77,3 +78,23 @@ class StudentGrievanceCreateView(generics.CreateAPIView):
         # and is fully graded. We just need to save it.
         # The status defaults to 'OPEN' in the model.
         serializer.save()
+
+
+class StudentGrievanceListView(generics.ListAPIView):
+    """
+    Lists grievances raised by the logged-in student.
+    Optional query param: ?paper=<paper_id>
+    """
+    serializer_class = StudentGrievanceListSerializer
+    permission_classes = [permissions.IsAuthenticated, IsStudent]
+
+    def get_queryset(self):
+        queryset = Grievance.objects.filter(
+            paper__enrollment__student=self.request.user
+        ).select_related('paper').order_by('-id')
+
+        paper_id = self.request.query_params.get('paper')
+        if paper_id:
+            queryset = queryset.filter(paper_id=paper_id)
+
+        return queryset

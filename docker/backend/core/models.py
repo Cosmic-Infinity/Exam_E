@@ -227,10 +227,14 @@ class ExamPaper(models.Model):
         return f"Paper {self.paper_id} ({self.evaluation_status})"
 
 class Grievance(models.Model):
+    GRIEVANCE_TYPE_PAGE_MISSING = 'PAGE_MISSING'
+    GRIEVANCE_TYPE_FULL_SHEET_MISSING = 'FULL_SHEET_MISSING'
+    GRIEVANCE_TYPE_GENERAL = 'GENERAL'
+
     id = models.AutoField(primary_key=True)
     paper = models.ForeignKey(ExamPaper, on_delete=models.DO_NOTHING)
     student_comment = models.TextField(null=True, blank=True)
-    assigned_coordinator = models.ForeignKey(User, on_delete=models.DO_NOTHING, null=True, blank=True, related_name='assigned_grievances', db_column='assigned_coordinator')
+    assigned_faculty = models.ForeignKey(User, on_delete=models.DO_NOTHING, null=True, blank=True, related_name='assigned_grievances', db_column='assigned_faculty')
     status = models.CharField(max_length=20, default='OPEN', choices=[
         ('OPEN', 'Open'),
         ('RESOLVED', 'Resolved'),
@@ -239,6 +243,23 @@ class Grievance(models.Model):
 
     class Meta:
         db_table = 'grievances'
+
+    @property
+    def grievance_type(self):
+        comment = (self.student_comment or '').strip().lower()
+        if comment.startswith('[pages missing:'):
+            return self.GRIEVANCE_TYPE_PAGE_MISSING
+        if comment.startswith('[complete answer sheet missing]'):
+            return self.GRIEVANCE_TYPE_FULL_SHEET_MISSING
+        return self.GRIEVANCE_TYPE_GENERAL
+
+    @property
+    def grievance_type_label(self):
+        if self.grievance_type == self.GRIEVANCE_TYPE_PAGE_MISSING:
+            return 'Page Missing'
+        if self.grievance_type == self.GRIEVANCE_TYPE_FULL_SHEET_MISSING:
+            return 'Full Sheet Missing'
+        return 'General Grievance'
     
     def __str__(self):
         return f"Grievance {self.id} ({self.status})"

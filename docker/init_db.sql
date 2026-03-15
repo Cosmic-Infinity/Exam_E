@@ -242,7 +242,7 @@ CREATE TABLE public.grievances (
     id integer NOT NULL,
     paper_id integer,
     student_comment text,
-    assigned_coordinator integer,
+    assigned_faculty integer,
     status character varying(20) DEFAULT 'OPEN'::character varying
 );
 
@@ -720,11 +720,11 @@ ALTER TABLE ONLY public.exam_papers
 
 
 --
--- Name: grievances grievances_assigned_coordinator_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: grievances grievances_assigned_faculty_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.grievances
-    ADD CONSTRAINT grievances_assigned_coordinator_fkey FOREIGN KEY (assigned_coordinator) REFERENCES public.users(id);
+    ADD CONSTRAINT grievances_assigned_faculty_fkey FOREIGN KEY (assigned_faculty) REFERENCES public.users(id);
 
 
 --

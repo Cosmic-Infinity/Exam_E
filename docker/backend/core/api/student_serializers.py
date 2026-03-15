@@ -73,8 +73,23 @@ class GrievanceCreateSerializer(serializers.ModelSerializer):
         if value.evaluation_status != 'COMPLETED':
             raise serializers.ValidationError("You can only raise a grievance for fully graded papers.")
             
-        # Ensure a grievance doesn't already exist for this paper
-        if Grievance.objects.filter(paper=value).exists():
-            raise serializers.ValidationError("A grievance has already been raised for this paper.")
-            
         return value
+
+    def validate(self, attrs):
+        """Allow multiple grievances, but block exact duplicate open submissions."""
+        attrs = super().validate(attrs)
+        paper = attrs.get('paper')
+        comment = (attrs.get('student_comment') or '').strip()
+
+        if paper and comment and Grievance.objects.filter(paper=paper, status='OPEN', student_comment__iexact=comment).exists():
+            raise serializers.ValidationError({
+                'student_comment': 'An open grievance with the same comment already exists for this paper.'
+            })
+
+        return attrs
+
+
+class StudentGrievanceListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Grievance
+        fields = ['id', 'paper', 'student_comment', 'status']

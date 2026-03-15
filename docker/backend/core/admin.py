@@ -1,10 +1,12 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.admin import SimpleListFilter
 from django.db.models import F
 from django.utils.crypto import get_random_string
 from django.shortcuts import render
 from django.urls import path
 import json
+import random
 from .models import Exam, CourseAllocation, AcademicSession, School, User, Stream, Course, Enrollment, ExamPaper, Student, Teacher, Grievance, DataImport
 from .forms import ExamForm, UserCreationForm, UserChangeForm, CSVImportForm
 from .tasks import send_credentials_email
@@ -313,12 +315,96 @@ class TeacherAdmin(admin.ModelAdmin):
             kwargs["queryset"] = User.objects.filter(role='TEACHER')
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
+class GrievanceTypeListFilter(SimpleListFilter):
+    title = 'grievance type'
+    parameter_name = 'grievance_type'
+
+    def lookups(self, request, model_admin):
+        return (
+            (Grievance.GRIEVANCE_TYPE_PAGE_MISSING, 'Page Missing'),
+            (Grievance.GRIEVANCE_TYPE_FULL_SHEET_MISSING, 'Full Sheet Missing'),
+            (Grievance.GRIEVANCE_TYPE_GENERAL, 'General Grievance'),
+        )
+
+    def queryset(self, request, queryset):
+        value = self.value()
+        if value == Grievance.GRIEVANCE_TYPE_PAGE_MISSING:
+            return queryset.filter(student_comment__istartswith='[Pages Missing:')
+        if value == Grievance.GRIEVANCE_TYPE_FULL_SHEET_MISSING:
+            return queryset.filter(student_comment__istartswith='[Complete Answer Sheet Missing]')
+        if value == Grievance.GRIEVANCE_TYPE_GENERAL:
+            return queryset.exclude(student_comment__istartswith='[Pages Missing:').exclude(student_comment__istartswith='[Complete Answer Sheet Missing]')
+        return queryset
+
+
 @admin.register(Grievance)
 class GrievanceAdmin(admin.ModelAdmin):
-    list_display = ('id', 'paper', 'status', 'assigned_coordinator')
-    list_filter = ('status',)
+    list_display = ('id', 'paper', 'grievance_type_label', 'status', 'assigned_faculty')
+    list_filter = ('status', GrievanceTypeListFilter)
     search_fields = ('paper__enrollment__student__university_id',)
-    autocomplete_fields = ['paper', 'assigned_coordinator']
+    autocomplete_fields = ['paper', 'assigned_faculty']
+    actions = ['assign_to_same_faculty', 'assign_random_faculty']
+
+    @admin.display(description='Grievance Type')
+    def grievance_type_label(self, obj):
+        return obj.grievance_type_label
+
+    @admin.display(description='Assigned Faculty')
+    def assigned_faculty(self, obj):
+        return obj.assigned_faculty
+
+    @admin.action(description='Assign to same faculty (paper evaluator)')
+    def assign_to_same_faculty(self, request, queryset):
+        updated = 0
+        skipped = 0
+
+        for grievance in queryset.select_related('paper__exam__allocation__teacher'):
+            allocation = grievance.paper.exam.allocation if grievance.paper and grievance.paper.exam else None
+            evaluator = allocation.teacher if allocation else None
+            if evaluator is None:
+                skipped += 1
+                continue
+
+            grievance.assigned_faculty = evaluator
+            grievance.save(update_fields=['assigned_faculty'])
+            updated += 1
+
+        self.message_user(
+            request,
+            f"Assigned {updated} grievance(s) to same faculty. Skipped {skipped} without evaluator.",
+        )
+
+    @admin.action(description='Assign randomly (faculty teaching the same course)')
+    def assign_random_faculty(self, request, queryset):
+        updated = 0
+        skipped = 0
+
+        for grievance in queryset.select_related('paper__exam__allocation__course', 'paper__exam__allocation__session'):
+            allocation = grievance.paper.exam.allocation if grievance.paper and grievance.paper.exam else None
+            if allocation is None:
+                skipped += 1
+                continue
+
+            pool = list(
+                CourseAllocation.objects.filter(
+                    course=allocation.course,
+                    session=allocation.session,
+                    teacher__isnull=False,
+                ).values_list('teacher_id', flat=True).distinct()
+            )
+
+            if not pool:
+                skipped += 1
+                continue
+
+            grievance.assigned_faculty_id = random.choice(pool)
+            grievance.save(update_fields=['assigned_faculty'])
+            updated += 1
+
+        self.message_user(
+            request,
+            f"Assigned {updated} grievance(s) randomly. Skipped {skipped} with no eligible faculty pool.",
+        )
 
 
 @admin.register(DataImport)

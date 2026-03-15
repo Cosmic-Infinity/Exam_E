@@ -3,17 +3,21 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import { ArrowLeft, ChevronDown, Download, Eraser, Eye, FileText, FileX2, Files, KeyRound, Pencil, RotateCcw, RotateCw, X } from "lucide-react";
 import { useUserSession } from "@/app/context/UserSessionContext";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/app/components/ui/resizable";
-import { getScript, saveMarks, submitGrievance, acceptGrievance, rejectGrievance, downloadFile, getStudentResults } from "@/app/services/evaluationService";
+import { getScript, saveMarks, submitGrievance, acceptGrievance, rejectGrievance, downloadFile, getStudentGrievancesBySubject } from "@/app/services/evaluationService";
+import type { StudentGrievanceItem } from "@/app/services/evaluationService";
 import { MarksRow, SUBJECT_MAP, createEmptyMarks, computeTotal, getCountedRowIndexes, AnswerScript } from "@/app/types/evaluation";
 import ThemeToggle from "@/app/components/common/ThemeToggle";
-import { getCachedPage, cachePages } from "@/app/utils/cacheManager";
+import { cachePages } from "@/app/utils/cacheManager";
 
 // Default fallback for simulation
 const DEFAULT_TOTAL_PAGES = 30;
 
 type PreviewType = "question-paper" | "answer-key" | null;
+const PREVIEW_DOC_CACHE = "exam-preview-docs-v1";
+const THUMBNAIL_STRIP_SESSION_KEY = "evaluation-thumbnail-strip-open";
 
 // Placeholder image pages for the answer sheet (different tinted "scanned" look per page)
 const PAGE_COLORS = [
@@ -48,6 +52,47 @@ const PAGE_COLORS = [
   "from-slate-800/36 to-slate-900/46",
   "from-indigo-900/38 to-slate-900/48",
 ];
+
+const THUMBNAIL_CARD_WIDTH = 112;
+
+const parseMarkValue = (value: string): number => {
+  if (value === "" || value === "-") return 0;
+  return Number.parseFloat(value) || 0;
+};
+
+const sanitizeMarkInput = (value: string): string => {
+  const cleaned = value.replace(/[^0-9.]/g, "");
+  const firstDot = cleaned.indexOf(".");
+  if (firstDot === -1) return cleaned;
+  const head = cleaned.slice(0, firstDot + 1);
+  const tail = cleaned.slice(firstDot + 1).replace(/\./g, "");
+  return `${head}${tail}`;
+};
+
+const buildThumbnailPages = (active: number, total: number, targetCount: number): number[] => {
+  if (total <= 0) return [];
+  const count = Math.min(targetCount, total);
+  let start = active - Math.floor(count / 2);
+  let end = start + count - 1;
+
+  if (start < 1) {
+    end += 1 - start;
+    start = 1;
+  }
+
+  if (end > total) {
+    start -= end - total;
+    end = total;
+  }
+
+  start = Math.max(1, start);
+
+  const pages: number[] = [];
+  for (let p = start; p <= end; p++) {
+    pages.push(p);
+  }
+  return pages;
+};
 
 const AnswerSheetImage = ({ page, subjectCode, rollNo, src, totalPages }: { page: number; subjectCode: string; rollNo: string; src?: string; totalPages?: number }) => {
   if (src) {
@@ -122,6 +167,7 @@ const PageThumbnail = ({
   isLoading = false,
   src,
   totalPages,
+  isActive = false,
 }: {
   page: number;
   subjectCode: string;
@@ -130,14 +176,17 @@ const PageThumbnail = ({
   isLoading?: boolean;
   src?: string;
   totalPages?: number;
+  isActive?: boolean;
 }) => {
   return (
     <button
       onClick={onClick}
       disabled={isLoading}
-      className="relative group flex-1 h-28 rounded-none border border-border/40 bg-card/50 hover:bg-card hover:border-primary/30 transition-all overflow-hidden cursor-pointer hover:shadow-md disabled:opacity-50"
+      className={`relative group flex-1 h-28 rounded-none border transition-all overflow-hidden cursor-pointer hover:shadow-md disabled:opacity-50 ${
+        isActive ? "border-primary/70 ring-1 ring-primary/40 bg-primary/10" : "border-border/40 bg-card/50 hover:bg-card hover:border-primary/30"
+      }`}
     >
-      <div className="w-full h-full scale-75-origin-top-left" style={{ transform: "scale(0.3)", transformOrigin: "top left", pointerEvents: "none" }}>
+      <div className="w-full h-full pointer-events-none">
         <AnswerSheetImage page={page} subjectCode={subjectCode} rollNo={rollNo} src={src} totalPages={totalPages} />
       </div>
       {/* Overlay label */}
@@ -159,6 +208,8 @@ const EvaluationViewer = () => {
   const roleParam = searchParams.get("role");
   const role = roleParam === "faculty" ? "faculty" : "student";
   const mode = searchParams.get("mode") || "graded";
+  const panel = searchParams.get("panel");
+  const grievanceId = Number(searchParams.get("grievanceId") || "");
   const navigate = useNavigate();
   const { user } = useUserSession();
 
@@ -183,6 +234,8 @@ const EvaluationViewer = () => {
   const [marks, setMarks] = useState<MarksRow[]>(createEmptyMarks());
   const [grievanceText, setGrievanceText] = useState("");
   const [scriptGrievance, setScriptGrievance] = useState<{ text: string; date: string } | null>(null);
+  const [grievanceHistory, setGrievanceHistory] = useState<StudentGrievanceItem[]>([]);
+  const [loadingGrievanceHistory, setLoadingGrievanceHistory] = useState(false);
 
   // Derived pages list
   const pagesList = currentScript?.pages && currentScript.pages.length > 0 ? currentScript.pages : Array.from({ length: DEFAULT_TOTAL_PAGES }, (_, i) => String(i + 1));
@@ -192,6 +245,19 @@ const EvaluationViewer = () => {
   // Thumbnail pages state
   const [nextPageThumbnails, setNextPageThumbnails] = useState<number[]>([]);
   const [loadingThumbnails, setLoadingThumbnails] = useState(false);
+  const [thumbnailSlots, setThumbnailSlots] = useState<3 | 5>(3);
+  const thumbnailStripRef = useRef<HTMLDivElement>(null);
+  const [selectedQuestionIndex, setSelectedQuestionIndex] = useState<number | null>(null);
+  const [cachedPreviewPaths, setCachedPreviewPaths] = useState<{ "question-paper"?: string; "answer-key"?: string }>({});
+  const [thumbnailStripOpen, setThumbnailStripOpen] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    const saved = window.sessionStorage.getItem(THUMBNAIL_STRIP_SESSION_KEY);
+    return saved ? saved === "open" : true;
+  });
+  const [previewPanelHeight, setPreviewPanelHeight] = useState(240);
+  const [isResizingPreview, setIsResizingPreview] = useState(false);
+  const resizeStartYRef = useRef(0);
+  const resizeStartHeightRef = useRef(240);
 
   // Preview dropdown
   const [previewDropdownOpen, setPreviewDropdownOpen] = useState(false);
@@ -240,6 +306,12 @@ const EvaluationViewer = () => {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
+    if (role === "student" && panel === "grievances") {
+      setRecheckOpen(true);
+    }
+  }, [role, panel]);
+
+  useEffect(() => {
     let active = true;
     setLoading(true);
     setNotFound(false);
@@ -280,30 +352,41 @@ const EvaluationViewer = () => {
     };
   }, [rollNo, subjectId, role, navigate]);
 
-  // Fetch and cache next 3 pages when active page changes
+  // Dynamically switch thumbnail density based on available width in strip area.
   useEffect(() => {
-    const fetchAndCacheNextPages = async () => {
-      const nextPages = [];
-      for (let i = 1; i <= 3; i++) {
-        const pageNum = activePage + i;
-        if (pageNum <= totalPages) {
-          nextPages.push(pageNum);
-        }
-      }
+    const strip = thumbnailStripRef.current;
+    if (!strip) return;
 
-      if (nextPages.length > 0) {
+    const updateSlots = () => {
+      const width = strip.clientWidth;
+      const cardsFit = Math.floor(width / THUMBNAIL_CARD_WIDTH);
+      setThumbnailSlots(cardsFit >= 5 ? 5 : 3);
+    };
+
+    updateSlots();
+    const observer = new ResizeObserver(updateSlots);
+    observer.observe(strip);
+    return () => observer.disconnect();
+  }, [nextPageThumbnails.length]);
+
+  // Compute centered thumbnail pages and cache visible neighboring pages.
+  useEffect(() => {
+    const refreshThumbnailPages = async () => {
+      const visiblePages = buildThumbnailPages(activePage, totalPages, thumbnailSlots);
+
+      setNextPageThumbnails(visiblePages);
+
+      if (visiblePages.length > 0) {
         setLoadingThumbnails(true);
-        setNextPageThumbnails(nextPages);
 
         try {
-          // Simulate fetching pages from backend and cache them
-          // In a real scenario, these would come from an API
-          const pagesToCache = nextPages.map((pageNum) => ({
-            page: pageNum,
-            imageBlob: new Blob(), // Placeholder - in real app, this comes from backend
-          }));
+          const pagesToCache = visiblePages
+            .filter((pageNum) => pageNum !== activePage)
+            .map((pageNum) => ({
+              page: pageNum,
+              imageBlob: new Blob(),
+            }));
 
-          // Cache the pages for later preview
           if (pagesToCache.length > 0) {
             await cachePages(subjectCode, pagesToCache).catch((err) => {
               console.log("Cache operation note:", err);
@@ -314,13 +397,11 @@ const EvaluationViewer = () => {
         } finally {
           setLoadingThumbnails(false);
         }
-      } else {
-        setNextPageThumbnails([]);
       }
     };
 
-    fetchAndCacheNextPages();
-  }, [activePage, subjectCode]);
+    refreshThumbnailPages();
+  }, [activePage, totalPages, thumbnailSlots, subjectCode]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -356,15 +437,48 @@ const EvaluationViewer = () => {
   const handleNext = () => setActivePage((p) => Math.min(totalPages, p + 1));
 
   const handleMarkChange = (qIndex: number, part: string, value: string) => {
-    const sanitized = value.replace(/[^0-9-]/g, "");
+    const sanitizedValue = sanitizeMarkInput(value);
+
     setMarks((prev) => {
       const updated = prev.map((r) => ({ ...r, parts: { ...r.parts } }));
-      updated[qIndex].parts[part] = sanitized;
+      updated[qIndex].parts[part] = sanitizedValue;
       return updated;
     });
   };
 
+  const getInvalidMarkEntries = () => {
+    const invalid: Array<{ q: string; part: string; expected: number; awarded: number }> = [];
+    for (const row of marks) {
+      for (const partKey of Object.keys(row.parts)) {
+        const expected = Number(row.expectedParts?.[partKey] ?? 0);
+        const awarded = parseMarkValue(row.parts[partKey] ?? "");
+
+        if (awarded < 0 || awarded > expected) {
+          invalid.push({ q: row.q, part: partKey, expected, awarded });
+        }
+      }
+    }
+    return invalid;
+  };
+
+  const invalidMarkEntries = getInvalidMarkEntries();
+  const hasInvalidMarks = invalidMarkEntries.length > 0;
+
+  const validateMarksWithinExpected = (): string | null => {
+    const firstInvalid = invalidMarkEntries[0];
+    if (firstInvalid) {
+      return `${firstInvalid.q} part ${firstInvalid.part.toUpperCase()} is ${firstInvalid.awarded}, max is ${firstInvalid.expected}.`;
+    }
+    return null;
+  };
+
   const handleSaveMarks = () => {
+    const validationError = validateMarksWithinExpected();
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+
     saveMarks(rollNo, subjectId || "", marks, role as "student" | "faculty");
     toast.success("Marks saved successfully.", { duration: 2500 });
   };
@@ -375,24 +489,74 @@ const EvaluationViewer = () => {
       return;
     }
     const prefix = missingType === "pages" ? `[Pages Missing: ${missingPages}] ` : missingType === "complete" ? "[Complete Answer Sheet Missing] " : "";
-    submitGrievance(rollNo, subjectId || "", prefix + grievanceText);
-    toast.success("Grievance submitted for re-evaluation.", { duration: 2500 });
-    setGrievanceText("");
-    setMissingType(null);
-    setMissingPages("");
-    setRecheckOpen(false);
+    (async () => {
+      try {
+        await submitGrievance(rollNo, subjectId || "", prefix + grievanceText);
+        toast.success("Grievance submitted for re-evaluation.", { duration: 2500 });
+        setGrievanceText("");
+        setMissingType(null);
+        setMissingPages("");
+        setRecheckOpen(false);
+
+        if (!isFaculty && subjectId) {
+          const items = await getStudentGrievancesBySubject(subjectId);
+          setGrievanceHistory(items);
+        }
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not submit grievance.");
+      }
+    })();
   };
 
-  const handleAcceptGrievance = () => {
-    acceptGrievance(rollNo, subjectId || "", marks);
-    toast.success("Grievance accepted. Marks updated.", { duration: 2500 });
-    setScriptGrievance(null);
+  useEffect(() => {
+    if (isFaculty || !subjectId) {
+      setGrievanceHistory([]);
+      return;
+    }
+
+    let active = true;
+    const loadGrievanceHistory = async () => {
+      setLoadingGrievanceHistory(true);
+      try {
+        const items = await getStudentGrievancesBySubject(subjectId);
+        if (active) {
+          setGrievanceHistory(items);
+        }
+      } catch {
+        if (active) {
+          setGrievanceHistory([]);
+        }
+      } finally {
+        if (active) {
+          setLoadingGrievanceHistory(false);
+        }
+      }
+    };
+
+    loadGrievanceHistory();
+    return () => {
+      active = false;
+    };
+  }, [isFaculty, subjectId]);
+
+  const handleAcceptGrievance = async () => {
+    try {
+      await acceptGrievance(rollNo, subjectId || "", marks, Number.isFinite(grievanceId) && grievanceId > 0 ? grievanceId : undefined);
+      toast.success("Grievance accepted. Marks updated.", { duration: 2500 });
+      setScriptGrievance(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not resolve grievance.");
+    }
   };
 
-  const handleRejectGrievance = () => {
-    rejectGrievance(rollNo, subjectId || "");
-    toast.info("Grievance rejected. Student notified.", { duration: 2500 });
-    setScriptGrievance(null);
+  const handleRejectGrievance = async () => {
+    try {
+      await rejectGrievance(rollNo, subjectId || "", Number.isFinite(grievanceId) && grievanceId > 0 ? grievanceId : undefined);
+      toast.info("Grievance rejected. Student notified.", { duration: 2500 });
+      setScriptGrievance(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not reject grievance.");
+    }
   };
 
   const selectPreview = (type: PreviewType) => {
@@ -406,6 +570,75 @@ const EvaluationViewer = () => {
     setActivePreview(type);
     setPreviewDropdownOpen(false);
   };
+
+  const handleDownloadPreviewDoc = (type: "question-paper" | "answer-key") => {
+    const rawPath = type === "question-paper" ? currentScript?.question_paper_path : currentScript?.answer_key_path;
+    if (!rawPath) {
+      toast.error(type === "question-paper" ? "Question paper is not available" : "Answer key is not available");
+      return;
+    }
+
+    const suffix = type === "question-paper" ? "Question_Paper" : "Answer_Key";
+    const extMatch = rawPath.match(/\.([a-zA-Z0-9]+)(?:\?|#|$)/);
+    const ext = extMatch?.[1] || "pdf";
+    downloadFile(rawPath, `${subjectCode}_${suffix}.${ext}`);
+    setPreviewDropdownOpen(false);
+  };
+
+  const getCachedPreviewUrl = async (rawPath?: string): Promise<string | undefined> => {
+    if (!rawPath) return undefined;
+    if (!("caches" in window)) return rawPath;
+
+    try {
+      const request = new Request(rawPath, { method: "GET", credentials: "include" });
+      const cache = await caches.open(PREVIEW_DOC_CACHE);
+      let response = await cache.match(request);
+
+      if (!response) {
+        const fetched = await fetch(rawPath, { credentials: "include" });
+        if (!fetched.ok) return rawPath;
+        await cache.put(request, fetched.clone());
+        response = fetched;
+      }
+
+      const blob = await response.blob();
+      return URL.createObjectURL(blob);
+    } catch {
+      return rawPath;
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    let questionBlobUrl: string | undefined;
+    let keyBlobUrl: string | undefined;
+
+    const warmPreviewDocs = async () => {
+      const questionUrl = await getCachedPreviewUrl(currentScript?.question_paper_path);
+      const keyUrl = await getCachedPreviewUrl(currentScript?.answer_key_path);
+
+      if (!active) {
+        if (questionUrl?.startsWith("blob:")) URL.revokeObjectURL(questionUrl);
+        if (keyUrl?.startsWith("blob:")) URL.revokeObjectURL(keyUrl);
+        return;
+      }
+
+      questionBlobUrl = questionUrl;
+      keyBlobUrl = keyUrl;
+      setCachedPreviewPaths({
+        "question-paper": questionUrl,
+        "answer-key": keyUrl,
+      });
+    };
+
+    warmPreviewDocs();
+
+    return () => {
+      active = false;
+      if (questionBlobUrl?.startsWith("blob:")) URL.revokeObjectURL(questionBlobUrl);
+      if (keyBlobUrl?.startsWith("blob:")) URL.revokeObjectURL(keyBlobUrl);
+    };
+  }, [currentScript?.question_paper_path, currentScript?.answer_key_path]);
 
   // Restore scroll position when preview type changes
   useEffect(() => {
@@ -424,6 +657,50 @@ const EvaluationViewer = () => {
       });
     }
   }, [activePreview]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem(THUMBNAIL_STRIP_SESSION_KEY, thumbnailStripOpen ? "open" : "closed");
+    }
+  }, [thumbnailStripOpen]);
+
+  useEffect(() => {
+    if (!isResizingPreview) return;
+
+    const handleMouseMove = (event: MouseEvent) => {
+      const deltaY = event.clientY - resizeStartYRef.current;
+      const minHeight = 150;
+      const maxHeight = Math.max(minHeight + 80, Math.floor(window.innerHeight * 0.72));
+      const nextHeight = Math.min(Math.max(resizeStartHeightRef.current + deltaY, minHeight), maxHeight);
+      setPreviewPanelHeight(nextHeight);
+    };
+
+    const handleMouseUp = () => {
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+      setIsResizingPreview(false);
+    };
+
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "row-resize";
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+    };
+  }, [isResizingPreview]);
+
+  const handlePreviewResizeStart = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    resizeStartYRef.current = event.clientY;
+    resizeStartHeightRef.current = previewPanelHeight;
+    setIsResizingPreview(true);
+  };
 
   // Drawing functions
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -536,7 +813,7 @@ const EvaluationViewer = () => {
 
     // Update last page reference
     lastPageRef.current = activePage;
-  }, [activePage]);
+  }, [activePage, currentScript?.id]);
 
   // Close download dropdown on outside click
   useEffect(() => {
@@ -656,31 +933,46 @@ const EvaluationViewer = () => {
       }
 
       if (includeMarks) {
-        toast.message("Fetching student marks for summary...", { id: toastId });
+        toast.message("Adding current subject marks to PDF...", { id: toastId });
         try {
-          const results = await getStudentResults(rollNo);
+          const rowTable = marks.flatMap((row, idx) => {
+            const partKeys = Object.keys(row.parts).sort();
+            const rowTotal = partKeys.reduce((sum, key) => sum + parseMarkValue(row.parts[key] ?? ""), 0);
+            const expectedTotal = row.expectedTotal ?? partKeys.reduce((sum, key) => sum + Number(row.expectedParts?.[key] ?? 0), 0);
+            const isCounted = countedRowIndexes.has(idx);
 
-          if (results && results.length > 0) {
-            pdf.addPage();
-            pdf.setFontSize(16);
-            pdf.text("Student Marks Summary", 14, 20);
+            const partRows = partKeys.map((partKey) => [
+              row.q,
+              partKey.toUpperCase(),
+              String(parseMarkValue(row.parts[partKey] ?? "")),
+              String(Number(row.expectedParts?.[partKey] ?? 0)),
+              isCounted ? "Yes" : "No",
+            ]);
 
-            pdf.setFontSize(10);
-            pdf.text(`Student ID: ${rollNo}`, 14, 28);
-            pdf.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 33);
+            return [...partRows, [row.q, "TOTAL", String(rowTotal), String(expectedTotal), isCounted ? "Counted" : "Excluded"]];
+          });
 
-            const tableData = results.map((r) => [r.subjectCode, r.subjectName, r.marks !== null ? r.marks : "Pending", r.recheckStatus === "not-submitted" ? "No Recheck" : r.recheckStatus]);
+          pdf.addPage();
+          pdf.setFontSize(16);
+          pdf.text("Current Subject Marks", 14, 20);
 
-            autoTable(pdf, {
-              startY: 40,
-              head: [["Subject Code", "Subject Name", "Marks", "Status"]],
-              body: tableData,
-              theme: "striped",
-            });
-          }
+          pdf.setFontSize(10);
+          pdf.text(`Student ID: ${rollNo}`, 14, 28);
+          pdf.text(`Subject: ${subjectCode} - ${subjectName}`, 14, 33);
+          pdf.text(`Grand Total: ${totalMarks}`, 14, 38);
+          pdf.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 43);
+
+          autoTable(pdf, {
+            startY: 48,
+            head: [["Question", "Part", "Awarded", "Max", "Counted"]],
+            body: rowTable,
+            theme: "striped",
+            styles: { fontSize: 9 },
+            headStyles: { fillColor: [37, 99, 235] },
+          });
         } catch (e) {
-          console.error("Failed to fetch marks for PDF", e);
-          toast.error("Could not add marks summary page");
+          console.error("Failed to add current subject marks for PDF", e);
+          toast.error("Could not add current subject marks page");
         }
       }
 
@@ -717,7 +1009,10 @@ const EvaluationViewer = () => {
             onClick={handleBack}
             className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors shrink-0"
           >
-            ← Back
+            <span className="flex items-center gap-1">
+              <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
+              Back
+            </span>
           </button>
           <div>
             <h1 className="text-sm font-semibold text-foreground">Evaluation Viewer</h1>
@@ -743,7 +1038,7 @@ const EvaluationViewer = () => {
           </div>
         ) : notFound ? (
           <div className="flex flex-col items-center justify-center h-full gap-4 p-8 text-center text-muted-foreground bg-background">
-            <div className="text-6xl">📄🚫</div>
+            <FileX2 className="w-16 h-16 text-muted-foreground/70" aria-hidden="true" />
             <p className="max-w-md text-lg">
               No answer sheet found for subject <span className="font-mono font-bold text-foreground">{subjectCode}</span>.
             </p>
@@ -763,7 +1058,11 @@ const EvaluationViewer = () => {
                     <div className="px-2 py-2 border-b border-border/70 text-center shrink-0">
                       <span className="text-[11px] text-muted-foreground uppercase tracking-wide">Pages</span>
                     </div>
-                    <div ref={paginationContainerRef} className="pagination-visible-scroll flex-1 h-full max-h-full overflow-y-scroll overflow-x-hidden px-2 py-2" style={{ maxHeight: "calc(100vh - 150px)" }}>
+                    <div
+                      ref={paginationContainerRef}
+                      className="pagination-visible-scroll flex-1 h-full max-h-full overflow-y-scroll overflow-x-hidden px-2 py-2"
+                      style={{ maxHeight: "calc(100vh - 150px)" }}
+                    >
                       <div className="flex flex-col items-center gap-1">
                         {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
                           <button
@@ -823,120 +1122,125 @@ const EvaluationViewer = () => {
                       />
                     </div>
 
-                  {/* Rotation Buttons - Top Right Corner */}
-                  <div className="absolute top-2 right-2 z-30 flex flex-col gap-1">
-                    <button
-                      onClick={() => setRotation((r) => (r - 90 + 360) % 360)}
-                      title="Rotate Left (90°)"
-                      className="w-8 h-8 rounded-lg bg-card/80 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
-                    >
-                      ↺
-                    </button>
-                    <button
-                      onClick={() => setRotation((r) => (r + 90) % 360)}
-                      title="Rotate Right (90°)"
-                      className="w-8 h-8 rounded-lg bg-card/80 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
-                    >
-                      ↻
-                    </button>
+                    {/* Rotation Buttons - Top Right Corner */}
+                    <div className="absolute top-2 right-2 z-30 flex flex-col gap-1">
+                      <button
+                        onClick={() => setRotation((r) => (r - 90 + 360) % 360)}
+                        title="Rotate Left (90°)"
+                        className="w-8 h-8 rounded-lg bg-card/80 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
+                      >
+                        <RotateCcw className="w-4 h-4" aria-hidden="true" />
+                      </button>
+                      <button
+                        onClick={() => setRotation((r) => (r + 90) % 360)}
+                        title="Rotate Right (90°)"
+                        className="w-8 h-8 rounded-lg bg-card/80 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
+                      >
+                        <RotateCw className="w-4 h-4" aria-hidden="true" />
+                      </button>
 
-                    {/* Draw Button with Dropdown - Only for Faculty */}
-                    {isFaculty && (
-                      <div className="relative" ref={drawDropdownRef}>
+                      {/* Draw Button with Dropdown - Only for Faculty */}
+                      {isFaculty && (
+                        <div className="relative" ref={drawDropdownRef}>
+                          <button
+                            onClick={() => setDrawDropdownOpen((o) => !o)}
+                            title={drawMode === "pencil" ? "Pencil - Click to change" : drawMode === "eraser" ? "Eraser - Click to change" : "Draw or Erase - Click to select"}
+                            className={`w-8 h-8 rounded-lg border border-border flex items-center justify-center transition-colors ${
+                              drawMode ? "bg-primary/80 text-primary-foreground" : "bg-card/80 text-muted-foreground hover:text-foreground hover:bg-card"
+                            }`}
+                          >
+                            {drawMode === "eraser" ? <Eraser className="w-4 h-4" aria-hidden="true" /> : <Pencil className="w-4 h-4" aria-hidden="true" />}
+                          </button>
+
+                          {drawDropdownOpen && (
+                            <div className="absolute right-full mr-1 top-0 z-50 w-32 rounded-lg border border-border bg-card shadow-xl shadow-black/30 overflow-hidden">
+                              <button
+                                onClick={() => {
+                                  setDrawMode(drawMode === "pencil" ? null : "pencil");
+                                  setDrawDropdownOpen(false);
+                                }}
+                                className={`w-full text-left px-3 py-2 text-xs font-medium transition-colors flex items-center gap-2 ${
+                                  drawMode === "pencil" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted/50"
+                                }`}
+                              >
+                                <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+                                Pencil
+                                {drawMode === "pencil" && <span className="ml-auto text-[10px] text-primary">● Active</span>}
+                              </button>
+                              <div className="h-px bg-border" />
+                              <button
+                                onClick={() => {
+                                  setDrawMode(drawMode === "eraser" ? null : "eraser");
+                                  setDrawDropdownOpen(false);
+                                }}
+                                className={`w-full text-left px-3 py-2 text-xs font-medium transition-colors flex items-center gap-2 ${
+                                  drawMode === "eraser" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted/50"
+                                }`}
+                              >
+                                <Eraser className="w-3.5 h-3.5" aria-hidden="true" />
+                                Eraser
+                                {drawMode === "eraser" && <span className="ml-auto text-[10px] text-primary">● Active</span>}
+                              </button>
+                              <div className="h-px bg-border" />
+                              <button
+                                onClick={() => {
+                                  handleClearCanvas();
+                                  setDrawDropdownOpen(false);
+                                }}
+                                className="w-full text-left px-3 py-2 text-xs font-medium text-foreground hover:bg-muted/50 transition-colors"
+                              >
+                                Clear All
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Download Button with Dropdown */}
+                      <div className="relative" ref={downloadDropdownRef}>
                         <button
-                          onClick={() => setDrawDropdownOpen((o) => !o)}
-                          title={drawMode === "pencil" ? "Pencil - Click to change" : drawMode === "eraser" ? "Eraser - Click to change" : "Draw or Erase - Click to select"}
-                          className={`w-8 h-8 rounded-lg border border-border flex items-center justify-center transition-colors text-lg ${
-                            drawMode ? "bg-primary/80 text-primary-foreground" : "bg-card/80 text-muted-foreground hover:text-foreground hover:bg-card"
+                          onClick={() => setDownloadDropdownOpen((o) => !o)}
+                          disabled={isDownloading}
+                          title="Download answer sheet"
+                          className={`w-8 h-8 rounded-lg border border-border flex items-center justify-center transition-colors ${
+                            isDownloading ? "bg-primary/50 text-primary-foreground opacity-50 cursor-not-allowed" : "bg-card/80 text-muted-foreground hover:text-foreground hover:bg-card"
                           }`}
                         >
-                          {drawMode === "pencil" ? "✏️" : drawMode === "eraser" ? "⌫" : "✏️"}
+                          <Download className="w-4 h-4" aria-hidden="true" />
                         </button>
 
-                        {drawDropdownOpen && (
-                          <div className="absolute right-full mr-1 top-0 z-50 w-32 rounded-lg border border-border bg-card shadow-xl shadow-black/30 overflow-hidden">
+                        {downloadDropdownOpen && (
+                          <div className="absolute right-full mr-1 top-0 z-50 w-52 rounded-lg border border-border bg-card shadow-xl shadow-black/30 overflow-hidden">
                             <button
-                              onClick={() => {
-                                setDrawMode(drawMode === "pencil" ? null : "pencil");
-                                setDrawDropdownOpen(false);
-                              }}
-                              className={`w-full text-left px-3 py-2 text-xs font-medium transition-colors flex items-center gap-2 ${
-                                drawMode === "pencil" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted/50"
-                              }`}
+                              onClick={handleDownloadSinglePage}
+                              disabled={isDownloading}
+                              className="w-full text-left px-3 py-2.5 text-xs font-medium transition-colors flex items-center gap-2 text-foreground hover:bg-muted/50 disabled:opacity-50"
                             >
-                              ✏️ Pencil
-                              {drawMode === "pencil" && <span className="ml-auto text-[10px] text-primary">● Active</span>}
+                              <FileText className="w-3.5 h-3.5" aria-hidden="true" />
+                              This Page Only
                             </button>
                             <div className="h-px bg-border" />
                             <button
-                              onClick={() => {
-                                setDrawMode(drawMode === "eraser" ? null : "eraser");
-                                setDrawDropdownOpen(false);
-                              }}
-                              className={`w-full text-left px-3 py-2 text-xs font-medium transition-colors flex items-center gap-2 ${
-                                drawMode === "eraser" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted/50"
-                              }`}
+                              onClick={handleDownloadFullSheet}
+                              disabled={isDownloading}
+                              className="w-full text-left px-3 py-2.5 text-xs font-medium transition-colors flex items-center gap-2 text-foreground hover:bg-muted/50 disabled:opacity-50"
                             >
-                              ⌫ Eraser
-                              {drawMode === "eraser" && <span className="ml-auto text-[10px] text-primary">● Active</span>}
+                              <Files className="w-3.5 h-3.5" aria-hidden="true" />
+                              Full Sheet (PDF)
                             </button>
                             <div className="h-px bg-border" />
                             <button
-                              onClick={() => {
-                                handleClearCanvas();
-                                setDrawDropdownOpen(false);
-                              }}
-                              className="w-full text-left px-3 py-2 text-xs font-medium text-foreground hover:bg-muted/50 transition-colors"
+                              onClick={handleDownloadWithMarks}
+                              disabled={isDownloading}
+                              className="w-full text-left px-3 py-2.5 text-xs font-medium transition-colors flex items-center gap-2 text-foreground hover:bg-muted/50 disabled:opacity-50"
                             >
-                              Clear All
+                              <FileText className="w-3.5 h-3.5" aria-hidden="true" />
+                              Full Sheet + Marks
                             </button>
                           </div>
                         )}
                       </div>
-                    )}
-
-                    {/* Download Button with Dropdown */}
-                    <div className="relative" ref={downloadDropdownRef}>
-                      <button
-                        onClick={() => setDownloadDropdownOpen((o) => !o)}
-                        disabled={isDownloading}
-                        title="Download answer sheet"
-                        className={`w-8 h-8 rounded-lg border border-border flex items-center justify-center transition-colors ${
-                          isDownloading ? "bg-primary/50 text-primary-foreground opacity-50 cursor-not-allowed" : "bg-card/80 text-muted-foreground hover:text-foreground hover:bg-card"
-                        }`}
-                      >
-                        ⬇️
-                      </button>
-
-                      {downloadDropdownOpen && (
-                        <div className="absolute right-full mr-1 top-0 z-50 w-52 rounded-lg border border-border bg-card shadow-xl shadow-black/30 overflow-hidden">
-                          <button
-                            onClick={handleDownloadSinglePage}
-                            disabled={isDownloading}
-                            className="w-full text-left px-3 py-2.5 text-xs font-medium transition-colors flex items-center gap-2 text-foreground hover:bg-muted/50 disabled:opacity-50"
-                          >
-                            📄 This Page Only
-                          </button>
-                          <div className="h-px bg-border" />
-                          <button
-                            onClick={handleDownloadFullSheet}
-                            disabled={isDownloading}
-                            className="w-full text-left px-3 py-2.5 text-xs font-medium transition-colors flex items-center gap-2 text-foreground hover:bg-muted/50 disabled:opacity-50"
-                          >
-                            📦 Full Sheet (PDF)
-                          </button>
-                          <div className="h-px bg-border" />
-                          <button
-                            onClick={handleDownloadWithMarks}
-                            disabled={isDownloading}
-                            className="w-full text-left px-3 py-2.5 text-xs font-medium transition-colors flex items-center gap-2 text-foreground hover:bg-muted/50 disabled:opacity-50"
-                          >
-                            📑 Full Sheet + Marks
-                          </button>
-                        </div>
-                      )}
                     </div>
-                  </div>
 
                     <button
                       onClick={handleNext}
@@ -980,10 +1284,9 @@ const EvaluationViewer = () => {
                       onClick={() => setPreviewDropdownOpen((o) => !o)}
                       className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground hover:bg-secondary/80 transition-colors"
                     >
-                      📄 Preview Docs
-                      <svg className={`w-3 h-3 transition-transform ${previewDropdownOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                      </svg>
+                      <Eye className="w-3.5 h-3.5" aria-hidden="true" />
+                      Preview Docs
+                      <ChevronDown className={`w-3 h-3 transition-transform ${previewDropdownOpen ? "rotate-180" : ""}`} aria-hidden="true" />
                     </button>
 
                     {previewDropdownOpen && (
@@ -994,8 +1297,23 @@ const EvaluationViewer = () => {
                             activePreview === "question-paper" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted/50"
                           }`}
                         >
-                          📋 Question Paper
+                          <FileText className="w-3.5 h-3.5" aria-hidden="true" />
+                          Question Paper
                           {activePreview === "question-paper" && <span className="ml-auto text-[10px] text-primary">● Open</span>}
+                          {!isFaculty && currentScript?.question_paper_path && (
+                            <span className="ml-auto">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDownloadPreviewDoc("question-paper");
+                                }}
+                                className="inline-flex items-center rounded border border-border px-1.5 py-0.5 text-[10px] text-foreground hover:bg-muted/70"
+                                title="Download question paper"
+                              >
+                                <Download className="w-3 h-3" aria-hidden="true" />
+                              </button>
+                            </span>
+                          )}
                         </button>
                         <div className="h-px bg-border" />
                         <button
@@ -1004,70 +1322,60 @@ const EvaluationViewer = () => {
                             activePreview === "answer-key" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted/50"
                           }`}
                         >
-                          🗝 Answer Key
+                          <KeyRound className="w-3.5 h-3.5" aria-hidden="true" />
+                          Answer Key
                           {activePreview === "answer-key" && <span className="ml-auto text-[10px] text-primary">● Open</span>}
+                          {!isFaculty && currentScript?.answer_key_path && (
+                            <span className="ml-auto">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDownloadPreviewDoc("answer-key");
+                                }}
+                                className="inline-flex items-center rounded border border-border px-1.5 py-0.5 text-[10px] text-foreground hover:bg-muted/70"
+                                title="Download answer key"
+                              >
+                                <Download className="w-3 h-3" aria-hidden="true" />
+                              </button>
+                            </span>
+                          )}
                         </button>
+                        {isFaculty && (
+                          <>
+                            <div className="h-px bg-border" />
+                            <button
+                              onClick={() => {
+                                setThumbnailStripOpen((prev) => !prev);
+                                setPreviewDropdownOpen(false);
+                              }}
+                              className="w-full text-left px-4 py-2.5 text-xs font-medium transition-colors flex items-center gap-2 text-foreground hover:bg-muted/50"
+                            >
+                              <Eye className="w-3.5 h-3.5" aria-hidden="true" />
+                              {thumbnailStripOpen ? "Hide Thumbnails" : "Show Thumbnails"}
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Scrollable Preview Panel (one at a time) */}
-                {activePreview && (
-                  <div className="px-3 pt-3 pb-2 border-b border-border shrink-0">
-                    <div className="rounded-lg border border-border bg-background/60 overflow-hidden">
-                      <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/20">
-                        <h4 className="text-[11px] font-semibold text-foreground uppercase tracking-wider">
-                          {activePreview === "question-paper" ? "📋 Question Paper" : "🗝 Answer Key"} — {subjectCode}
-                        </h4>
-                        <button
-                          onClick={() => {
-                            // Save scroll position before closing
-                            if (activePreview && previewScrollRef.current) {
-                              setPreviewScrollPositions((prev) => ({
-                                ...prev,
-                                [activePreview]: previewScrollRef.current!.scrollTop,
-                              }));
-                            }
-                            setActivePreview(null);
-                          }}
-                          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                      {/* PDF Viewer or Fallback */}
-                      <div ref={previewScrollRef} className="h-48 overflow-y-auto bg-black/5">
-                        {activePreview === "question-paper" && currentScript?.question_paper_path ? (
-                          <iframe src={currentScript.question_paper_path} className="w-full h-full border-0" title="Question Paper" />
-                        ) : activePreview === "answer-key" && currentScript?.answer_key_path ? (
-                          <iframe src={currentScript.answer_key_path} className="w-full h-full border-0" title="Answer Key" />
-                        ) : (
-                          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                            <span>{activePreview === "question-paper" ? "Question Paper not available" : "Answer Key not available"}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 {/* Next Pages Thumbnails - Faculty Mode Only */}
-                {isFaculty && nextPageThumbnails.length > 0 && (
+                {isFaculty && thumbnailStripOpen && nextPageThumbnails.length > 0 && (
                   <div className="px-1 py-0 border-b border-border shrink-0">
                     <div className="rounded border border-border/60 bg-background/40 overflow-hidden">
-                      <div className="p-0 flex gap-0">
+                      <div ref={thumbnailStripRef} className="p-0 flex gap-0">
                         {nextPageThumbnails.map((pageNum) => (
-                          <div key={pageNum}>
+                          <div key={pageNum} className="flex-1 min-w-0">
                             <PageThumbnail
                               page={pageNum}
                               subjectCode={subjectCode}
                               rollNo={rollNo}
                               src={currentScript?.pages ? currentScript.pages[pageNum - 1] : undefined}
                               totalPages={totalPages}
+                              isActive={pageNum === activePage}
                               onClick={() => {
                                 setActivePage(pageNum);
-                                // Scroll to top of right panel
                                 const scrollContainer = document.querySelector('[class*="flex-col"]');
                                 if (scrollContainer) {
                                   scrollContainer.scrollTop = 0;
@@ -1082,16 +1390,78 @@ const EvaluationViewer = () => {
                   </div>
                 )}
 
+                {/* Scrollable Preview Panel (one at a time) */}
+                {activePreview && (
+                  <div className="px-3 pt-3 pb-2 border-b border-border shrink-0">
+                    <div className="rounded-lg border border-border bg-background/60 overflow-hidden">
+                      <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/20">
+                        <h4 className="text-[11px] font-semibold text-foreground uppercase tracking-wider">
+                          {activePreview === "question-paper" ? "Question Paper" : "Answer Key"} — {subjectCode}
+                        </h4>
+                        <button
+                          onClick={() => {
+                            // Save scroll position before closing
+                            if (activePreview && previewScrollRef.current) {
+                              setPreviewScrollPositions((prev) => ({
+                                ...prev,
+                                [activePreview]: previewScrollRef.current!.scrollTop,
+                              }));
+                            }
+                            setActivePreview(null);
+                          }}
+                          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5" aria-hidden="true" />
+                        </button>
+                      </div>
+                      {/* PDF Viewer or Fallback */}
+                      <div ref={previewScrollRef} className="overflow-y-auto bg-black/5" style={{ height: `${previewPanelHeight}px` }}>
+                        {activePreview === "question-paper" && currentScript?.question_paper_path ? (
+                          <iframe src={cachedPreviewPaths["question-paper"] || currentScript.question_paper_path} className="w-full h-full border-0" title="Question Paper" />
+                        ) : activePreview === "answer-key" && currentScript?.answer_key_path ? (
+                          <iframe src={cachedPreviewPaths["answer-key"] || currentScript.answer_key_path} className="w-full h-full border-0" title="Answer Key" />
+                        ) : (
+                          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                            <span>{activePreview === "question-paper" ? "Question Paper not available" : "Answer Key not available"}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div
+                        onMouseDown={handlePreviewResizeStart}
+                        className={`h-3 border-t border-border ${isResizingPreview ? "bg-primary/25" : "bg-muted/40 hover:bg-muted/70"} cursor-row-resize transition-colors`}
+                        title="Drag to resize document preview"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {isResizingPreview && <div className="fixed inset-0 z-[120] cursor-row-resize" aria-hidden="true" />}
+
                 {/* Marks Breakdown — unchanged */}
                 <div className="px-3 py-2.5 space-y-1.5 shrink-0">
                   <div className="flex items-center justify-between">
                     <h3 className="text-[11px] font-semibold text-foreground uppercase tracking-wider">Marks Breakdown</h3>
                     {isFaculty && (
-                      <button onClick={handleSaveMarks} className="rounded-md bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground hover:bg-primary/90 transition-colors">
+                      <button
+                        onClick={handleSaveMarks}
+                        disabled={hasInvalidMarks}
+                        className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                          hasInvalidMarks ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-primary text-primary-foreground hover:bg-primary/90"
+                        }`}
+                      >
                         Save Marks
                       </button>
                     )}
                   </div>
+                  {isFaculty && (
+                    <div
+                      className={`rounded-md border px-2 py-1 text-[10px] ${hasInvalidMarks ? "border-destructive/40 bg-destructive/10 text-destructive" : "border-border bg-muted/25 text-muted-foreground"}`}
+                    >
+                      {hasInvalidMarks
+                        ? `Fix invalid marks before saving. Example: ${invalidMarkEntries[0].q} part ${invalidMarkEntries[0].part.toUpperCase()} exceeds max ${invalidMarkEntries[0].expected}.`
+                        : "Tip: Empty fields are grey, valid marks are green, and values above max are red."}
+                    </div>
+                  )}
                   {currentScript?.marksUnavailable ? (
                     <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
                       <p>Question-wise marks are not available for this paper yet.</p>
@@ -1119,7 +1489,10 @@ const EvaluationViewer = () => {
                           <Fragment key={`${row.q}-${i}`}>
                             {showSectionHeader && <div className="px-1 pt-0.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{sectionTitle}</div>}
 
-                            <div className="rounded-md border border-border bg-background px-1.5 py-1">
+                            <div
+                              onClick={() => setSelectedQuestionIndex(i)}
+                              className={`rounded-md border px-1.5 py-1 transition-colors ${selectedQuestionIndex === i ? "border-primary/60 bg-primary/5" : "border-border bg-background"}`}
+                            >
                               <div className="flex items-center gap-2">
                                 <div className="font-mono font-semibold text-foreground text-xs w-8 shrink-0">{row.q}</div>
 
@@ -1129,12 +1502,30 @@ const EvaluationViewer = () => {
                                       <div key={col} className="flex items-center gap-1 rounded border border-border bg-card px-1 py-0.5">
                                         <span className="text-[10px] font-semibold uppercase text-muted-foreground">{col}</span>
                                         {isFaculty ? (
-                                          <input
-                                            type="text"
-                                            value={row.parts[col] ?? ""}
-                                            onChange={(e) => handleMarkChange(i, col, e.target.value)}
-                                            className="w-9 text-center font-mono text-[11px] bg-background border border-border rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-primary/50 text-foreground"
-                                          />
+                                          (() => {
+                                            const expected = Number(row.expectedParts?.[col] ?? 0);
+                                            const raw = row.parts[col] ?? "";
+                                            const awarded = parseMarkValue(raw);
+                                            const isEmpty = raw.trim() === "";
+                                            const isInvalid = !isEmpty && awarded > expected;
+                                            const tintClass = isInvalid
+                                              ? "bg-destructive/20 border-destructive/70 text-destructive"
+                                              : isEmpty
+                                                ? "bg-muted/40 border-border text-muted-foreground"
+                                                : "bg-success/20 border-success/60 text-foreground";
+
+                                            return (
+                                              <input
+                                                type="text"
+                                                value={row.parts[col] ?? ""}
+                                                onChange={(e) => handleMarkChange(i, col, e.target.value)}
+                                                onFocus={() => setSelectedQuestionIndex(i)}
+                                                onBlur={(e) => handleMarkChange(i, col, e.target.value)}
+                                                title={isInvalid ? `Max allowed for ${row.q} ${col.toUpperCase()} is ${expected}` : `Max ${expected}`}
+                                                className={`w-9 text-center font-mono text-[11px] border rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-primary/50 ${tintClass}`}
+                                              />
+                                            );
+                                          })()
                                         ) : (
                                           <span className={`w-9 text-center font-mono text-[11px] ${row.parts[col] === "-" ? "text-muted-foreground/50" : "text-foreground"}`}>
                                             {row.parts[col] || "0"}
@@ -1173,6 +1564,36 @@ const EvaluationViewer = () => {
                   {role === "student" ? (
                     /* Student: accordion recheck */
                     <div className="space-y-1">
+                      <div className="rounded-lg border border-border bg-card/50 p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-[11px] font-semibold text-foreground uppercase tracking-wider">Previous Requests</h3>
+                          <span className="text-[10px] text-muted-foreground">{grievanceHistory.length}</span>
+                        </div>
+                        {loadingGrievanceHistory ? (
+                          <p className="text-xs text-muted-foreground">Loading grievance history...</p>
+                        ) : grievanceHistory.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">No grievances submitted for this subject yet.</p>
+                        ) : (
+                          <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+                            {grievanceHistory.map((item) => (
+                              <div key={item.id} className="rounded-md border border-border bg-background px-2.5 py-1.5">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-[10px] font-mono text-muted-foreground">Ref #{item.id}</span>
+                                  <span
+                                    className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                                      item.status === "OPEN" ? "bg-warning/15 text-warning" : item.status === "RESOLVED" ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive"
+                                    }`}
+                                  >
+                                    {item.status}
+                                  </span>
+                                </div>
+                                <p className="mt-1 text-[11px] text-foreground line-clamp-2">{item.student_comment || "No comment provided."}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
                       {/* Accordion header */}
                       <button
                         onClick={() => setRecheckOpen((o) => !o)}

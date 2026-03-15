@@ -29,6 +29,16 @@ class AuthService {
   private static retryCount = 0;
   private static readonly MAX_RETRIES = 1;
 
+  private static async parseJsonSafe<T>(response: Response): Promise<T | null> {
+    const raw = await response.text();
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as T;
+    } catch {
+      return null;
+    }
+  }
+
   /**
    * Login user with email and password
    */
@@ -47,11 +57,15 @@ class AuthService {
       });
 
       if (!response.ok) {
-        const error: ApiError = await response.json();
-        throw new Error(error.error || error.detail || "Invalid credentials");
+        const error = await this.parseJsonSafe<ApiError>(response);
+        throw new Error(error?.error || error?.detail || error?.message || `Login failed (${response.status})`);
       }
 
-      return await response.json();
+      const payload = await this.parseJsonSafe<LoginResponse>(response);
+      if (!payload) {
+        throw new Error("Unexpected login response from server");
+      }
+      return payload;
     } catch (error) {
       console.error("Login error:", error);
       throw error;
@@ -96,7 +110,11 @@ class AuthService {
         throw new Error("Failed to fetch user data");
       }
 
-      return await response.json();
+      const payload = await this.parseJsonSafe<unknown>(response);
+      if (!payload) {
+        throw new Error("Unexpected response from server");
+      }
+      return payload;
     } catch (error) {
       console.error("Get current user error:", error);
       throw error;

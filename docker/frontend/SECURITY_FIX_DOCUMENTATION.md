@@ -181,7 +181,7 @@ const handleLogin = async (e: React.FormEvent) => {
   const response = await fetch("/api/auth/login/", {
     method: "POST",
     credentials: "include",  // Send JWT cookies
-    body: JSON.stringify({ university_id, password })
+    body: JSON.stringify({ email, password })
   });
   
   const data = await response.json();

@@ -152,7 +152,7 @@ class Migration(migrations.Migration):
                 ('id', models.AutoField(primary_key=True, serialize=False)),
                 ('student_comment', models.TextField(blank=True, null=True)),
                 ('status', models.CharField(choices=[('OPEN', 'Open'), ('RESOLVED', 'Resolved'), ('REJECTED', 'Rejected')], default='OPEN', max_length=20)),
-                ('assigned_coordinator', models.ForeignKey(blank=True, db_column='assigned_coordinator', null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='assigned_grievances', to=settings.AUTH_USER_MODEL)),
+                ('assigned_faculty', models.ForeignKey(blank=True, db_column='assigned_faculty', null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='assigned_grievances', to=settings.AUTH_USER_MODEL)),
                 ('paper', models.ForeignKey(on_delete=django.db.models.deletion.DO_NOTHING, to='core.exampaper')),
             ],
             options={

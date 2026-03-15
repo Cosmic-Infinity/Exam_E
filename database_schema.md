@@ -167,7 +167,7 @@ Dispute resolution.
 | `id`                   | Integer (PK) | **DB Auto-Gen**   | Unique ID.                                                            |
 | `paper_id`             | Integer (FK) | **App (Student)** | **Target**. Which paper (`exam_papers.paper_id`) is being challenged? |
 | `student_comment`      | Text         | **App (Student)** | User input.                                                           |
-| `assigned_coordinator` | Integer      | **App Logic**     | Auto-assigned based on Course Policy.                                 |
+| `assigned_faculty`     | Integer      | **App Logic**     | Auto-assigned based on Faculty Assignment Policy.                     |
 | `status`               | Varchar(20)  | **DB Default**    | Workflow state. <br> _Default: `'OPEN'`_                              |
 
 ## 12. exams

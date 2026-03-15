@@ -13,7 +13,11 @@ SECRET_KEY = _SECRET_KEY
 
 DEBUG = bool(int(os.environ.get('DEBUG', 0)))  # default OFF; set DEBUG=1 only in dev
 
-ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost').split(',')
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost').split(',') if h.strip()]
+
+# In local development we allow LAN/mobile hotspot host headers for device testing.
+if DEBUG and '*' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('*')
 
 INSTALLED_APPS = [
     'core',

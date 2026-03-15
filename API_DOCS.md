@@ -170,14 +170,16 @@ Fetches a lightweight list of all student papers for a specific exam. This is us
       "student_university_id": "2305128",
       "student_name": "Alice Smith",
       "total_score": null,
-      "evaluation_status": "PENDING"
+      "evaluation_status": "PENDING",
+      "has_grievance": true
     },
     {
       "paper_id": 102,
       "student_university_id": "2305129",
       "student_name": "Bob Jones",
       "total_score": "28.50",
-      "evaluation_status": "COMPLETED"
+      "evaluation_status": "COMPLETED",
+      "has_grievance": false
     }
   ]
   ```
@@ -205,11 +207,113 @@ Fetches the full details of a specific paper, including all page images, questio
     "marks_json": null,
     "total_score": null,
     "evaluation_status": "PENDING",
+    "has_grievance": true,
+    "grievance_text": "Question 3(b) not evaluated.",
+    "grievance_date": 45,
     "question_paper_schema": [
       { "q_no": 1, "parts": [1, 1, 1, 1, 1] },
       { "q_no": 2, "parts": [2, 3] }
     ],
     "exam_total_marks": 30
+  }
+  ```
+
+### `GET /api/teacher/grievances/?filter={my_section|other_section|all}`
+
+Returns OPEN grievances visible to the logged-in faculty.
+
+- `my_section`: grievances raised on papers from sections taught by the faculty.
+- `other_section`: grievances assigned to the faculty from other sections.
+- `all`: union of both.
+
+- **Auth Required**: Yes
+- **Role Required**: `TEACHER` or `CONTROLLER`
+- **Output (200 OK)**:
+  ```json
+  [
+    {
+      "id": 45,
+      "paper_id": 101,
+      "status": "OPEN",
+      "student_comment": "Question 3(b) not evaluated.",
+      "student_university_id": "2305128",
+      "student_name": "Alice Smith",
+      "subject_code": "CS302",
+      "subject_title": "Database Management Systems",
+      "section_name": "A",
+      "original_faculty_id": 21,
+      "original_faculty_name": "Dr. Kumar",
+      "assigned_faculty_id": 23,
+      "assigned_faculty_name": "Dr. Das",
+      "grievance_type": "PAGE_MISSING",
+      "grievance_type_label": "Page Missing",
+      "assignment_status": "ASSIGNED_TO_YOU",
+      "can_resolve": true
+    }
+  ]
+  ```
+
+### `GET /api/teacher/grievances/stats/`
+
+Returns faculty grievance summary cards and section-wise load distribution.
+
+- **Auth Required**: Yes
+- **Role Required**: `TEACHER` or `CONTROLLER`
+- **Output (200 OK)**:
+  ```json
+  {
+    "assigned_open_count": 4,
+    "to_resolve_count": 4,
+    "resolved_count": 12,
+    "rejected_count": 1,
+    "visible_open_count": 6,
+    "total_visible_count": 17,
+    "by_section": [
+      {
+        "section_name": "A",
+        "total": 9,
+        "open": 3,
+        "resolved": 5,
+        "rejected": 1
+      }
+    ]
+  }
+  ```
+
+### `POST /api/teacher/grievances/{grievance_id}/decision/`
+
+Accepts or rejects an OPEN grievance.
+
+- Decision is allowed only for:
+  - the assigned faculty (`assigned_faculty` DB column).
+
+If a grievance is unassigned or assigned to another faculty, decision APIs return `403 Forbidden`.
+
+- **Auth Required**: Yes
+- **Role Required**: `TEACHER` or `CONTROLLER`
+- **Input**:
+  ```json
+  {
+    "status": "RESOLVED",
+    "marks_json": { "sections": [] },
+    "total_score": 27.5
+  }
+  ```
+
+For rejection:
+
+  ```json
+  {
+    "status": "REJECTED"
+  }
+  ```
+
+- **Output (200 OK)**:
+  ```json
+  {
+    "id": 45,
+    "status": "RESOLVED",
+    "assigned_faculty_id": 23
   }
   ```
 ## 3. Statistics APIs (Controllers & Course Coordinators)
@@ -237,6 +341,7 @@ Returns the list of courses accessible to the current user for the dashboard dro
 Returns a high-level overview of all subjects the user has access to, including checking progress.
 
 - **Auth Required**: Yes
+- **Role Required**: `CONTROLLER` or `TEACHER` (assigned as course coordinator) or Django Admin staff
 - **Input**: None
 - **Output (200 OK)**:
   ```json
@@ -259,6 +364,7 @@ Returns a high-level overview of all subjects the user has access to, including 
 Drills down into a specific course to show progress per section.
 
 - **Auth Required**: Yes
+- **Role Required**: `CONTROLLER` or `TEACHER` (assigned as course coordinator) or Django Admin staff
 - **Input**: `course_code` (query param)
 - **Output (200 OK)**:
   ```json
@@ -282,6 +388,7 @@ Drills down into a specific course to show progress per section.
 Returns histogram data for score distribution.
 
 - **Auth Required**: Yes
+- **Role Required**: `CONTROLLER` or `TEACHER` (assigned as course coordinator) or Django Admin staff
 - **Input**: `course_code` (optional query param)
 - **Output (200 OK)**:
   ```json
@@ -297,6 +404,7 @@ Returns histogram data for score distribution.
 Returns grievance statistics.
 
 - **Auth Required**: Yes
+- **Role Required**: `CONTROLLER` or `TEACHER` (assigned as course coordinator) or Django Admin staff
 - **Input**: `course_code` (optional query param)
 - **Output (200 OK)**:
   ```json
@@ -483,6 +591,8 @@ Fetches the full details of a specific paper, including all page images, questio
 
 Allows a student to raise a grievance (re-evaluation request) for a specific paper.
 
+Multiple grievances are allowed for the same paper (for example, one for missing pages and another for unchecked questions). Exact duplicate open comments for the same paper are rejected.
+
 - **Auth Required**: Yes
 - **Role Required**: `STUDENT`
 - **Input**:
@@ -502,11 +612,39 @@ Allows a student to raise a grievance (re-evaluation request) for a specific pap
   }
   ```
 
+### `GET /api/student/grievances/?paper={paper_id}`
+
+Returns grievance history for the logged-in student.
+
+- **Auth Required**: Yes
+- **Role Required**: `STUDENT`
+- **Query Params**:
+  - `paper` (optional): filters to a specific paper
+- **Output (200 OK)**:
+  ```json
+  [
+    {
+      "id": 12,
+      "paper": 102,
+      "student_comment": "[Pages Missing: 3,5] Pages are not visible.",
+      "status": "OPEN"
+    },
+    {
+      "id": 15,
+      "paper": 102,
+      "student_comment": "Q5 seems unchecked.",
+      "status": "RESOLVED"
+    }
+  ]
+  ```
+
 ---
 
 ## 5. Analytics & Statistics APIs
 
 These endpoints provide data for the dashboard visualizations. They are primarily designed for the Admin/Staff dashboard but can be consumed by the frontend for course coordinator views.
+
+Students are explicitly denied from all `/api/stats/*` endpoints and will receive `403 Forbidden`.
 
 ### `GET /api/stats/dashboard/data/`
 
@@ -566,6 +704,7 @@ Returns sections for a specific course with their evaluation progress.
 
 Returns grievance statistics.
 
+- **Auth**: `CONTROLLER` or `TEACHER` (if course coordinator) or Django Admin staff.
 - **Query Params**: `course_code` (Optional. If omitted, returns aggregate of all accessible courses).
 - **Output**:
   ```json
@@ -580,6 +719,7 @@ Returns grievance statistics.
 
 Returns score distribution histograms.
 
+- **Auth**: `CONTROLLER` or `TEACHER` (if course coordinator) or Django Admin staff.
 - **Query Params**: `course_code` (Optional).
 - **Output**:
   ```json
@@ -594,6 +734,7 @@ Returns score distribution histograms.
 
 Drill down to see students in a specific score range.
 
+- **Auth**: `CONTROLLER` or `TEACHER` (if course coordinator) or Django Admin staff.
 - **Query Params**: `course_code`, `min`, `max`.
 - **Output**:
   ```json

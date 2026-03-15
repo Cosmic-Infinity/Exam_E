@@ -250,6 +250,8 @@ def _get_accessible_courses(user):
 | `/api/auth/refresh/` |  POST  |       ---       | Cookie or header |
 | `/api/me/`           |  GET   | IsAuthenticated |        ✅        |
 
+`/api/token/` accepts `{ "email", "password" }` only.
+
 ### **Teacher Portal**
 
 All require `[IsAuthenticated, IsTeacher]`
@@ -260,8 +262,13 @@ All require `[IsAuthenticated, IsTeacher]`
 | `/api/teacher/exams/{id}/`             |   GET   | TEACHER, CONTROLLER |       List exams for course        |
 | `/api/teacher/papers/`                 |   GET   | TEACHER, CONTROLLER |        List papers to grade        |
 | `/api/teacher/paper/{id}/`             | GET/PUT | TEACHER, CONTROLLER |     View/grade specific paper      |
+| `/api/teacher/grievances/`             |   GET   | TEACHER, CONTROLLER | List OPEN grievances by filter     |
+| `/api/teacher/grievances/stats/`       |   GET   | TEACHER, CONTROLLER | Grievance summary and section load |
+| `/api/teacher/grievances/{id}/decision/` |  POST | TEACHER, CONTROLLER | Resolve or reject grievance        |
 
-**Security**: Papers filtered by `exam__allocation__teacher = request.user`
+**Security**:
+- Paper access remains filtered by `exam__allocation__teacher = request.user`.
+- Grievance decisions are allowed only for assigned faculty.
 
 \*For CONTROLLERs, this shows courses where they are directly assigned as a teacher via `CourseAllocation.teacher`, separate from their global oversight access to all courses' statistics.
 
@@ -274,13 +281,14 @@ All require `[IsAuthenticated, IsStudent]`
 | `/api/student/enrollments/` |  GET   | STUDENT |   List enrolled courses    |
 | `/api/student/papers/`      |  GET   | STUDENT |     List graded papers     |
 | `/api/student/paper/{id}/`  |  GET   | STUDENT | View specific paper result |
+| `/api/student/grievances/`  |  GET   | STUDENT | List grievance history      |
 | `/api/student/grievance/`   |  POST  | STUDENT |      Submit grievance      |
 
 **Security**: Data filtered by `enrollment__student = request.user`
 
 ### **Statistics APIs**
 
-All require `[IsAuthenticated]` + course access check
+All require `[IsAuthenticated, CanAccessStatistics]` + course access checks for specific course filters
 
 | Endpoint                     | Method |        Role(s)         |          Scope          |
 | ---------------------------- | :----: | :--------------------: | :---------------------: |

@@ -1,6 +1,9 @@
-from rest_framework import generics, permissions
+from rest_framework import generics, permissions, status
+from rest_framework.views import APIView
+from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from core.models import Enrollment, ExamPaper, Grievance
+from core.api.file_gateway import build_protected_file_response, FileAccessError
 from core.api.student_serializers import (
     StudentEnrollmentSerializer, 
     StudentPaperListSerializer, 
@@ -98,3 +101,70 @@ class StudentGrievanceListView(generics.ListAPIView):
             queryset = queryset.filter(paper_id=paper_id)
 
         return queryset
+
+
+class StudentPaperPageFileView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsStudent]
+
+    def get(self, request, pk, page_index):
+        paper = get_object_or_404(
+            ExamPaper.objects.filter(
+                enrollment__student=request.user,
+                evaluation_status='COMPLETED',
+            ),
+            pk=pk,
+        )
+
+        pages = paper.pages or []
+        index = page_index - 1
+        if index < 0 or index >= len(pages):
+            return Response({'detail': 'Page not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            return build_protected_file_response(pages[index])
+        except FileAccessError:
+            return Response({'detail': 'File path is invalid.'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class StudentPaperQuestionFileView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsStudent]
+
+    def get(self, request, pk):
+        paper = get_object_or_404(
+            ExamPaper.objects.filter(
+                enrollment__student=request.user,
+                evaluation_status='COMPLETED',
+            ).select_related('exam'),
+            pk=pk,
+        )
+
+        question_path = paper.exam.question_paper_path if paper.exam else None
+        if not question_path:
+            return Response({'detail': 'Question paper not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            return build_protected_file_response(question_path)
+        except FileAccessError:
+            return Response({'detail': 'File path is invalid.'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class StudentPaperAnswerKeyFileView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsStudent]
+
+    def get(self, request, pk):
+        paper = get_object_or_404(
+            ExamPaper.objects.filter(
+                enrollment__student=request.user,
+                evaluation_status='COMPLETED',
+            ).select_related('exam'),
+            pk=pk,
+        )
+
+        answer_key_path = paper.exam.answer_key_path if paper.exam else None
+        if not answer_key_path:
+            return Response({'detail': 'Answer key not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            return build_protected_file_response(answer_key_path)
+        except FileAccessError:
+            return Response({'detail': 'File path is invalid.'}, status=status.HTTP_404_NOT_FOUND)

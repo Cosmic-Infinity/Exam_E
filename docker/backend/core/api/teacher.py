@@ -6,6 +6,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.db.models import Exists, OuterRef, Subquery, Q, Count
 from core.models import CourseAllocation, Exam, ExamPaper, Grievance
+from core.api.file_gateway import build_protected_file_response, FileAccessError
 from core.api.teacher_serializers import (
     CourseAllocationSerializer,
     ExamSerializer,
@@ -117,6 +118,60 @@ class TeacherPaperDetailView(generics.RetrieveUpdateAPIView):
             grievance_text=Subquery(latest_open_grievance.values('student_comment')[:1]),
             grievance_date=Subquery(latest_open_grievance.values('id')[:1]),
         ).distinct()
+
+
+def _teacher_visible_papers(user):
+    return ExamPaper.objects.filter(
+        Q(exam__allocation__teacher=user)
+        | Q(grievance__assigned_faculty=user)
+    ).select_related('exam', 'enrollment__student').distinct()
+
+
+class TeacherPaperPageFileView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsTeacher]
+
+    def get(self, request, pk, page_index):
+        paper = get_object_or_404(_teacher_visible_papers(request.user), pk=pk)
+
+        pages = paper.pages or []
+        index = page_index - 1
+        if index < 0 or index >= len(pages):
+            return Response({'detail': 'Page not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            return build_protected_file_response(pages[index])
+        except FileAccessError:
+            return Response({'detail': 'File path is invalid.'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class TeacherPaperQuestionFileView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsTeacher]
+
+    def get(self, request, pk):
+        paper = get_object_or_404(_teacher_visible_papers(request.user), pk=pk)
+        question_path = paper.exam.question_paper_path if paper.exam else None
+        if not question_path:
+            return Response({'detail': 'Question paper not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            return build_protected_file_response(question_path)
+        except FileAccessError:
+            return Response({'detail': 'File path is invalid.'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class TeacherPaperAnswerKeyFileView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsTeacher]
+
+    def get(self, request, pk):
+        paper = get_object_or_404(_teacher_visible_papers(request.user), pk=pk)
+        answer_key_path = paper.exam.answer_key_path if paper.exam else None
+        if not answer_key_path:
+            return Response({'detail': 'Answer key not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            return build_protected_file_response(answer_key_path)
+        except FileAccessError:
+            return Response({'detail': 'File path is invalid.'}, status=status.HTTP_404_NOT_FOUND)
 
 
 class TeacherGrievanceListView(generics.ListAPIView):

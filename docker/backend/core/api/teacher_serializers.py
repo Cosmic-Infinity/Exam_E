@@ -81,19 +81,17 @@ class ExamPaperDetailSerializer(serializers.ModelSerializer):
         read_only_fields = ['paper_id', 'student_university_id', 'student_name', 'pages', 'question_paper_schema', 'exam_total_marks', 'question_paper_path', 'answer_key_path']
 
     def get_pages(self, obj):
-        if not obj.pages:
-            return []
-        # Return URLs assuming Data is served at root
-        return [f"/{p}" if not p.startswith("/") else p for p in obj.pages]
+        pages = obj.pages or []
+        return [f"/api/teacher/paper/{obj.paper_id}/page/{index + 1}/" for index in range(len(pages))]
 
     def get_question_paper_path(self, obj):
         if obj.exam and obj.exam.question_paper_path:
-            return f"/{obj.exam.question_paper_path}"
+            return f"/api/teacher/paper/{obj.paper_id}/question-paper/"
         return None
 
     def get_answer_key_path(self, obj):
         if obj.exam and obj.exam.answer_key_path:
-            return f"/{obj.exam.answer_key_path}"
+            return f"/api/teacher/paper/{obj.paper_id}/answer-key/"
         return None
 
 

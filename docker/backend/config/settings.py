@@ -155,10 +155,11 @@ CSRF_TRUSTED_ORIGINS = os.environ.get(
     'CSRF_TRUSTED_ORIGINS', 'http://localhost,http://127.0.0.1'
 ).split(',')
 
-# In DEBUG mode, accept all origins for local network/hotspot development
-if DEBUG:
-    CORS_ALLOW_ALL_ORIGINS = True
-    # For CSRF, allow localhost and local network IPs in development
+# Keep CORS explicit even in DEBUG. If broad access is needed temporarily,
+# set CORS_ALLOW_ALL_ORIGINS=1 explicitly in environment.
+CORS_ALLOW_ALL_ORIGINS = bool(int(os.environ.get('CORS_ALLOW_ALL_ORIGINS', '0')))
+
+if DEBUG and not CSRF_TRUSTED_ORIGINS:
     CSRF_TRUSTED_ORIGINS = ['http://localhost', 'http://127.0.0.1', 'https://localhost', 'https://127.0.0.1']
 
 CORS_ALLOW_CREDENTIALS = True

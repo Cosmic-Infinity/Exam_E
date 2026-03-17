@@ -39,8 +39,9 @@ class StudentPaperListSerializer(serializers.ModelSerializer):
 class StudentPaperDetailSerializer(serializers.ModelSerializer):
     exam = StudentExamSerializer(read_only=True)
     question_paper_schema = serializers.JSONField(source='exam.question_paper_schema', read_only=True)
-    question_paper_path = serializers.CharField(source='exam.question_paper_path', read_only=True, allow_null=True)
-    answer_key_path = serializers.CharField(source='exam.answer_key_path', read_only=True, allow_null=True)
+    question_paper_path = serializers.SerializerMethodField()
+    answer_key_path = serializers.SerializerMethodField()
+    pages = serializers.SerializerMethodField()
     
     class Meta:
         model = ExamPaper
@@ -56,6 +57,20 @@ class StudentPaperDetailSerializer(serializers.ModelSerializer):
             'answer_key_path'
         ]
         read_only_fields = fields
+
+    def get_pages(self, obj):
+        pages = obj.pages or []
+        return [f"/api/student/paper/{obj.paper_id}/page/{index + 1}/" for index in range(len(pages))]
+
+    def get_question_paper_path(self, obj):
+        if obj.exam and obj.exam.question_paper_path:
+            return f"/api/student/paper/{obj.paper_id}/question-paper/"
+        return None
+
+    def get_answer_key_path(self, obj):
+        if obj.exam and obj.exam.answer_key_path:
+            return f"/api/student/paper/{obj.paper_id}/answer-key/"
+        return None
 
 class GrievanceCreateSerializer(serializers.ModelSerializer):
     class Meta:

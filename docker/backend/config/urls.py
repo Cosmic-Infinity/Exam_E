@@ -8,11 +8,23 @@ from core.api.teacher import (
     TeacherExamListView,
     TeacherPaperListView,
     TeacherPaperDetailView,
+    TeacherPaperPageFileView,
+    TeacherPaperQuestionFileView,
+    TeacherPaperAnswerKeyFileView,
     TeacherGrievanceListView,
     TeacherGrievanceDecisionView,
     TeacherGrievanceStatsView,
 )
-from core.api.student import StudentEnrollmentListView, StudentPaperListView, StudentPaperDetailView, StudentGrievanceCreateView, StudentGrievanceListView
+from core.api.student import (
+    StudentEnrollmentListView,
+    StudentPaperListView,
+    StudentPaperDetailView,
+    StudentPaperPageFileView,
+    StudentPaperQuestionFileView,
+    StudentPaperAnswerKeyFileView,
+    StudentGrievanceCreateView,
+    StudentGrievanceListView,
+)
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -50,6 +62,9 @@ urlpatterns += [
     path('api/teacher/exams/<int:allocation_id>/', TeacherExamListView.as_view(), name='teacher_exams'),
     path('api/teacher/papers/', TeacherPaperListView.as_view(), name='teacher_papers'),
     path('api/teacher/paper/<int:pk>/', TeacherPaperDetailView.as_view(), name='teacher_paper_detail'),
+    path('api/teacher/paper/<int:pk>/page/<int:page_index>/', TeacherPaperPageFileView.as_view(), name='teacher_paper_page_file'),
+    path('api/teacher/paper/<int:pk>/question-paper/', TeacherPaperQuestionFileView.as_view(), name='teacher_question_paper_file'),
+    path('api/teacher/paper/<int:pk>/answer-key/', TeacherPaperAnswerKeyFileView.as_view(), name='teacher_answer_key_file'),
     path('api/teacher/grievances/', TeacherGrievanceListView.as_view(), name='teacher_grievance_list'),
     path('api/teacher/grievances/stats/', TeacherGrievanceStatsView.as_view(), name='teacher_grievance_stats'),
     path('api/teacher/grievances/<int:grievance_id>/decision/', TeacherGrievanceDecisionView.as_view(), name='teacher_grievance_decision'),
@@ -58,11 +73,12 @@ urlpatterns += [
     path('api/student/enrollments/', StudentEnrollmentListView.as_view(), name='student_enrollments'),
     path('api/student/papers/', StudentPaperListView.as_view(), name='student_papers'),
     path('api/student/paper/<int:pk>/', StudentPaperDetailView.as_view(), name='student_paper_detail'),
+    path('api/student/paper/<int:pk>/page/<int:page_index>/', StudentPaperPageFileView.as_view(), name='student_paper_page_file'),
+    path('api/student/paper/<int:pk>/question-paper/', StudentPaperQuestionFileView.as_view(), name='student_question_paper_file'),
+    path('api/student/paper/<int:pk>/answer-key/', StudentPaperAnswerKeyFileView.as_view(), name='student_answer_key_file'),
     path('api/student/grievance/', StudentGrievanceCreateView.as_view(), name='student_grievance_create'),
     path('api/student/grievances/', StudentGrievanceListView.as_view(), name='student_grievance_list'),
 ]
 
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-    urlpatterns += static('/Data/', document_root=str(settings.BASE_DIR / 'Data'))
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

@@ -106,7 +106,9 @@ const AnswerSheetImage = ({ page, subjectCode, rollNo, src, totalPages }: { page
         <img
           src={imageSrc}
           alt={`Page ${page}`}
-          className="max-h-full max-w-full object-contain shadow-lg"
+          className="max-h-full max-w-full object-contain shadow-lg no-text-recognition-image"
+          draggable={false}
+          onContextMenu={(e) => e.preventDefault()}
           onError={(e) => {
             console.error("Failed to load image:", imageSrc);
             e.currentTarget.style.display = "none"; // Fallback to simulation if load fails

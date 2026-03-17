@@ -896,7 +896,17 @@ const EvaluationViewerMobile = () => {
                       <div className="flex-1 flex items-start justify-center p-1.5 overflow-auto">
                         <div ref={answerCanvasWrapRef} className="relative inline-block">
                           <div style={{ transform: `rotate(${rotation}deg)` }}>
-                            {imageSrc ? <img src={imageSrc} alt={`Page ${activePage}`} className="max-h-[56vh] w-auto max-w-full object-contain" /> : <p className="text-xs text-muted-foreground">Page preview unavailable</p>}
+                            {imageSrc ? (
+                              <img
+                                src={imageSrc}
+                                alt={`Page ${activePage}`}
+                                className="max-h-[56vh] w-auto max-w-full object-contain no-text-recognition-image"
+                                draggable={false}
+                                onContextMenu={(e) => e.preventDefault()}
+                              />
+                            ) : (
+                              <p className="text-xs text-muted-foreground">Page preview unavailable</p>
+                            )}
                           </div>
                           <canvas
                             ref={canvasRef}

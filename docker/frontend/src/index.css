@@ -129,3 +129,11 @@
   background: #4b5563;
   border-radius: 4px;
 }
+
+.no-text-recognition-image {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+  user-drag: none;
+}

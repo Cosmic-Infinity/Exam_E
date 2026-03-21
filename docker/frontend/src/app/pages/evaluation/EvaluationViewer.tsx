@@ -89,6 +89,22 @@ const imageDataToDataUrl = (imageData: ImageData): string => {
   return canvas.toDataURL("image/png");
 };
 
+const restoreImageDataToCanvas = (canvas: HTMLCanvasElement, imageData: ImageData): void => {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  // Draw from an offscreen canvas so annotations survive viewer resizes.
+  const sourceCanvas = document.createElement("canvas");
+  sourceCanvas.width = imageData.width;
+  sourceCanvas.height = imageData.height;
+  const sourceCtx = sourceCanvas.getContext("2d");
+  if (!sourceCtx) return;
+
+  sourceCtx.putImageData(imageData, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(sourceCanvas, 0, 0, canvas.width, canvas.height);
+};
+
 const restoreDataUrlToCanvas = (canvas: HTMLCanvasElement, dataUrl: string): Promise<void> => {
   return new Promise((resolve) => {
     if (!dataUrl) {
@@ -780,6 +796,12 @@ const EvaluationViewer = () => {
     setPreviewDropdownOpen(false);
   };
 
+  const getPreviewEmbedSrc = (url?: string) => {
+    if (!url) return undefined;
+    const [base] = url.split("#");
+    return `${base}#view=FitH&navpanes=0&toolbar=0&statusbar=0`;
+  };
+
   const getCachedPreviewUrl = async (rawPath?: string): Promise<string | undefined> => {
     const resolvedPath = resolveAssetUrl(rawPath);
     if (!resolvedPath) return undefined;
@@ -944,12 +966,24 @@ const EvaluationViewer = () => {
       return ctx;
     }
 
+    // Preserve current-page unsaved ink before resize clears canvas bitmap.
+    try {
+      if (canvas.width > 0 && canvas.height > 0) {
+        const currentImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        if (hasImageDataInk(currentImageData)) {
+          drawingsRef.current[activePage] = currentImageData;
+        }
+      }
+    } catch {
+      // Ignore snapshot errors and continue resize flow.
+    }
+
     canvas.width = width;
     canvas.height = height;
 
     const pageDrawing = drawingsRef.current[activePage];
-    if (pageDrawing && Math.abs(pageDrawing.width - width) < 50 && Math.abs(pageDrawing.height - height) < 50) {
-      ctx.putImageData(pageDrawing, 0, 0);
+    if (pageDrawing) {
+      restoreImageDataToCanvas(canvas, pageDrawing);
     } else if (persistedDrawingsRef.current[activePage]) {
       void restoreDataUrlToCanvas(canvas, persistedDrawingsRef.current[activePage]);
     } else {
@@ -1052,8 +1086,6 @@ const EvaluationViewer = () => {
 
     // Get stored drawing dimensions
     const storedDrawing = drawingsRef.current[activePage];
-    const storedWidth = storedDrawing ? storedDrawing.width : 0;
-    const storedHeight = storedDrawing ? storedDrawing.height : 0;
 
     // Resize canvas for new page
     const newWidth = container.offsetWidth;
@@ -1062,9 +1094,9 @@ const EvaluationViewer = () => {
     canvas.height = newHeight;
 
     // Restore drawing for current page if it exists and dimensions match closely
-    if (storedDrawing && Math.abs(storedWidth - newWidth) < 50 && Math.abs(storedHeight - newHeight) < 50) {
+    if (storedDrawing) {
       try {
-        ctx.putImageData(storedDrawing, 0, 0);
+        restoreImageDataToCanvas(canvas, storedDrawing);
       } catch {
         // If dimensions don't match exactly, redraw is not possible, clear canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1105,8 +1137,8 @@ const EvaluationViewer = () => {
       }
 
       const pageDrawing = drawingsRef.current[activePage];
-      if (pageDrawing && Math.abs(pageDrawing.width - settledWidth) < 50 && Math.abs(pageDrawing.height - settledHeight) < 50) {
-        settledCtx.putImageData(pageDrawing, 0, 0);
+      if (pageDrawing) {
+        restoreImageDataToCanvas(settledCanvas, pageDrawing);
       } else if (persistedDrawingsRef.current[activePage]) {
         void restoreDataUrlToCanvas(settledCanvas, persistedDrawingsRef.current[activePage]);
       } else {
@@ -1744,9 +1776,17 @@ const EvaluationViewer = () => {
                       {/* PDF Viewer or Fallback */}
                       <div ref={previewScrollRef} className="overflow-y-auto bg-black/5" style={{ height: `${previewPanelHeight}px` }}>
                         {activePreview === "question-paper" && currentScript?.question_paper_path ? (
-                          <iframe src={cachedPreviewPaths["question-paper"] || resolveAssetUrl(currentScript.question_paper_path)} className="w-full h-full border-0" title="Question Paper" />
+                          <iframe
+                            src={getPreviewEmbedSrc(cachedPreviewPaths["question-paper"] || resolveAssetUrl(currentScript.question_paper_path))}
+                            className="w-full h-full border-0"
+                            title="Question Paper"
+                          />
                         ) : activePreview === "answer-key" && currentScript?.answer_key_path ? (
-                          <iframe src={cachedPreviewPaths["answer-key"] || resolveAssetUrl(currentScript.answer_key_path)} className="w-full h-full border-0" title="Answer Key" />
+                          <iframe
+                            src={getPreviewEmbedSrc(cachedPreviewPaths["answer-key"] || resolveAssetUrl(currentScript.answer_key_path))}
+                            className="w-full h-full border-0"
+                            title="Answer Key"
+                          />
                         ) : (
                           <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
                             <span>{activePreview === "question-paper" ? "Question Paper not available" : "Answer Key not available"}</span>

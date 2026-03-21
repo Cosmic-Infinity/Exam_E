@@ -19,6 +19,7 @@ const DEFAULT_TOTAL_PAGES = 30;
 type PreviewType = "question-paper" | "answer-key" | null;
 const PREVIEW_DOC_CACHE = "exam-preview-docs-v1";
 const THUMBNAIL_STRIP_SESSION_KEY = "evaluation-thumbnail-strip-open";
+const DRAWINGS_STORAGE_PREFIX = "evaluation-drawings-v1";
 
 // Placeholder image pages for the answer sheet (different tinted "scanned" look per page)
 const PAGE_COLORS = [
@@ -56,9 +57,59 @@ const PAGE_COLORS = [
 
 const THUMBNAIL_CARD_WIDTH = 112;
 
+type SavedDrawingPayload = {
+  version: 1;
+  pages: Record<string, string>;
+};
+
 const parseMarkValue = (value: string): number => {
   if (value === "" || value === "-") return 0;
   return Number.parseFloat(value) || 0;
+};
+
+const hasImageDataInk = (imageData: ImageData): boolean => {
+  const alphaChannelOffset = 3;
+  for (let i = alphaChannelOffset; i < imageData.data.length; i += 4) {
+    if (imageData.data[i] !== 0) {
+      return true;
+    }
+  }
+  return false;
+};
+
+const imageDataToDataUrl = (imageData: ImageData): string => {
+  const canvas = document.createElement("canvas");
+  canvas.width = imageData.width;
+  canvas.height = imageData.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    return "";
+  }
+  ctx.putImageData(imageData, 0, 0);
+  return canvas.toDataURL("image/png");
+};
+
+const restoreDataUrlToCanvas = (canvas: HTMLCanvasElement, dataUrl: string): Promise<void> => {
+  return new Promise((resolve) => {
+    if (!dataUrl) {
+      resolve();
+      return;
+    }
+
+    const img = new Image();
+    img.onload = () => {
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve();
+        return;
+      }
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve();
+    };
+    img.onerror = () => resolve();
+    img.src = dataUrl;
+  });
 };
 
 const sanitizeMarkInput = (value: string): string => {
@@ -216,14 +267,8 @@ const EvaluationViewer = () => {
   const navigate = useNavigate();
   const { user } = useUserSession();
 
-  // Security: Get user ID from session context, not from URL
-  // Backend verifies user has access to this data
-  if (!user) {
-    navigate("/");
-    return null;
-  }
   // For faculty: get student roll from query params; for students: use own ID
-  const rollNo = role === "faculty" && searchParams.get("roll") ? searchParams.get("roll")! : user.universityId;
+  const rollNo = role === "faculty" && searchParams.get("roll") ? searchParams.get("roll")! : user?.universityId || "";
 
   const isFaculty = role === "faculty";
   const isFresh = mode === "fresh";
@@ -287,6 +332,8 @@ const EvaluationViewer = () => {
   const isDrawingRef = useRef(false);
   const drawDropdownRef = useRef<HTMLDivElement>(null);
   const drawingsRef = useRef<{ [key: number]: ImageData }>({});
+  const persistedDrawingsRef = useRef<Record<number, string>>({});
+  const removedPersistedPagesRef = useRef<Set<number>>(new Set());
   const lastPageRef = useRef<number>(1);
   const answerSheetContainerRef = useRef<HTMLDivElement>(null);
 
@@ -309,12 +356,22 @@ const EvaluationViewer = () => {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
+    if (!user) {
+      navigate("/");
+    }
+  }, [user, navigate]);
+
+  useEffect(() => {
     if (role === "student" && panel === "grievances") {
       setRecheckOpen(true);
     }
   }, [role, panel]);
 
   useEffect(() => {
+    if (!user || !rollNo || !subjectId) {
+      return;
+    }
+
     let active = true;
     setLoading(true);
     setNotFound(false);
@@ -353,7 +410,101 @@ const EvaluationViewer = () => {
     return () => {
       active = false;
     };
-  }, [rollNo, subjectId, role, navigate]);
+  }, [user, rollNo, subjectId, role, navigate]);
+
+  const getDrawingsStorageKey = () => {
+    const identityPart = currentScript?.id || `${rollNo}:${subjectCode}`;
+    return `${DRAWINGS_STORAGE_PREFIX}:${identityPart}`;
+  };
+
+  const captureCurrentCanvasDrawing = () => {
+    if (!canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx || canvas.width === 0 || canvas.height === 0) return;
+
+    try {
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      if (hasImageDataInk(imageData)) {
+        drawingsRef.current[activePage] = imageData;
+      } else {
+        delete drawingsRef.current[activePage];
+      }
+    } catch {
+      // Ignore canvas read errors.
+    }
+  };
+
+  useEffect(() => {
+    if (!currentScript) return;
+
+    try {
+      const storageKey = getDrawingsStorageKey();
+
+      // Keep drawings in sync with backend grading lifecycle.
+      // If backend state resets this script to pending, clear stale local overlays.
+      if (currentScript.status !== "graded") {
+        window.localStorage.removeItem(storageKey);
+        persistedDrawingsRef.current = {};
+        drawingsRef.current = {};
+        removedPersistedPagesRef.current.clear();
+        return;
+      }
+
+      const raw = window.localStorage.getItem(storageKey);
+      if (!raw) {
+        persistedDrawingsRef.current = {};
+        drawingsRef.current = {};
+        removedPersistedPagesRef.current.clear();
+        return;
+      }
+
+      const parsed = JSON.parse(raw) as SavedDrawingPayload;
+      if (!parsed || parsed.version !== 1 || !parsed.pages || typeof parsed.pages !== "object") {
+        persistedDrawingsRef.current = {};
+        drawingsRef.current = {};
+        removedPersistedPagesRef.current.clear();
+        return;
+      }
+
+      const hydrated: Record<number, string> = {};
+      for (const [page, dataUrl] of Object.entries(parsed.pages)) {
+        const pageNum = Number(page);
+        if (Number.isFinite(pageNum) && pageNum > 0 && typeof dataUrl === "string" && dataUrl.length > 0) {
+          hydrated[pageNum] = dataUrl;
+        }
+      }
+
+      persistedDrawingsRef.current = hydrated;
+      drawingsRef.current = {};
+      removedPersistedPagesRef.current.clear();
+    } catch {
+      persistedDrawingsRef.current = {};
+      drawingsRef.current = {};
+      removedPersistedPagesRef.current.clear();
+    }
+  }, [currentScript?.id, currentScript?.status, rollNo, subjectCode]);
+
+  useEffect(() => {
+    if (!currentScript) return;
+
+    const timeoutId = window.setTimeout(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const ctx = ensureCanvasReadyForCurrentPage();
+      if (!ctx) return;
+
+      const storedDrawing = drawingsRef.current[activePage];
+      if (!storedDrawing && persistedDrawingsRef.current[activePage]) {
+        void restoreDataUrlToCanvas(canvas, persistedDrawingsRef.current[activePage]);
+      }
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [currentScript?.id]);
 
   // Dynamically switch thumbnail density based on available width in strip area.
   useEffect(() => {
@@ -476,14 +627,54 @@ const EvaluationViewer = () => {
   };
 
   const handleSaveMarks = () => {
-    const validationError = validateMarksWithinExpected();
-    if (validationError) {
-      toast.error(validationError);
-      return;
-    }
+    const persistSavedDrawings = async () => {
+      captureCurrentCanvasDrawing();
 
-    saveMarks(rollNo, subjectId || "", marks, role as "student" | "faculty");
-    toast.success("Marks saved successfully.", { duration: 2500 });
+      const merged: Record<number, string> = { ...persistedDrawingsRef.current };
+
+      for (const [page, imageData] of Object.entries(drawingsRef.current)) {
+        const pageNum = Number(page);
+        if (!Number.isFinite(pageNum) || pageNum <= 0) continue;
+
+        if (hasImageDataInk(imageData)) {
+          const dataUrl = imageDataToDataUrl(imageData);
+          if (dataUrl) {
+            merged[pageNum] = dataUrl;
+          }
+        } else {
+          delete merged[pageNum];
+        }
+      }
+
+      for (const pageNum of removedPersistedPagesRef.current) {
+        delete merged[pageNum];
+      }
+
+      const payload: SavedDrawingPayload = {
+        version: 1,
+        pages: Object.fromEntries(Object.entries(merged).map(([page, dataUrl]) => [String(page), dataUrl])),
+      };
+
+      window.localStorage.setItem(getDrawingsStorageKey(), JSON.stringify(payload));
+      persistedDrawingsRef.current = merged;
+      removedPersistedPagesRef.current.clear();
+    };
+
+    const runSave = async () => {
+      const validationError = validateMarksWithinExpected();
+      if (validationError) {
+        toast.error(validationError);
+        return;
+      }
+
+      await saveMarks(rollNo, subjectId || "", marks, role as "student" | "faculty");
+      await persistSavedDrawings();
+      toast.success("Marks saved successfully.", { duration: 2500 });
+    };
+
+    runSave().catch((error) => {
+      toast.error(error instanceof Error ? error.message : "Could not save marks.");
+    });
   };
 
   const handleSubmitGrievance = () => {
@@ -731,12 +922,50 @@ const EvaluationViewer = () => {
     setIsResizingPreview(true);
   };
 
+  const ensureCanvasReadyForCurrentPage = (): CanvasRenderingContext2D | null => {
+    if (!canvasRef.current) return null;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    const host = answerSheetContainerRef.current || canvas.parentElement;
+    if (!host) return ctx;
+
+    const width = Math.floor(host.getBoundingClientRect().width || host.clientWidth || host.offsetWidth);
+    const height = Math.floor(host.getBoundingClientRect().height || host.clientHeight || host.offsetHeight);
+
+    if (!width || !height) {
+      return ctx;
+    }
+
+    const needsResize = canvas.width !== width || canvas.height !== height;
+    if (!needsResize) {
+      return ctx;
+    }
+
+    canvas.width = width;
+    canvas.height = height;
+
+    const pageDrawing = drawingsRef.current[activePage];
+    if (pageDrawing && Math.abs(pageDrawing.width - width) < 50 && Math.abs(pageDrawing.height - height) < 50) {
+      ctx.putImageData(pageDrawing, 0, 0);
+    } else if (persistedDrawingsRef.current[activePage]) {
+      void restoreDataUrlToCanvas(canvas, persistedDrawingsRef.current[activePage]);
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    return ctx;
+  };
+
   // Drawing functions
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current || !drawMode) return;
     isDrawingRef.current = true;
+    removedPersistedPagesRef.current.delete(activePage);
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
+    const ctx = ensureCanvasReadyForCurrentPage();
     if (!ctx) return;
 
     const rect = canvas.getBoundingClientRect();
@@ -781,6 +1010,7 @@ const EvaluationViewer = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       // Also remove from stored drawings for this page
       delete drawingsRef.current[activePage];
+      removedPersistedPagesRef.current.add(activePage);
     }
   };
 
@@ -810,8 +1040,12 @@ const EvaluationViewer = () => {
     if (lastPageRef.current !== activePage && lastPageRef.current > 0) {
       try {
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        drawingsRef.current[lastPageRef.current] = imageData;
-      } catch (e) {
+        if (hasImageDataInk(imageData)) {
+          drawingsRef.current[lastPageRef.current] = imageData;
+        } else {
+          delete drawingsRef.current[lastPageRef.current];
+        }
+      } catch {
         // Ignore errors in getting image data
       }
     }
@@ -831,17 +1065,66 @@ const EvaluationViewer = () => {
     if (storedDrawing && Math.abs(storedWidth - newWidth) < 50 && Math.abs(storedHeight - newHeight) < 50) {
       try {
         ctx.putImageData(storedDrawing, 0, 0);
-      } catch (e) {
+      } catch {
         // If dimensions don't match exactly, redraw is not possible, clear canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
       }
+    } else if (persistedDrawingsRef.current[activePage]) {
+      void restoreDataUrlToCanvas(canvas, persistedDrawingsRef.current[activePage]);
     } else if (!storedDrawing) {
       // Clear canvas for new page with no prior drawings
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
 
+    // Ensure first open has correct canvas dimensions even when layout settles late.
+    let retryTimeoutId: number | null = null;
+    let retries = 0;
+    const maxRetries = 12;
+
+    const syncSettledCanvas = () => {
+      if (!canvasRef.current || !answerSheetContainerRef.current) return;
+
+      const settledCanvas = canvasRef.current;
+      const settledWidth = answerSheetContainerRef.current.offsetWidth;
+      const settledHeight = answerSheetContainerRef.current.offsetHeight;
+
+      if (!settledWidth || !settledHeight) {
+        if (retries < maxRetries) {
+          retries += 1;
+          retryTimeoutId = window.setTimeout(syncSettledCanvas, 50);
+        }
+        return;
+      }
+
+      const settledCtx = settledCanvas.getContext("2d");
+      if (!settledCtx) return;
+
+      if (settledCanvas.width !== settledWidth || settledCanvas.height !== settledHeight) {
+        settledCanvas.width = settledWidth;
+        settledCanvas.height = settledHeight;
+      }
+
+      const pageDrawing = drawingsRef.current[activePage];
+      if (pageDrawing && Math.abs(pageDrawing.width - settledWidth) < 50 && Math.abs(pageDrawing.height - settledHeight) < 50) {
+        settledCtx.putImageData(pageDrawing, 0, 0);
+      } else if (persistedDrawingsRef.current[activePage]) {
+        void restoreDataUrlToCanvas(settledCanvas, persistedDrawingsRef.current[activePage]);
+      } else {
+        settledCtx.clearRect(0, 0, settledCanvas.width, settledCanvas.height);
+      }
+    };
+
+    const timeoutId = window.setTimeout(syncSettledCanvas, 0);
+
     // Update last page reference
     lastPageRef.current = activePage;
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      if (retryTimeoutId !== null) {
+        window.clearTimeout(retryTimeoutId);
+      }
+    };
   }, [activePage, currentScript?.id]);
 
   // Close download dropdown on outside click
@@ -1039,6 +1322,10 @@ const EvaluationViewer = () => {
   const totalMarks = computeTotal(marks);
   const hasOptionalRule = marks.some((row) => (row.sectionType || "").toUpperCase() === "OPTIONAL" && Number(row.sectionChoose || 0) > 0);
   const modeLabel = isFresh ? "New Evaluation" : hasGrievance ? "Grievance Review" : "Graded";
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

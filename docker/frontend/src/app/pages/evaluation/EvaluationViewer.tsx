@@ -592,12 +592,14 @@ const EvaluationViewer = () => {
   const getCachedPreviewUrl = async (rawPath?: string): Promise<string | undefined> => {
     const resolvedPath = resolveAssetUrl(rawPath);
     if (!resolvedPath) return undefined;
-    if (!("caches" in window)) return resolvedPath;
 
     try {
-      const request = new Request(resolvedPath, { method: "GET", credentials: "include" });
-      const cache = await caches.open(PREVIEW_DOC_CACHE);
-      let response = await cache.match(request);
+      if (!("caches" in window)) {
+        const fetched = await fetch(resolvedPath, { credentials: "include" });
+        if (!fetched.ok) return resolvedPath;
+        const blob = await fetched.blob();
+        return blob.size ? URL.createObjectURL(blob) : resolvedPath;
+      }
 
       const isPdfResponse = (res?: Response | null) => {
         if (!res) return false;
@@ -605,21 +607,31 @@ const EvaluationViewer = () => {
         return contentType.includes("application/pdf") || contentType.includes("application/octet-stream");
       };
 
-      // If cache contains non-PDF payload (e.g., HTML error page), invalidate and refetch.
-      if (response && !isPdfResponse(response)) {
-        await cache.delete(request);
-        response = undefined;
-      }
-
-      if (!response) {
-        const fetched = await fetch(resolvedPath, { credentials: "include" });
-        if (!fetched.ok || !isPdfResponse(fetched)) return resolvedPath;
+      const fetchAndCache = async (cache: Cache, request: Request) => {
+        const fetched = await fetch(resolvedPath, { credentials: "include", cache: "no-store" });
+        if (!fetched.ok || !isPdfResponse(fetched)) return undefined;
+        const networkBlob = await fetched.clone().blob();
+        if (!networkBlob.size) return undefined;
         await cache.put(request, fetched.clone());
-        response = fetched;
+        return URL.createObjectURL(networkBlob);
+      };
+
+      const request = new Request(resolvedPath, { method: "GET", credentials: "include" });
+      const cache = await caches.open(PREVIEW_DOC_CACHE);
+      const cachedResponse = await cache.match(request);
+
+      if (cachedResponse && isPdfResponse(cachedResponse)) {
+        const cachedBlob = await cachedResponse.clone().blob();
+        if (cachedBlob.size) {
+          return URL.createObjectURL(cachedBlob);
+        }
+        await cache.delete(request);
+      } else if (cachedResponse) {
+        await cache.delete(request);
       }
 
-      const blob = await response.blob();
-      return URL.createObjectURL(blob);
+      const refreshedUrl = await fetchAndCache(cache, request);
+      return refreshedUrl || resolvedPath;
     } catch {
       return resolvedPath;
     }

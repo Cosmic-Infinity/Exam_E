@@ -12,9 +12,9 @@ export default defineConfig(() => ({
     },
     proxy: {
       "/api": {
-        // In Docker: backend service is on backend:8000
-        // The proxy rewrites host from localhost:8080 to backend:8000
-        target: "http://backend:8000",
+        // Route API through nginx so protected file endpoints using
+        // X-Accel-Redirect are resolved correctly in development.
+        target: "http://nginx:80",
         changeOrigin: true,
       },
       "/media": {

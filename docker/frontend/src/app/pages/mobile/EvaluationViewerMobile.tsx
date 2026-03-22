@@ -107,6 +107,7 @@ const EvaluationViewerMobile = () => {
   const [marksExpanded, setMarksExpanded] = useState(false);
   const [rotation, setRotation] = useState(0);
   const [drawMode, setDrawMode] = useState<"pencil" | "eraser" | null>(null);
+  const [pencilColor, setPencilColor] = useState<"red" | "green">("red");
   const [rotateBadgeActive, setRotateBadgeActive] = useState(false);
   const [rotateCycleCompleted, setRotateCycleCompleted] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -282,7 +283,7 @@ const EvaluationViewerMobile = () => {
     if (!ctx) return;
 
     ctx.globalCompositeOperation = drawMode === "eraser" ? "destination-out" : "source-over";
-    ctx.strokeStyle = drawMode === "eraser" ? "rgba(0,0,0,1)" : "rgba(255, 0, 0, 0.95)";
+    ctx.strokeStyle = drawMode === "eraser" ? "rgba(0,0,0,1)" : pencilColor === "green" ? "rgba(34, 197, 94, 0.95)" : "rgba(255, 0, 0, 0.95)";
     ctx.lineWidth = drawMode === "eraser" ? 16 : 3;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
@@ -803,14 +804,42 @@ const EvaluationViewerMobile = () => {
                           onClick={() => {
                             setRotateBadgeActive(false);
                             setRotateCycleCompleted(false);
-                            setDrawMode((prev) => (prev === "pencil" ? null : "pencil"));
-                            setToolsOpen(false);
+                            const nextMode = drawMode === "pencil" ? null : "pencil";
+                            setDrawMode(nextMode);
+                            if (nextMode === "pencil") {
+                              setPencilColor("red");
+                            }
+                            setToolsOpen(nextMode === "pencil");
                           }}
                           className="w-full text-left px-3 py-2 text-xs hover:bg-muted/40 flex items-center gap-2"
                         >
                           <Pencil className="h-3.5 w-3.5" />
                           {drawMode === "pencil" ? "Pencil On" : "Pencil"}
                         </button>
+                        {drawMode === "pencil" && (
+                          <div className="px-3 py-2 flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                setPencilColor("red");
+                                setToolsOpen(false);
+                              }}
+                              aria-label="Red pencil"
+                              title="Red pencil"
+                              className={`w-5 h-5 rounded-full border-2 ${pencilColor === "red" ? "border-primary ring-1 ring-primary/50" : "border-border"}`}
+                              style={{ backgroundColor: "rgb(239 68 68)" }}
+                            />
+                            <button
+                              onClick={() => {
+                                setPencilColor("green");
+                                setToolsOpen(false);
+                              }}
+                              aria-label="Green pencil"
+                              title="Green pencil"
+                              className={`w-5 h-5 rounded-full border-2 ${pencilColor === "green" ? "border-primary ring-1 ring-primary/50" : "border-border"}`}
+                              style={{ backgroundColor: "rgb(34 197 94)" }}
+                            />
+                          </div>
+                        )}
                         <button
                           onClick={() => {
                             setRotateBadgeActive(false);

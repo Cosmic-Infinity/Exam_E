@@ -350,6 +350,7 @@ const EvaluationViewer = () => {
 
   // Drawing mode
   const [drawMode, setDrawMode] = useState<"pencil" | "eraser" | null>(null);
+  const [pencilColor, setPencilColor] = useState<"red" | "green">("red");
   const [drawDropdownOpen, setDrawDropdownOpen] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
@@ -1033,7 +1034,7 @@ const EvaluationViewer = () => {
     const y = e.clientY - rect.top;
 
     if (drawMode === "pencil") {
-      ctx.strokeStyle = "rgba(255, 0, 0, 0.8)";
+      ctx.strokeStyle = pencilColor === "green" ? "rgba(34, 197, 94, 0.85)" : "rgba(255, 0, 0, 0.8)";
       ctx.lineWidth = 2;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
@@ -1527,8 +1528,12 @@ const EvaluationViewer = () => {
                             <div className="absolute right-full mr-1 top-0 z-50 w-32 rounded-lg border border-border bg-card shadow-xl shadow-black/30 overflow-hidden">
                               <button
                                 onClick={() => {
-                                  setDrawMode(drawMode === "pencil" ? null : "pencil");
-                                  setDrawDropdownOpen(false);
+                                  const nextMode = drawMode === "pencil" ? null : "pencil";
+                                  setDrawMode(nextMode);
+                                  if (nextMode === "pencil") {
+                                    setPencilColor("red");
+                                  }
+                                  setDrawDropdownOpen(nextMode === "pencil");
                                 }}
                                 className={`w-full text-left px-3 py-2 text-xs font-medium transition-colors flex items-center gap-2 ${
                                   drawMode === "pencil" ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted/50"
@@ -1538,6 +1543,33 @@ const EvaluationViewer = () => {
                                 Pencil
                                 {drawMode === "pencil" && <span className="ml-auto text-[10px] text-primary">● Active</span>}
                               </button>
+                              {drawMode === "pencil" && (
+                                <>
+                                  <div className="h-px bg-border" />
+                                  <div className="px-3 py-2 flex items-center gap-2">
+                                    <button
+                                      onClick={() => {
+                                        setPencilColor("red");
+                                        setDrawDropdownOpen(false);
+                                      }}
+                                      aria-label="Red pencil"
+                                      title="Red pencil"
+                                      className={`w-5 h-5 rounded-full border-2 ${pencilColor === "red" ? "border-primary ring-1 ring-primary/50" : "border-border"}`}
+                                      style={{ backgroundColor: "rgb(239 68 68)" }}
+                                    />
+                                    <button
+                                      onClick={() => {
+                                        setPencilColor("green");
+                                        setDrawDropdownOpen(false);
+                                      }}
+                                      aria-label="Green pencil"
+                                      title="Green pencil"
+                                      className={`w-5 h-5 rounded-full border-2 ${pencilColor === "green" ? "border-primary ring-1 ring-primary/50" : "border-border"}`}
+                                      style={{ backgroundColor: "rgb(34 197 94)" }}
+                                    />
+                                  </div>
+                                </>
+                              )}
                               <div className="h-px bg-border" />
                               <button
                                 onClick={() => {

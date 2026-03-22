@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Eraser, Moon, Pencil, RefreshCw, RotateCcw, RotateCw, Sun, Trash2 } from "lucide-react";
+import { Download, Eraser, Moon, Pencil, RefreshCw, RotateCcw, RotateCw, Sun, Trash2 } from "lucide-react";
 import { useUserSession } from "@/app/context/UserSessionContext";
 import { useTheme } from "@/app/context/ThemeContext";
 import AuthService from "@/app/services/authService";
@@ -26,6 +26,10 @@ const parseMarkValue = (value: string): number => {
 };
 
 const MOBILE_PREVIEW_DOC_CACHE = "mobile-preview-docs-v1";
+
+const ERASER_CURSOR = `url("data:image/svg+xml;utf8,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21h10"/><path d="M5.586 16.586a2 2 0 0 0 0 2.828l1 1a2 2 0 0 0 2.828 0L20 9.828a2 2 0 0 0 0-2.828l-1-1a2 2 0 0 0-2.828 0z"/><path d="m13.414 6.414 4.172 4.172"/></svg>'
+) }") 4 20, crosshair`;
 
 type MobileGrievanceType = "GENERAL" | "PAGE_MISSING" | "FULL_SHEET_MISSING";
 
@@ -278,7 +282,7 @@ const EvaluationViewerMobile = () => {
     if (!ctx) return;
 
     ctx.globalCompositeOperation = drawMode === "eraser" ? "destination-out" : "source-over";
-    ctx.strokeStyle = drawMode === "eraser" ? "rgba(0,0,0,1)" : "rgba(255, 204, 0, 0.95)";
+    ctx.strokeStyle = drawMode === "eraser" ? "rgba(0,0,0,1)" : "rgba(255, 0, 0, 0.95)";
     ctx.lineWidth = drawMode === "eraser" ? 16 : 3;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
@@ -333,6 +337,40 @@ const EvaluationViewerMobile = () => {
     image.src = saved;
   };
 
+  const syncCanvasSize = () => {
+    const wrap = answerCanvasWrapRef.current;
+    const canvas = canvasRef.current;
+    if (!wrap || !canvas) return;
+
+    const rect = wrap.getBoundingClientRect();
+    const nextWidth = Math.max(1, Math.floor(rect.width));
+    const nextHeight = Math.max(1, Math.floor(rect.height));
+
+    if (canvas.width === nextWidth && canvas.height === nextHeight) {
+      return;
+    }
+
+    const snapshot = activeDocView === "sheet" && hasVisibleDrawing(canvas) ? canvas.toDataURL("image/png") : undefined;
+    canvas.width = nextWidth;
+    canvas.height = nextHeight;
+
+    if (activeDocView !== "sheet") return;
+
+    const saved = drawingByPageRef.current[activePage] || snapshot;
+    if (!saved) return;
+
+    const image = new Image();
+    image.onload = () => {
+      const liveCanvas = canvasRef.current;
+      if (!liveCanvas) return;
+      const liveCtx = liveCanvas.getContext("2d");
+      if (!liveCtx) return;
+      liveCtx.clearRect(0, 0, liveCanvas.width, liveCanvas.height);
+      liveCtx.drawImage(image, 0, 0, liveCanvas.width, liveCanvas.height);
+    };
+    image.src = saved;
+  };
+
   const goToPage = (pageNo: number) => {
     const bounded = Math.max(1, Math.min(totalPages, pageNo));
     if (bounded === activePage) return;
@@ -364,6 +402,7 @@ const EvaluationViewerMobile = () => {
 
   const handleCanvasTouchStart = (event: React.TouchEvent<HTMLCanvasElement>) => {
     if (!drawMode) return;
+    if (event.touches.length !== 1) return;
     event.preventDefault();
     const point = getPointerPosition(event);
     if (!point) return;
@@ -373,6 +412,11 @@ const EvaluationViewerMobile = () => {
 
   const handleCanvasTouchMove = (event: React.TouchEvent<HTMLCanvasElement>) => {
     if (!drawMode || !isDrawingRef.current) return;
+    if (event.touches.length !== 1) {
+      isDrawingRef.current = false;
+      lastPointRef.current = null;
+      return;
+    }
     event.preventDefault();
     const point = getPointerPosition(event);
     if (!point || !lastPointRef.current) return;
@@ -400,7 +444,6 @@ const EvaluationViewerMobile = () => {
     setRotation(0);
     setRotateBadgeActive(false);
     setRotateCycleCompleted(false);
-    handleClearCanvas();
     setToolsOpen(false);
   };
 
@@ -641,31 +684,8 @@ const EvaluationViewerMobile = () => {
     const canvas = canvasRef.current;
     if (!wrap || !canvas) return;
 
-    const syncSize = () => {
-      const snapshot = canvas.toDataURL("image/png");
-      const rect = wrap.getBoundingClientRect();
-      canvas.width = Math.max(1, Math.floor(rect.width));
-      canvas.height = Math.max(1, Math.floor(rect.height));
-
-      if (activeDocView !== "sheet") return;
-
-      const saved = drawingByPageRef.current[activePage] || snapshot;
-      if (!saved) return;
-
-      const image = new Image();
-      image.onload = () => {
-        const liveCanvas = canvasRef.current;
-        if (!liveCanvas) return;
-        const liveCtx = liveCanvas.getContext("2d");
-        if (!liveCtx) return;
-        liveCtx.clearRect(0, 0, liveCanvas.width, liveCanvas.height);
-        liveCtx.drawImage(image, 0, 0, liveCanvas.width, liveCanvas.height);
-      };
-      image.src = saved;
-    };
-
-    syncSize();
-    const observer = new ResizeObserver(syncSize);
+    syncCanvasSize();
+    const observer = new ResizeObserver(syncCanvasSize);
     observer.observe(wrap);
     return () => observer.disconnect();
   }, [activeDocView, activePage]);
@@ -826,7 +846,7 @@ const EvaluationViewerMobile = () => {
                     }}
                     className="rounded-md border border-border bg-background px-2 py-2 text-xs font-semibold min-w-20"
                   >
-                    Download
+                    <Download className="h-3.5 w-3.5 mx-auto" aria-hidden="true" />
                   </button>
                   {downloadsOpen && (
                     <div className="absolute right-0 mt-1 w-44 rounded-md border border-border bg-card shadow-lg z-30 overflow-hidden">
@@ -915,6 +935,7 @@ const EvaluationViewerMobile = () => {
                                 className="max-h-[56vh] w-auto max-w-full object-contain no-text-recognition-image"
                                 draggable={false}
                                 onContextMenu={(e) => e.preventDefault()}
+                                onLoad={syncCanvasSize}
                               />
                             ) : (
                               <p className="text-xs text-muted-foreground">Page preview unavailable</p>
@@ -930,7 +951,11 @@ const EvaluationViewerMobile = () => {
                             onTouchMove={handleCanvasTouchMove}
                             onTouchEnd={handleCanvasTouchEnd}
                             className="absolute inset-0"
-                            style={{ pointerEvents: drawMode ? "auto" : "none", touchAction: "none" }}
+                            style={{
+                              pointerEvents: drawMode ? "auto" : "none",
+                              touchAction: "none",
+                              cursor: drawMode === "eraser" ? ERASER_CURSOR : drawMode ? "crosshair" : "default",
+                            }}
                           />
                         </div>
                       </div>

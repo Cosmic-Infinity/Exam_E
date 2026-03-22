@@ -58,6 +58,10 @@ const PAGE_COLORS = [
 
 const THUMBNAIL_CARD_WIDTH = 112;
 
+const ERASER_CURSOR = `url("data:image/svg+xml;utf8,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21h10"/><path d="M5.586 16.586a2 2 0 0 0 0 2.828l1 1a2 2 0 0 0 2.828 0L20 9.828a2 2 0 0 0 0-2.828l-1-1a2 2 0 0 0-2.828 0z"/><path d="m13.414 6.414 4.172 4.172"/></svg>'
+) }") 4 20, crosshair`;
+
 type SavedDrawingPayload = {
   version: 1;
   pages: Record<string, string>;
@@ -1482,7 +1486,7 @@ const EvaluationViewer = () => {
                           width: "100%",
                           height: "100%",
                           pointerEvents: drawMode ? "auto" : "none",
-                          cursor: drawMode ? "crosshair" : "default",
+                          cursor: drawMode === "eraser" ? ERASER_CURSOR : drawMode ? "crosshair" : "default",
                           backgroundColor: "transparent",
                           opacity: drawMode ? 1 : 0.5,
                         }}

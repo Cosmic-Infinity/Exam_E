@@ -38,6 +38,7 @@ export interface AnswerScript {
   studentName?: string;
   section?: string;
   subjectCode: string;
+  subjectName: string; // fetched from backend
   submissionDate: string;
   status: ScriptStatus;
   hasGrievance: boolean;

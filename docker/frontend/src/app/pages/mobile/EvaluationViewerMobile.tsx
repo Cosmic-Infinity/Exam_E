@@ -11,20 +11,6 @@ import { getScript, saveMarks, submitGrievance, acceptGrievance, rejectGrievance
 import { SUBJECT_MAP, createEmptyMarks, computeTotal, getCountedRowIndexes, type MarksRow } from "@/app/types/evaluation";
 import { resolveAssetUrl } from "@/app/utils/assetResolver";
 
-type StudentPaperHeaderMeta = {
-  exam?: {
-    course_code?: string;
-    course_title?: string;
-  };
-};
-
-type TeacherAllocationMeta = {
-  course?: {
-    course_code?: string;
-    title?: string;
-  };
-};
-
 const sanitizeMarkInput = (value: string): string => {
   const cleaned = value.replace(/[^0-9.]/g, "");
   const firstDot = cleaned.indexOf(".");
@@ -168,33 +154,9 @@ const EvaluationViewerMobile = () => {
         setQuestionPaperPath(script.question_paper_path || undefined);
         setAnswerKeyPath(script.answer_key_path || undefined);
 
-        // Resolve subject metadata from backend so header shows authoritative title/code.
-        let resolvedCode = script.subjectCode?.toUpperCase() || subjectCode;
-        let resolvedTitle = "";
-
-        if (role === "student") {
-          try {
-            const detail = (await AuthService.get(`/student/paper/${script.id}/`)) as StudentPaperHeaderMeta;
-            resolvedCode = detail?.exam?.course_code?.toUpperCase() || resolvedCode;
-            resolvedTitle = detail?.exam?.course_title?.trim() || "";
-          } catch (metaError) {
-            console.warn("Failed to load student paper metadata:", metaError);
-          }
-        } else {
-          try {
-            const allocations = (await AuthService.get("/teacher/allocations/")) as TeacherAllocationMeta[];
-            const matched = allocations.find(
-              (allocation) => allocation.course?.course_code?.toLowerCase() === resolvedCode.toLowerCase(),
-            );
-            resolvedCode = matched?.course?.course_code?.toUpperCase() || resolvedCode;
-            resolvedTitle = matched?.course?.title?.trim() || "";
-          } catch (metaError) {
-            console.warn("Failed to load teacher allocation metadata:", metaError);
-          }
-        }
-
-        setHeaderSubjectCode(resolvedCode);
-        setHeaderSubjectName(resolvedTitle || subjectName);
+        // Use subject info from script (fetched from backend API in getScript)
+        setHeaderSubjectCode(script.subjectCode?.toUpperCase() || subjectCode);
+        setHeaderSubjectName(script.subjectName || subjectCode);
 
         if (!isFaculty) {
           const list = await getStudentGrievancesBySubject(subjectId || "");

@@ -22,20 +22,6 @@ const PREVIEW_DOC_CACHE = "exam-preview-docs-v1";
 const THUMBNAIL_STRIP_SESSION_KEY = "evaluation-thumbnail-strip-open";
 const DRAWINGS_STORAGE_PREFIX = "evaluation-drawings-v1";
 
-type StudentPaperHeaderMeta = {
-  exam?: {
-    course_code?: string;
-    course_title?: string;
-  };
-};
-
-type TeacherAllocationMeta = {
-  course?: {
-    course_code?: string;
-    title?: string;
-  };
-};
-
 // Placeholder image pages for the answer sheet (different tinted "scanned" look per page)
 const PAGE_COLORS = [
   "from-blue-950/30 to-slate-900/60",
@@ -424,33 +410,9 @@ const EvaluationViewer = () => {
         setMarks(script.marks);
         setCurrentScript(script);
 
-        // Resolve subject metadata from backend for accurate header title/code.
-        let resolvedCode = script.subjectCode?.toUpperCase() || subjectCode;
-        let resolvedTitle = "";
-
-        if (role === "student") {
-          try {
-            const detail = (await AuthService.get(`/student/paper/${script.id}/`)) as StudentPaperHeaderMeta;
-            resolvedCode = detail?.exam?.course_code?.toUpperCase() || resolvedCode;
-            resolvedTitle = detail?.exam?.course_title?.trim() || "";
-          } catch (metaError) {
-            console.warn("Failed to load student paper metadata:", metaError);
-          }
-        } else {
-          try {
-            const allocations = (await AuthService.get("/teacher/allocations/")) as TeacherAllocationMeta[];
-            const matched = allocations.find(
-              (allocation) => allocation.course?.course_code?.toLowerCase() === resolvedCode.toLowerCase(),
-            );
-            resolvedCode = matched?.course?.course_code?.toUpperCase() || resolvedCode;
-            resolvedTitle = matched?.course?.title?.trim() || "";
-          } catch (metaError) {
-            console.warn("Failed to load teacher allocation metadata:", metaError);
-          }
-        }
-
-        setHeaderSubjectCode(resolvedCode);
-        setHeaderSubjectName(resolvedTitle || subjectName);
+        // Use subject info from script (fetched from backend API in getScript)
+        setHeaderSubjectCode(script.subjectCode?.toUpperCase() || subjectCode);
+        setHeaderSubjectName(script.subjectName || subjectCode);
 
         if (script.hasGrievance && script.grievanceText) {
           setScriptGrievance({
@@ -473,11 +435,6 @@ const EvaluationViewer = () => {
       active = false;
     };
   }, [user, rollNo, subjectId, role, navigate]);
-
-  useEffect(() => {
-    setHeaderSubjectCode(subjectCode);
-    setHeaderSubjectName(subjectName);
-  }, [subjectCode, subjectName]);
 
   const getDrawingsStorageKey = () => {
     const identityPart = currentScript?.id || `${rollNo}:${subjectCode}`;
@@ -1364,7 +1321,7 @@ const EvaluationViewer = () => {
 
           pdf.setFontSize(10);
           pdf.text(`Student ID: ${rollNo}`, 14, 28);
-          pdf.text(`Subject: ${subjectCode} - ${subjectName}`, 14, 33);
+          pdf.text(`Subject: ${headerSubjectCode} - ${headerSubjectName}`, 14, 33);
           pdf.text(`Grand Total: ${totalMarks}`, 14, 38);
           pdf.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 43);
 
@@ -1684,7 +1641,7 @@ const EvaluationViewer = () => {
                       Roll: <span className="font-mono text-primary">{rollNo}</span>
                     </h2>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
-                      <span className="font-mono text-primary">{subjectCode}</span> — {subjectName}
+                      <span className="font-mono text-primary">{headerSubjectCode}</span> — {headerSubjectName}
                     </p>
                   </div>
 

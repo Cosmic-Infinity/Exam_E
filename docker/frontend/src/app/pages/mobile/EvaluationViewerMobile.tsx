@@ -25,7 +25,32 @@ const parseMarkValue = (value: string): number => {
   return Number.parseFloat(value) || 0;
 };
 
+const getInvalidMarkEntries = (marks: MarksRow[]) => {
+  const invalid: Array<{ q: string; part: string; expected: number; awarded: number }> = [];
+  for (const row of marks) {
+    for (const partKey of Object.keys(row.parts)) {
+      const expected = Number(row.expectedParts?.[partKey] ?? 0);
+      const awarded = parseMarkValue(row.parts[partKey] ?? "");
+
+      if (awarded < 0 || awarded > expected) {
+        invalid.push({ q: row.q, part: partKey, expected, awarded });
+      }
+    }
+  }
+  return invalid;
+};
+
 const MOBILE_PREVIEW_DOC_CACHE = "mobile-preview-docs-v1";
+const DRAWINGS_STORAGE_PREFIX = "evaluation-drawings-v1";
+
+type SavedDrawingPayload = {
+  version: 1;
+  pages: Record<string, string>;
+};
+
+const getDrawingsStorageKey = (rollNo: string, subjectCode: string): string => {
+  return `${DRAWINGS_STORAGE_PREFIX}:${rollNo}:${subjectCode}`;
+};
 
 const ERASER_CURSOR = `url("data:image/svg+xml;utf8,${encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21h10"/><path d="M5.586 16.586a2 2 0 0 0 0 2.828l1 1a2 2 0 0 0 2.828 0L20 9.828a2 2 0 0 0 0-2.828l-1-1a2 2 0 0 0-2.828 0z"/><path d="m13.414 6.414 4.172 4.172"/></svg>'
@@ -126,6 +151,11 @@ const EvaluationViewerMobile = () => {
   const isDrawingRef = useRef(false);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
   const drawingByPageRef = useRef<Record<number, string>>({});
+  const persistedDrawingsRef = useRef<Record<number, string>>({});
+  const removedPersistedPagesRef = useRef<Set<number>>(new Set());
+  const [currentScript, setCurrentScript] = useState<any>(null);
+  const [headerSubjectCode, setHeaderSubjectCode] = useState("");
+  const [headerSubjectName, setHeaderSubjectName] = useState("");
 
   if (!user) {
     navigate("/");
@@ -135,8 +165,6 @@ const EvaluationViewerMobile = () => {
   const rollNo = role === "faculty" && searchParams.get("roll") ? searchParams.get("roll")! : user.universityId;
   const subjectCode = subjectId?.toUpperCase() || "N/A";
   const subjectName = SUBJECT_MAP[subjectId?.toLowerCase() || ""] || "Unknown Subject";
-  const [headerSubjectCode, setHeaderSubjectCode] = useState(subjectCode);
-  const [headerSubjectName, setHeaderSubjectName] = useState(subjectName);
   const isFaculty = role === "faculty";
 
   useEffect(() => {
@@ -154,6 +182,7 @@ const EvaluationViewerMobile = () => {
           return;
         }
 
+        setCurrentScript(script);
         setMarks(script.marks || createEmptyMarks());
         setPages(script.pages || []);
         setQuestionPaperPath(script.question_paper_path || undefined);
@@ -182,9 +211,40 @@ const EvaluationViewerMobile = () => {
   }, [rollNo, subjectId, role, isFaculty]);
 
   useEffect(() => {
-    setHeaderSubjectCode(subjectCode);
-    setHeaderSubjectName(subjectName);
-  }, [subjectCode, subjectName]);
+    if (!currentScript) return;
+    try {
+      const storageKey = getDrawingsStorageKey(rollNo, subjectCode);
+
+      if (currentScript.status !== "graded") {
+        window.localStorage.removeItem(storageKey);
+        persistedDrawingsRef.current = {};
+        drawingByPageRef.current = {};
+        removedPersistedPagesRef.current.clear();
+        return;
+      }
+
+      const raw = window.localStorage.getItem(storageKey);
+      if (!raw) {
+        persistedDrawingsRef.current = {};
+        drawingByPageRef.current = {};
+        removedPersistedPagesRef.current.clear();
+        return;
+      }
+
+      const parsed = JSON.parse(raw) as SavedDrawingPayload;
+      const hydrated: Record<number, string> = {};
+      for (const [page, dataUrl] of Object.entries(parsed.pages)) {
+        const pageNum = Number(page);
+        if (Number.isFinite(pageNum) && pageNum > 0 && typeof dataUrl === "string" && dataUrl.length > 0) {
+          hydrated[pageNum] = dataUrl;
+        }
+      }
+      persistedDrawingsRef.current = hydrated;
+    } catch {
+      persistedDrawingsRef.current = {};
+      drawingByPageRef.current = {};
+    }
+  }, [currentScript?.id, currentScript?.status, rollNo, subjectCode]);
 
   const totalPages = pages.length || 1;
 
@@ -200,14 +260,63 @@ const EvaluationViewerMobile = () => {
     setMarks((prev) => prev.map((row, idx) => (idx !== rowIndex ? row : { ...row, parts: { ...row.parts, [partKey]: cleaned } })));
   };
 
+  const validateMarksWithinExpected = (): string | null => {
+    const invalidMarkEntries = getInvalidMarkEntries(marks);
+    const firstInvalid = invalidMarkEntries[0];
+    if (firstInvalid) {
+      return `${firstInvalid.q} part ${firstInvalid.part.toUpperCase()} is ${firstInvalid.awarded}, max is ${firstInvalid.expected}.`;
+    }
+    return null;
+  };
+
+  const persistSavedDrawings = async () => {
+    if (!currentScript) return;
+    
+    saveActivePageDrawing();
+
+    const merged: Record<number, string> = { ...persistedDrawingsRef.current };
+
+    for (const [page, dataUrl] of Object.entries(drawingByPageRef.current)) {
+      const pageNum = Number(page);
+      if (!Number.isFinite(pageNum) || pageNum <= 0) continue;
+
+      if (dataUrl && dataUrl.length > 0) {
+        merged[pageNum] = dataUrl;
+      } else {
+        delete merged[pageNum];
+      }
+    }
+
+    for (const pageNum of removedPersistedPagesRef.current) {
+      delete merged[pageNum];
+    }
+
+    const payload: SavedDrawingPayload = {
+      version: 1,
+      pages: Object.fromEntries(Object.entries(merged).map(([page, dataUrl]) => [String(page), dataUrl])),
+    };
+
+    const storageKey = getDrawingsStorageKey(rollNo, subjectCode);
+    window.localStorage.setItem(storageKey, JSON.stringify(payload));
+    persistedDrawingsRef.current = merged;
+    removedPersistedPagesRef.current.clear();
+  };
+
   const handleSaveMarks = async () => {
+    const validationError = validateMarksWithinExpected();
+    if (validationError) {
+      toast.error(validationError);
+      return;
+    }
+
     setSavingMarks(true);
     try {
       await saveMarks(rollNo, subjectId || "", marks, "faculty");
-      toast.success("Marks saved");
+      await persistSavedDrawings();
+      toast.success("Marks saved successfully.", { duration: 2500 });
     } catch (error) {
       console.error("Save failed:", error);
-      toast.error("Failed to save marks");
+      toast.error(error instanceof Error ? error.message : "Failed to save marks");
     } finally {
       setSavingMarks(false);
     }
@@ -312,7 +421,8 @@ const EvaluationViewerMobile = () => {
       return;
     }
 
-    drawingByPageRef.current[activePage] = canvas.toDataURL("image/png");
+    const dataUrl = canvas.toDataURL("image/png");
+    drawingByPageRef.current[activePage] = dataUrl;
   };
 
   const restorePageDrawing = (pageNo: number) => {
@@ -323,7 +433,7 @@ const EvaluationViewerMobile = () => {
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const saved = drawingByPageRef.current[pageNo];
+    const saved = drawingByPageRef.current[pageNo] || persistedDrawingsRef.current[pageNo];
     if (!saved) return;
 
     const image = new Image();
@@ -357,7 +467,7 @@ const EvaluationViewerMobile = () => {
 
     if (activeDocView !== "sheet") return;
 
-    const saved = drawingByPageRef.current[activePage] || snapshot;
+    const saved = drawingByPageRef.current[activePage] || persistedDrawingsRef.current[activePage] || snapshot;
     if (!saved) return;
 
     const image = new Image();
@@ -376,6 +486,7 @@ const EvaluationViewerMobile = () => {
     const bounded = Math.max(1, Math.min(totalPages, pageNo));
     if (bounded === activePage) return;
     saveActivePageDrawing();
+    removedPersistedPagesRef.current.clear();
     setActivePage(bounded);
   };
 
@@ -438,6 +549,7 @@ const EvaluationViewerMobile = () => {
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     delete drawingByPageRef.current[activePage];
+    removedPersistedPagesRef.current.add(activePage);
   };
 
   const handleResetActiveTool = () => {
@@ -1148,7 +1260,7 @@ const EvaluationViewerMobile = () => {
               )}
 
               {isFaculty && (
-                <button onClick={handleSaveMarks} disabled={savingMarks} className="w-full rounded-lg bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50">
+                <button onClick={handleSaveMarks} disabled={savingMarks || getInvalidMarkEntries(marks).length > 0} className="w-full rounded-lg bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50" title={getInvalidMarkEntries(marks).length > 0 ? `Fix invalid marks before saving. Example: ${getInvalidMarkEntries(marks)[0].q} part ${getInvalidMarkEntries(marks)[0].part.toUpperCase()} exceeds max ${getInvalidMarkEntries(marks)[0].expected}.` : "Save marks"}>
                   {savingMarks ? "Saving..." : "Save Marks"}
                 </button>
               )}

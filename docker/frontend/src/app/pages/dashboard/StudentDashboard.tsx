@@ -5,6 +5,7 @@ import { useUserSession } from "@/app/context/UserSessionContext";
 import { getStudentResults, areResultsPublished, getStudentPaperDetailsBySubject, downloadFile } from "@/app/services/evaluationService";
 import { RecheckStatus, StudentResult } from "@/app/types/evaluation";
 import ThemeToggle from "@/app/components/common/ThemeToggle";
+import { resolveAssetUrl } from "@/app/utils/assetResolver";
 
 const recheckConfig: Record<RecheckStatus, { label: string; className: string }> = {
   "not-submitted": {
@@ -130,7 +131,8 @@ const StudentDashboard = () => {
 
       const fileName = type === "question-paper" ? `${selectedCode}_Question_Paper.pdf` : `${selectedCode}_Answer_Key.pdf`;
 
-      downloadFile(filePath, fileName);
+      const resolvedPath = resolveAssetUrl(filePath) || filePath;
+      downloadFile(resolvedPath, fileName);
       toast.success(`${type === "question-paper" ? "Question Paper" : "Answer Key"} downloaded successfully!`);
     } catch (error) {
       console.error("Download failed:", error);

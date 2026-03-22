@@ -7,6 +7,7 @@ import { ArrowLeft, ChevronDown, Download, Eraser, Eye, FileText, FileX2, Files,
 import { useUserSession } from "@/app/context/UserSessionContext";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/app/components/ui/resizable";
 import { getScript, saveMarks, submitGrievance, acceptGrievance, rejectGrievance, downloadFile, getStudentGrievancesBySubject } from "@/app/services/evaluationService";
+import AuthService from "@/app/services/authService";
 import type { StudentGrievanceItem } from "@/app/services/evaluationService";
 import { MarksRow, SUBJECT_MAP, createEmptyMarks, computeTotal, getCountedRowIndexes, AnswerScript } from "@/app/types/evaluation";
 import ThemeToggle from "@/app/components/common/ThemeToggle";
@@ -20,6 +21,20 @@ type PreviewType = "question-paper" | "answer-key" | null;
 const PREVIEW_DOC_CACHE = "exam-preview-docs-v1";
 const THUMBNAIL_STRIP_SESSION_KEY = "evaluation-thumbnail-strip-open";
 const DRAWINGS_STORAGE_PREFIX = "evaluation-drawings-v1";
+
+type StudentPaperHeaderMeta = {
+  exam?: {
+    course_code?: string;
+    course_title?: string;
+  };
+};
+
+type TeacherAllocationMeta = {
+  course?: {
+    course_code?: string;
+    title?: string;
+  };
+};
 
 // Placeholder image pages for the answer sheet (different tinted "scanned" look per page)
 const PAGE_COLORS = [
@@ -292,6 +307,8 @@ const EvaluationViewer = () => {
 
   const subjectCode = subjectId?.toUpperCase() || "N/A";
   const subjectName = SUBJECT_MAP[subjectId?.toLowerCase() || ""] || "Unknown Subject";
+  const [headerSubjectCode, setHeaderSubjectCode] = useState(subjectCode);
+  const [headerSubjectName, setHeaderSubjectName] = useState(subjectName);
 
   const [activePage, setActivePage] = useState(1);
   const [currentScript, setCurrentScript] = useState<AnswerScript | null>(null);
@@ -406,6 +423,35 @@ const EvaluationViewer = () => {
 
         setMarks(script.marks);
         setCurrentScript(script);
+
+        // Resolve subject metadata from backend for accurate header title/code.
+        let resolvedCode = script.subjectCode?.toUpperCase() || subjectCode;
+        let resolvedTitle = "";
+
+        if (role === "student") {
+          try {
+            const detail = (await AuthService.get(`/student/paper/${script.id}/`)) as StudentPaperHeaderMeta;
+            resolvedCode = detail?.exam?.course_code?.toUpperCase() || resolvedCode;
+            resolvedTitle = detail?.exam?.course_title?.trim() || "";
+          } catch (metaError) {
+            console.warn("Failed to load student paper metadata:", metaError);
+          }
+        } else {
+          try {
+            const allocations = (await AuthService.get("/teacher/allocations/")) as TeacherAllocationMeta[];
+            const matched = allocations.find(
+              (allocation) => allocation.course?.course_code?.toLowerCase() === resolvedCode.toLowerCase(),
+            );
+            resolvedCode = matched?.course?.course_code?.toUpperCase() || resolvedCode;
+            resolvedTitle = matched?.course?.title?.trim() || "";
+          } catch (metaError) {
+            console.warn("Failed to load teacher allocation metadata:", metaError);
+          }
+        }
+
+        setHeaderSubjectCode(resolvedCode);
+        setHeaderSubjectName(resolvedTitle || subjectName);
+
         if (script.hasGrievance && script.grievanceText) {
           setScriptGrievance({
             text: script.grievanceText,
@@ -427,6 +473,11 @@ const EvaluationViewer = () => {
       active = false;
     };
   }, [user, rollNo, subjectId, role, navigate]);
+
+  useEffect(() => {
+    setHeaderSubjectCode(subjectCode);
+    setHeaderSubjectName(subjectName);
+  }, [subjectCode, subjectName]);
 
   const getDrawingsStorageKey = () => {
     const identityPart = currentScript?.id || `${rollNo}:${subjectCode}`;
@@ -1376,7 +1427,7 @@ const EvaluationViewer = () => {
           <div>
             <h1 className="text-sm font-semibold text-foreground">Evaluation Viewer</h1>
             <p className="text-xs text-muted-foreground">
-              <span className="font-mono text-primary">{subjectCode}</span> — {subjectName}
+              <span className="font-mono text-primary">{headerSubjectCode}</span> — {headerSubjectName}
             </p>
           </div>
         </div>

@@ -6,9 +6,24 @@ import autoTable from "jspdf-autotable";
 import { Eraser, Moon, Pencil, RefreshCw, RotateCcw, RotateCw, Sun, Trash2 } from "lucide-react";
 import { useUserSession } from "@/app/context/UserSessionContext";
 import { useTheme } from "@/app/context/ThemeContext";
+import AuthService from "@/app/services/authService";
 import { getScript, saveMarks, submitGrievance, acceptGrievance, rejectGrievance, getStudentGrievancesBySubject, downloadFile } from "@/app/services/evaluationService";
 import { SUBJECT_MAP, createEmptyMarks, computeTotal, getCountedRowIndexes, type MarksRow } from "@/app/types/evaluation";
 import { resolveAssetUrl } from "@/app/utils/assetResolver";
+
+type StudentPaperHeaderMeta = {
+  exam?: {
+    course_code?: string;
+    course_title?: string;
+  };
+};
+
+type TeacherAllocationMeta = {
+  course?: {
+    course_code?: string;
+    title?: string;
+  };
+};
 
 const sanitizeMarkInput = (value: string): string => {
   const cleaned = value.replace(/[^0-9.]/g, "");
@@ -129,6 +144,8 @@ const EvaluationViewerMobile = () => {
   const rollNo = role === "faculty" && searchParams.get("roll") ? searchParams.get("roll")! : user.universityId;
   const subjectCode = subjectId?.toUpperCase() || "N/A";
   const subjectName = SUBJECT_MAP[subjectId?.toLowerCase() || ""] || "Unknown Subject";
+  const [headerSubjectCode, setHeaderSubjectCode] = useState(subjectCode);
+  const [headerSubjectName, setHeaderSubjectName] = useState(subjectName);
   const isFaculty = role === "faculty";
 
   useEffect(() => {
@@ -151,6 +168,34 @@ const EvaluationViewerMobile = () => {
         setQuestionPaperPath(script.question_paper_path || undefined);
         setAnswerKeyPath(script.answer_key_path || undefined);
 
+        // Resolve subject metadata from backend so header shows authoritative title/code.
+        let resolvedCode = script.subjectCode?.toUpperCase() || subjectCode;
+        let resolvedTitle = "";
+
+        if (role === "student") {
+          try {
+            const detail = (await AuthService.get(`/student/paper/${script.id}/`)) as StudentPaperHeaderMeta;
+            resolvedCode = detail?.exam?.course_code?.toUpperCase() || resolvedCode;
+            resolvedTitle = detail?.exam?.course_title?.trim() || "";
+          } catch (metaError) {
+            console.warn("Failed to load student paper metadata:", metaError);
+          }
+        } else {
+          try {
+            const allocations = (await AuthService.get("/teacher/allocations/")) as TeacherAllocationMeta[];
+            const matched = allocations.find(
+              (allocation) => allocation.course?.course_code?.toLowerCase() === resolvedCode.toLowerCase(),
+            );
+            resolvedCode = matched?.course?.course_code?.toUpperCase() || resolvedCode;
+            resolvedTitle = matched?.course?.title?.trim() || "";
+          } catch (metaError) {
+            console.warn("Failed to load teacher allocation metadata:", metaError);
+          }
+        }
+
+        setHeaderSubjectCode(resolvedCode);
+        setHeaderSubjectName(resolvedTitle || subjectName);
+
         if (!isFaculty) {
           const list = await getStudentGrievancesBySubject(subjectId || "");
           if (active) setGrievanceHistory(Array.isArray(list) ? list : []);
@@ -168,6 +213,11 @@ const EvaluationViewerMobile = () => {
       active = false;
     };
   }, [rollNo, subjectId, role, isFaculty]);
+
+  useEffect(() => {
+    setHeaderSubjectCode(subjectCode);
+    setHeaderSubjectName(subjectName);
+  }, [subjectCode, subjectName]);
 
   const totalPages = pages.length || 1;
 
@@ -670,8 +720,8 @@ const EvaluationViewerMobile = () => {
             Back
           </button>
           <div className="text-center">
-            <p className="text-xs font-semibold">{subjectCode}</p>
-            <p className="text-[9px] text-muted-foreground truncate max-w-[150px]">{subjectName}</p>
+            <p className="text-xs font-semibold">{headerSubjectCode}</p>
+            <p className="text-[9px] text-muted-foreground truncate max-w-[150px]">{headerSubjectName}</p>
           </div>
           <button
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}

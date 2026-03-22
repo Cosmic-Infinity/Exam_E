@@ -125,6 +125,7 @@ The catalog of subjects (Metadata only).
 | `exam_id`           | Integer (FK) | **App Logic**           | **Exam Event**. Links to the specific exam definition. |
 | `pages`             | JSON         | **Digitization Script** | **File Paths**. Array of paths to the answer sheet images/PDFs. <br> _Example: `["Data/CS201/2305101.pdf"]`_ |
 | `marks_json`        | JSONB        | **App (Teacher)**       | Structured marks payload (v3): section/question/part with `expected_marks`, nullable `awarded_marks`, and totals. <br> _Nullable_                       |
+| `markings_index`    | JSONB        | **App (Teacher)**       | Page-wise markings manifest. Stores per-page API path, media JSON storage path, updater, and timestamp for faculty pencil annotations. <br> _Nullable_ |
 | `total_score`       | Numeric      | **App (Teacher)**       | Result. <br> _Nullable_                                |
 | `evaluation_status` | Varchar(20)  | **DB Default**          | Workflow state. <br> _Values: `'PENDING'`, `'COMPLETED'`_ |
 

@@ -96,6 +96,7 @@ _Students do not upload papers. A dedicated department digitizes them, and page 
 - Deprecated single-path fallbacks are removed.
 - Auto-linking maps folders named `ROLLNO_COURSECODE` under `backend/mediafiles/papers` to matching enrollments.
 - Question papers and answer keys are linked from `backend/mediafiles/exam_docs` into `Exam.question_paper_path` / `Exam.answer_key_path`.
+- Faculty page annotations are stored per page as JSON under `backend/mediafiles/papers/<ROLLNO>_<COURSECODE>/markings/page_<N>.json`, and indexed in `exam_papers.markings_index`.
 
 ## 6. Storage Strategy: `Data/` vs `mediafiles/`
 

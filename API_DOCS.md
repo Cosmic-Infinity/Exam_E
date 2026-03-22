@@ -205,12 +205,20 @@ Fetches the full details of a specific paper, including all page images, questio
     "student_university_id": "2305128",
     "student_name": "Alice Smith",
     "pages": [
-      "papers/2305128_CS302/page1.jpg",
-      "papers/2305128_CS302/page2.jpg",
-      "papers/2305128_CS302/page3.jpg"
+      "/api/teacher/paper/101/page/1/",
+      "/api/teacher/paper/101/page/2/",
+      "/api/teacher/paper/101/page/3/"
     ],
-    "question_paper_path": "exam_docs/CS302_MIDSEM_qp.pdf",
-    "answer_key_path": "exam_docs/CS302_MIDSEM_key.pdf",
+    "page_markings": [
+      {
+        "page_index": 1,
+        "api_path": "/api/teacher/paper/101/markings/1/",
+        "updated_at": "2026-03-22T10:14:30.125394+00:00",
+        "updated_by": 21
+      }
+    ],
+    "question_paper_path": "/api/teacher/paper/101/question-paper/",
+    "answer_key_path": "/api/teacher/paper/101/answer-key/",
     "marks_json": null,
     "total_score": null,
     "evaluation_status": "PENDING",
@@ -224,6 +232,107 @@ Fetches the full details of a specific paper, including all page images, questio
     "exam_total_marks": 30
   }
   ```
+
+### `GET /api/teacher/paper/{paper_id}/markings/`
+
+Returns the marking manifest for a paper. Each entry is a page-level marking JSON saved by faculty.
+
+- **Auth Required**: Yes
+- **Role Required**: `TEACHER` or `CONTROLLER`
+- **Output (200 OK)**:
+  ```json
+  {
+    "paper_id": 101,
+    "count": 2,
+    "markings": [
+      {
+        "page_index": 1,
+        "api_path": "/api/teacher/paper/101/markings/1/",
+        "updated_at": "2026-03-22T10:14:30.125394+00:00",
+        "updated_by": 21
+      },
+      {
+        "page_index": 2,
+        "api_path": "/api/teacher/paper/101/markings/2/",
+        "updated_at": "2026-03-22T10:18:11.992045+00:00",
+        "updated_by": 21
+      }
+    ]
+  }
+  ```
+
+### `GET /api/teacher/paper/{paper_id}/markings/{page_index}/`
+
+Returns the exact stored markings payload for one paper page.
+
+- **Auth Required**: Yes
+- **Role Required**: `TEACHER` or `CONTROLLER`
+- **Output (200 OK)**:
+  ```json
+  {
+    "paper_id": 101,
+    "page_index": 1,
+    "markings": {
+      "strokes": [
+        {
+          "tool": "tick",
+          "color": "#16a34a",
+          "points": [[45, 80], [58, 94]]
+        }
+      ]
+    },
+    "updated_by": 21,
+    "updated_at": "2026-03-22T10:14:30.125394+00:00"
+  }
+  ```
+
+If no markings exist yet for that page, this endpoint still returns `200 OK` with an empty payload:
+
+```json
+{
+  "paper_id": 101,
+  "page_index": 2,
+  "markings": null,
+  "updated_by": null,
+  "updated_at": null
+}
+```
+
+### `PUT /api/teacher/paper/{paper_id}/markings/{page_index}/`
+
+Creates or replaces the markings JSON for one page.
+
+- **Auth Required**: Yes
+- **Role Required**: `TEACHER` or `CONTROLLER`
+- **Input**:
+  ```json
+  {
+    "markings": {
+      "strokes": [
+        {
+          "tool": "cross",
+          "color": "#dc2626",
+          "points": [[10, 20], [20, 30], [20, 20], [10, 30]]
+        }
+      ]
+    }
+  }
+  ```
+- **Output (200 OK)**:
+  ```json
+  {
+    "paper_id": 101,
+    "page_index": 1,
+    "storage_path": "media/papers/2305128_CS302/markings/page_1.json",
+    "updated_at": "2026-03-22T10:20:44.515930+00:00",
+    "updated_by": 21
+  }
+  ```
+
+Stored file location pattern:
+
+- `backend/mediafiles/papers/<ROLLNO>_<COURSECODE>/markings/page_<N>.json`
+- DB index path: `exam_papers.markings_index`
 
 ### `GET /api/teacher/grievances/?filter={my_section|other_section|all}`
 
@@ -546,12 +655,20 @@ Fetches the full details of a specific paper, including all page images, questio
       "course_title": "Database Management Systems"
     },
     "pages": [
-      "papers/2305129_CS302/page1.jpg",
-      "papers/2305129_CS302/page2.jpg",
-      "papers/2305129_CS302/page3.jpg"
+      "/api/student/paper/102/page/1/",
+      "/api/student/paper/102/page/2/",
+      "/api/student/paper/102/page/3/"
     ],
-    "question_paper_path": "exam_docs/CS302_MIDSEM_qp.pdf",
-    "answer_key_path": "exam_docs/CS302_MIDSEM_key.pdf",
+    "page_markings": [
+      {
+        "page_index": 1,
+        "api_path": "/api/student/paper/102/markings/1/",
+        "updated_at": "2026-03-22T10:14:30.125394+00:00",
+        "updated_by": 21
+      }
+    ],
+    "question_paper_path": "/api/student/paper/102/question-paper/",
+    "answer_key_path": "/api/student/paper/102/answer-key/",
     "marks_json": {
       "template_version": 3,
       "generated_from_schema": true,
@@ -593,6 +710,65 @@ Fetches the full details of a specific paper, including all page images, questio
     ]
   }
   ```
+
+### `GET /api/student/paper/{paper_id}/markings/`
+
+Returns read-only marking manifest for a student's own completed paper.
+
+- **Auth Required**: Yes
+- **Role Required**: `STUDENT`
+- **Output (200 OK)**:
+  ```json
+  {
+    "paper_id": 101,
+    "count": 1,
+    "markings": [
+      {
+        "page_index": 1,
+        "api_path": "/api/student/paper/101/markings/1/",
+        "updated_at": "2026-03-22T10:14:30.125394+00:00",
+        "updated_by": 21
+      }
+    ]
+  }
+  ```
+
+### `GET /api/student/paper/{paper_id}/markings/{page_index}/`
+
+Returns read-only teacher annotation payload for one page.
+
+- **Auth Required**: Yes
+- **Role Required**: `STUDENT`
+- **Output (200 OK)**:
+  ```json
+  {
+    "paper_id": 101,
+    "page_index": 1,
+    "markings": {
+      "strokes": [
+        {
+          "tool": "cross",
+          "color": "#dc2626",
+          "points": [[10, 20], [20, 30], [20, 20], [10, 30]]
+        }
+      ]
+    },
+    "updated_by": 21,
+    "updated_at": "2026-03-22T10:14:30.125394+00:00"
+  }
+  ```
+
+If no teacher markings exist for that page, this endpoint still returns `200 OK` with an empty payload:
+
+```json
+{
+  "paper_id": 101,
+  "page_index": 2,
+  "markings": null,
+  "updated_by": null,
+  "updated_at": null
+}
+```
 
 ### `POST /api/student/grievance/`
 

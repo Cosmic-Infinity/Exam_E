@@ -42,6 +42,7 @@ class StudentPaperDetailSerializer(serializers.ModelSerializer):
     question_paper_path = serializers.SerializerMethodField()
     answer_key_path = serializers.SerializerMethodField()
     pages = serializers.SerializerMethodField()
+    page_markings = serializers.SerializerMethodField()
     
     class Meta:
         model = ExamPaper
@@ -49,6 +50,7 @@ class StudentPaperDetailSerializer(serializers.ModelSerializer):
             'paper_id', 
             'exam', 
             'pages',
+            'page_markings',
             'marks_json', 
             'total_score', 
             'evaluation_status',
@@ -71,6 +73,31 @@ class StudentPaperDetailSerializer(serializers.ModelSerializer):
         if obj.exam and obj.exam.answer_key_path:
             return f"/api/student/paper/{obj.paper_id}/answer-key/"
         return None
+
+    def get_page_markings(self, obj):
+        index_payload = obj.markings_index or {}
+        page_entries = index_payload.get('pages') or {}
+        if not isinstance(page_entries, dict):
+            return []
+
+        normalized = []
+        for page_key, metadata in page_entries.items():
+            try:
+                page_index = int(page_key)
+            except (TypeError, ValueError):
+                continue
+
+            metadata = metadata or {}
+            normalized.append(
+                {
+                    'page_index': page_index,
+                    'api_path': metadata.get('api_path') or f"/api/student/paper/{obj.paper_id}/markings/{page_index}/",
+                    'updated_at': metadata.get('updated_at'),
+                    'updated_by': metadata.get('updated_by'),
+                }
+            )
+
+        return sorted(normalized, key=lambda item: item['page_index'])
 
 class GrievanceCreateSerializer(serializers.ModelSerializer):
     class Meta:

@@ -59,6 +59,7 @@ class ExamPaperDetailSerializer(serializers.ModelSerializer):
     question_paper_path = serializers.SerializerMethodField()
     answer_key_path = serializers.SerializerMethodField()
     pages = serializers.SerializerMethodField()
+    page_markings = serializers.SerializerMethodField()
     
     class Meta:
         model = ExamPaper
@@ -67,6 +68,7 @@ class ExamPaperDetailSerializer(serializers.ModelSerializer):
             'student_university_id', 
             'student_name', 
             'pages',
+            'page_markings',
             'marks_json', 
             'total_score', 
             'evaluation_status',
@@ -78,7 +80,7 @@ class ExamPaperDetailSerializer(serializers.ModelSerializer):
             'question_paper_path',
             'answer_key_path'
         ]
-        read_only_fields = ['paper_id', 'student_university_id', 'student_name', 'pages', 'question_paper_schema', 'exam_total_marks', 'question_paper_path', 'answer_key_path']
+        read_only_fields = ['paper_id', 'student_university_id', 'student_name', 'pages', 'page_markings', 'question_paper_schema', 'exam_total_marks', 'question_paper_path', 'answer_key_path']
 
     def get_pages(self, obj):
         pages = obj.pages or []
@@ -93,6 +95,31 @@ class ExamPaperDetailSerializer(serializers.ModelSerializer):
         if obj.exam and obj.exam.answer_key_path:
             return f"/api/teacher/paper/{obj.paper_id}/answer-key/"
         return None
+
+    def get_page_markings(self, obj):
+        index_payload = obj.markings_index or {}
+        page_entries = index_payload.get('pages') or {}
+        if not isinstance(page_entries, dict):
+            return []
+
+        normalized = []
+        for page_key, metadata in page_entries.items():
+            try:
+                page_index = int(page_key)
+            except (TypeError, ValueError):
+                continue
+
+            metadata = metadata or {}
+            normalized.append(
+                {
+                    'page_index': page_index,
+                    'api_path': metadata.get('api_path') or f"/api/teacher/paper/{obj.paper_id}/markings/{page_index}/",
+                    'updated_at': metadata.get('updated_at'),
+                    'updated_by': metadata.get('updated_by'),
+                }
+            )
+
+        return sorted(normalized, key=lambda item: item['page_index'])
 
 
 class FacultyGrievanceListSerializer(serializers.ModelSerializer):
@@ -207,3 +234,7 @@ class FacultyGrievanceDecisionSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=['RESOLVED', 'REJECTED'])
     marks_json = serializers.JSONField(required=False)
     total_score = serializers.DecimalField(max_digits=5, decimal_places=2, required=False)
+
+
+class TeacherPaperMarkingUpsertSerializer(serializers.Serializer):
+    markings = serializers.JSONField()

@@ -14,6 +14,12 @@ from core.api.teacher_serializers import (
     ExamPaperDetailSerializer,
     FacultyGrievanceListSerializer,
     FacultyGrievanceDecisionSerializer,
+    TeacherPaperMarkingUpsertSerializer,
+)
+from core.services.paper_markings import (
+    PaperMarkingStorageError,
+    read_page_markings,
+    write_page_markings,
 )
 
 class IsTeacher(permissions.BasePermission):
@@ -127,6 +133,14 @@ def _teacher_visible_papers(user):
     ).select_related('exam', 'enrollment__student').distinct()
 
 
+def _validate_paper_page_index(paper, page_index):
+    pages = paper.pages or []
+    index = page_index - 1
+    if index < 0 or index >= len(pages):
+        return False
+    return True
+
+
 class TeacherPaperPageFileView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsTeacher]
 
@@ -142,6 +156,115 @@ class TeacherPaperPageFileView(APIView):
             return build_protected_file_response(pages[index])
         except FileAccessError:
             return Response({'detail': 'File path is invalid.'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class TeacherPaperMarkingsIndexView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsTeacher]
+
+    def get(self, request, pk):
+        paper = get_object_or_404(_teacher_visible_papers(request.user), pk=pk)
+        index_payload = paper.markings_index or {}
+        page_entries = index_payload.get('pages') or {}
+
+        items = []
+        if isinstance(page_entries, dict):
+            for page_key, metadata in page_entries.items():
+                try:
+                    page_index = int(page_key)
+                except (TypeError, ValueError):
+                    continue
+
+                metadata = metadata or {}
+                items.append(
+                    {
+                        'page_index': page_index,
+                        'api_path': metadata.get('api_path') or f'/api/teacher/paper/{paper.paper_id}/markings/{page_index}/',
+                        'updated_at': metadata.get('updated_at'),
+                        'updated_by': metadata.get('updated_by'),
+                    }
+                )
+
+        items.sort(key=lambda row: row['page_index'])
+        return Response(
+            {
+                'paper_id': paper.paper_id,
+                'count': len(items),
+                'markings': items,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class TeacherPaperMarkingDetailView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsTeacher]
+
+    def get(self, request, pk, page_index):
+        paper = get_object_or_404(_teacher_visible_papers(request.user), pk=pk)
+        if not _validate_paper_page_index(paper, page_index):
+            return Response({'detail': 'Page not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            payload = read_page_markings(paper, page_index)
+        except PaperMarkingStorageError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        if payload is None:
+            return Response(
+                {
+                    'paper_id': paper.paper_id,
+                    'page_index': page_index,
+                    'markings': None,
+                    'updated_by': None,
+                    'updated_at': None,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        return Response(payload, status=status.HTTP_200_OK)
+
+    def put(self, request, pk, page_index):
+        paper = get_object_or_404(_teacher_visible_papers(request.user), pk=pk)
+        if not _validate_paper_page_index(paper, page_index):
+            return Response({'detail': 'Page not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = TeacherPaperMarkingUpsertSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            storage_meta = write_page_markings(
+                paper,
+                page_index,
+                serializer.validated_data['markings'],
+                request.user.id,
+            )
+        except PaperMarkingStorageError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        markings_index = paper.markings_index if isinstance(paper.markings_index, dict) else {}
+        markings_pages = markings_index.get('pages') if isinstance(markings_index.get('pages'), dict) else {}
+
+        markings_pages[str(page_index)] = {
+            'storage_path': storage_meta['media_path'],
+            'api_path': f'/api/teacher/paper/{paper.paper_id}/markings/{page_index}/',
+            'updated_at': storage_meta['updated_at'],
+            'updated_by': storage_meta['updated_by'],
+        }
+
+        markings_index['version'] = 1
+        markings_index['pages'] = markings_pages
+        paper.markings_index = markings_index
+        paper.save(update_fields=['markings_index'])
+
+        return Response(
+            {
+                'paper_id': paper.paper_id,
+                'page_index': page_index,
+                'storage_path': storage_meta['media_path'],
+                'updated_at': storage_meta['updated_at'],
+                'updated_by': storage_meta['updated_by'],
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class TeacherPaperQuestionFileView(APIView):

@@ -212,6 +212,7 @@ class ExamPaper(models.Model):
     exam = models.ForeignKey('Exam', on_delete=models.DO_NOTHING, null=True, blank=True)
     pages = models.JSONField(null=True, blank=True)  # Array of page file paths: ["papers/ROLLNO_COURSECODE/page1.jpg", "papers/ROLLNO_COURSECODE/page2.jpg", ...]
     marks_json = models.JSONField(null=True, blank=True)
+    markings_index = models.JSONField(null=True, blank=True)
     total_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     evaluation_status = models.CharField(max_length=20, default='PENDING', choices=[
         ('PENDING', 'Pending'),

@@ -44,9 +44,16 @@ This repository contains a **university‑level paper evaluation and student vie
 ### 5. Environment details
  - Most of the team is developing on a Windows environment, but this application is being built to be deployed in linux docker containers.
  - Remember to use appropriate shell commands accordingly.
- - One of the team mambers may be on MacOS.
+ - One of the team members may be on MacOS.
 
- ### 6. Testing credinals for API calls
+### 6. Mobile version considerations
+ - The application has desktop and mobile views
+ - The mobile version of the site can be found in docker\frontend\src\app\pages\mobile
+ - Make sure that bug fixes, if any, must be applied to both the desktop and mobile versions
+ - For new UI features added to the the desktop version, you must confirm from the developer how to present them in mobile version, while providing suggestions reegarding the same.
+ - DO NOT modify any UI features which already exist without explicit request of the developer
+
+ ### 7. Testing credinals for API calls
 
  - Django admin: django admin = admin@kiit.ac.in, pass= admin
  - Faculty : id = kavita.mishra@example.com, pass= Check@123

@@ -29,6 +29,7 @@ from core.api.student import (
     StudentGrievanceCreateView,
     StudentGrievanceListView,
 )
+from core.api.admin_files import AdminPaperPageFileView
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -62,6 +63,7 @@ urlpatterns = [
 ]
 
 urlpatterns += [
+    path('api/admin/paper/<int:pk>/page/<int:page_index>/', AdminPaperPageFileView.as_view(), name='admin_paper_page_file'),
     path('api/teacher/allocations/', TeacherAllocationListView.as_view(), name='teacher_allocations'),
     path('api/teacher/exams/<int:allocation_id>/', TeacherExamListView.as_view(), name='teacher_exams'),
     path('api/teacher/papers/', TeacherPaperListView.as_view(), name='teacher_papers'),

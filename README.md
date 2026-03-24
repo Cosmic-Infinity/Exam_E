@@ -125,6 +125,7 @@ The Django admin (`http://localhost/admin/`) is the central control hub for the 
   - Integrated with Celery for background email delivery.
 - **Academic Setup**:
   - Automated CSV imports via `docker/backend/entrypoint.sh` using `Data/test_data/`.
+  - Automatic media seeding from `Data/Papers` via `python manage.py seed_media_from_data --pages-per-paper 5`.
   - Automatic media linking via `python manage.py import_exam_media --overwrite-existing`.
   - Course coordinator is a real faculty capability, assigned by linking a teacher to `Course.coordinator`.
 - **Stats Dashboard**:
@@ -169,3 +170,43 @@ For detailed authentication information, see [AUTHENTICATION.md](AUTHENTICATION.
 
 ---
 
+
+## One-Command Testing Mode (Apply + Undo)
+
+Use this when you want all papers visible in student portal quickly for demo/testing.
+
+What it does in `apply` mode:
+- Backs up current `exam_papers` state into DB table `testing_exam_papers_backup`
+- Seeds media folders from `Data/Papers` into `backend/mediafiles/papers`
+- Runs media relink (`import_exam_media --overwrite-existing`)
+- Sets all `exam_papers.evaluation_status='COMPLETED'`
+
+What `undo` does:
+- Restores `evaluation_status`, `total_score`, and `marks_json` from backup table
+
+Run from repo root:
+
+```bash
+cd /Users/prom1/Documents/Exam_E
+chmod +x scripts/testing_portal_ready.sh
+
+# Apply testing mode
+./scripts/testing_portal_ready.sh apply
+
+# Check current linkage/status
+./scripts/testing_portal_ready.sh status
+
+# Strict readiness checks (student + teacher media visibility)
+./scripts/testing_portal_ready.sh verify
+
+# Revert to previous state
+./scripts/testing_portal_ready.sh undo
+```
+
+Optional override:
+
+```bash
+MEDIA_PAGES_PER_PAPER=5 ./scripts/testing_portal_ready.sh apply
+```
+
+> This is testing-only workflow. Please inform the team before running `apply` on a shared DB snapshot.

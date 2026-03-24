@@ -647,32 +647,38 @@ const EvaluationViewerMobile = () => {
     }
   };
 
-  const handleDownloadSheetPage = () => {
+  const handleDownloadSheetPage = async () => {
     if (!activePageSrc) {
       toast.error("Answer sheet page is not available");
       return;
     }
 
-    const filePath = resolveAssetUrl(activePageSrc) || activePageSrc;
-    const extMatch = filePath.match(/\.([a-zA-Z0-9]+)(?:\?|#|$)/);
-    const ext = extMatch?.[1] || "jpg";
-    downloadFile(filePath, `${subjectCode}_Sheet_Page_${activePage}.${ext}`);
-    toast.success(`Downloaded page ${activePage}`);
+    try {
+      const filePath = resolveAssetUrl(activePageSrc) || activePageSrc;
+      await downloadFile(filePath, `${subjectCode}_Sheet_Page_${activePage}`);
+      toast.success(`Downloaded page ${activePage}`);
+    } catch {
+      toast.error("Failed to download page");
+    }
   };
 
-  const handleDownloadDoc = (type: "question-paper" | "answer-key") => {
+  const handleDownloadDoc = async (type: "question-paper" | "answer-key") => {
     const rawPath = type === "question-paper" ? questionPaperPath : answerKeyPath;
     if (!rawPath) {
       toast.error(type === "question-paper" ? "Question paper is not available" : "Answer key is not available");
       return;
     }
 
-    const filePath = resolveAssetUrl(rawPath) || rawPath;
-    const suffix = type === "question-paper" ? "Question_Paper" : "Answer_Key";
-    const extMatch = filePath.match(/\.([a-zA-Z0-9]+)(?:\?|#|$)/);
-    const ext = extMatch?.[1] || "pdf";
-    downloadFile(filePath, `${subjectCode}_${suffix}.${ext}`);
-    toast.success(type === "question-paper" ? "Question paper download started" : "Answer key download started");
+    try {
+      const filePath = resolveAssetUrl(rawPath) || rawPath;
+      const suffix = type === "question-paper" ? "Question_Paper" : "Answer_Key";
+      const extMatch = filePath.match(/\.([a-zA-Z0-9]+)(?:\?|#|$)/);
+      const ext = extMatch?.[1] || "pdf";
+      await downloadFile(filePath, `${subjectCode}_${suffix}.${ext}`);
+      toast.success(type === "question-paper" ? "Question paper downloaded" : "Answer key downloaded");
+    } catch {
+      toast.error(type === "question-paper" ? "Failed to download question paper" : "Failed to download answer key");
+    }
   };
 
   const activePageSrc = pages[activePage - 1];

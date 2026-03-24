@@ -64,7 +64,16 @@ EOF
 python manage.py collectstatic --noinput
 
 if [ "$SNAPSHOT_LOADED" = "1" ]; then
-    echo "Snapshot mode active. Skipping CSV/media bootstrap import pipeline."
+    echo "Snapshot mode active. Skipping CSV bootstrap import pipeline."
+
+    if [ "${RUN_MEDIA_SYNC_ON_SNAPSHOT:-1}" = "1" ]; then
+        echo "Snapshot mode: syncing media links from Data/Papers..."
+        python manage.py seed_media_from_data --pages-per-paper "${MEDIA_PAGES_PER_PAPER:-5}" --skip-link
+        python manage.py import_exam_media --overwrite-existing
+    else
+        echo "Snapshot mode: media sync disabled (RUN_MEDIA_SYNC_ON_SNAPSHOT=${RUN_MEDIA_SYNC_ON_SNAPSHOT:-1})."
+    fi
+
     exec "$@"
 fi
 
@@ -93,7 +102,13 @@ python scripts/import_students.py "Data/test_data/1_students.csv"
 echo "Importing Enrollments..."
 python scripts/bulk_enroll.py --csv "Data/test_data/5_enrollments.csv" --session "2024-2025"
 
-# Step 4: Auto-link exam docs and student paper pages from mediafiles
+# Step 4: Seed missing paper/doc files into mediafiles from Data/Papers
+# This prevents exam_papers.pages from staying NULL when a roll-course folder
+# is absent under backend/mediafiles/papers.
+echo "Seeding mediafiles from Data/Papers..."
+python manage.py seed_media_from_data --pages-per-paper "${MEDIA_PAGES_PER_PAPER:-5}"
+
+# Step 5: Auto-link exam docs and student paper pages from mediafiles
 echo "Linking exam media from backend/mediafiles..."
 python manage.py import_exam_media --overwrite-existing
 

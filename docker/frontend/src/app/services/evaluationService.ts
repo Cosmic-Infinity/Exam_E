@@ -598,25 +598,90 @@ export async function getStudentPaperDetailsBySubject(subjectCode: string): Prom
 }
 
 /** Download a file from the given path */
-export function downloadFile(filePath: string, fileName: string): void {
+function parseFilenameFromContentDisposition(headerValue: string | null): string | null {
+  if (!headerValue) return null;
+
+  const utf8Match = headerValue.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1]);
+    } catch {
+      return utf8Match[1];
+    }
+  }
+
+  const quotedMatch = headerValue.match(/filename="([^"]+)"/i);
+  if (quotedMatch?.[1]) return quotedMatch[1];
+
+  const plainMatch = headerValue.match(/filename=([^;]+)/i);
+  if (plainMatch?.[1]) return plainMatch[1].trim();
+
+  return null;
+}
+
+function extensionFromMimeType(contentType: string | null): string | null {
+  const normalized = (contentType || "").toLowerCase();
+  if (normalized.includes("image/jpeg")) return "jpg";
+  if (normalized.includes("image/png")) return "png";
+  if (normalized.includes("image/webp")) return "webp";
+  if (normalized.includes("application/pdf")) return "pdf";
+  return null;
+}
+
+function hasFileExtension(name: string): boolean {
+  return /\.[a-zA-Z0-9]+$/.test(name);
+}
+
+export async function downloadFile(filePath: string, fileName: string): Promise<void> {
   try {
     const normalized = normalizeAssetPath(filePath);
     if (!normalized) {
       throw new Error("Invalid file path");
     }
 
-    // Keep absolute URLs untouched; only prefix /media for relative/rooted non-media paths.
+    // Keep absolute URLs untouched; preserve /api, /media, /Data; prefix /media only for plain relative asset paths.
     const isAbsolute = normalized.startsWith("http://") || normalized.startsWith("https://");
     const url = isAbsolute
       ? normalized
-      : (normalized.startsWith("/media/") || normalized.startsWith("/Data/") ? normalized : `/media${normalized}`);
+      : (
+          normalized.startsWith("/api/") ||
+          normalized.startsWith("/media/") ||
+          normalized.startsWith("/Data/")
+            ? normalized
+            : `/media${normalized}`
+        );
 
+    const response = await fetch(url, {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Download failed with status ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    if (!blob.size) {
+      throw new Error("Received empty file content");
+    }
+
+    const dispositionName = parseFilenameFromContentDisposition(response.headers.get("content-disposition"));
+    const mimeExt = extensionFromMimeType(response.headers.get("content-type"));
+    let finalName = (fileName || dispositionName || filePath.split("/").pop() || "download").trim();
+
+    if (!hasFileExtension(finalName) && mimeExt) {
+      finalName = `${finalName}.${mimeExt}`;
+    }
+
+    const objectUrl = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = url;
-    link.download = fileName || filePath.split("/").pop() || "download";
+    link.href = objectUrl;
+    link.download = finalName;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
   } catch (error) {
     console.error(`Failed to download file ${filePath}:`, error);
     throw new Error(`Failed to download ${fileName}`);

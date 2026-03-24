@@ -70,7 +70,7 @@ const StudentDashboardMobile = () => {
       }
 
       const fileName = type === "question-paper" ? `${selectedCode}_Question_Paper.pdf` : `${selectedCode}_Answer_Key.pdf`;
-      downloadFile(filePath, fileName);
+      await downloadFile(filePath, fileName);
       toast.success("Download started");
     } catch (error) {
       console.error("Download failed:", error);

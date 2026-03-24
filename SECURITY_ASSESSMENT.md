@@ -978,17 +978,7 @@ The penetration test covered:
 
 All tests are automated in `scripts/security_pentest.sh` and can be run at any time to verify security posture.
 
----
 
-## References & Standards
-
-- [OWASP Top 10 2021](https://owasp.org/Top10/)
-- [OWASP API Security Top 10](https://owasp.org/www-project-api-security/)
-- [Django Security Documentation](https://docs.djangoproject.com/en/stable/topics/security/)
-- [NIST Cybersecurity Framework](https://www.nist.gov/cyberframework)
-- [CWE Top 25](https://cwe.mitre.org/top25/)
-
----
 
 **Report Generated:** March 17, 2026  
 **Report Status:** ✅ ACTIVE  

@@ -794,19 +794,23 @@ const EvaluationViewer = () => {
     setPreviewDropdownOpen(false);
   };
 
-  const handleDownloadPreviewDoc = (type: "question-paper" | "answer-key") => {
+  const handleDownloadPreviewDoc = async (type: "question-paper" | "answer-key") => {
     const rawPath = type === "question-paper" ? currentScript?.question_paper_path : currentScript?.answer_key_path;
     if (!rawPath) {
       toast.error(type === "question-paper" ? "Question paper is not available" : "Answer key is not available");
       return;
     }
 
-    const suffix = type === "question-paper" ? "Question_Paper" : "Answer_Key";
-    const extMatch = rawPath.match(/\.([a-zA-Z0-9]+)(?:\?|#|$)/);
-    const ext = extMatch?.[1] || "pdf";
-    const resolvedPath = resolveAssetUrl(rawPath) || rawPath;
-    downloadFile(resolvedPath, `${subjectCode}_${suffix}.${ext}`);
-    setPreviewDropdownOpen(false);
+    try {
+      const suffix = type === "question-paper" ? "Question_Paper" : "Answer_Key";
+      const extMatch = rawPath.match(/\.([a-zA-Z0-9]+)(?:\?|#|$)/);
+      const ext = extMatch?.[1] || "pdf";
+      const resolvedPath = resolveAssetUrl(rawPath) || rawPath;
+      await downloadFile(resolvedPath, `${subjectCode}_${suffix}.${ext}`);
+      setPreviewDropdownOpen(false);
+    } catch {
+      toast.error(type === "question-paper" ? "Failed to download question paper" : "Failed to download answer key");
+    }
   };
 
   const getPreviewEmbedSrc = (url?: string) => {
@@ -1204,8 +1208,8 @@ const EvaluationViewer = () => {
         return;
       }
 
-      const fileName = `${subjectCode}_Page_${String(activePage).padStart(2, "0")}.jpg`;
-      downloadFile(filePath, fileName);
+      const fileName = `${subjectCode}_Page_${String(activePage).padStart(2, "0")}`;
+      await downloadFile(filePath, fileName);
       toast.success(`Page ${activePage} downloaded successfully`);
       setDownloadDropdownOpen(false);
     } catch (error) {

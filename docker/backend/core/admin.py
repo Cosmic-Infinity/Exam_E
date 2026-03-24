@@ -237,11 +237,8 @@ class ExamPaperAdmin(admin.ModelAdmin):
             return "No pages linked."
         
         html = '<div style="display: flex; flex-wrap: wrap; gap: 10px;">'
-        # Assuming pages is a list of strings like ["Data/Papers/...", ...]
-        # We need to map this to /Data/Papers/... for display if Nginx mounts it there
-        for page in obj.pages:
-             # Ensure path starts with /
-             url = f"/{page}" if not page.startswith("/") else page
+        for index, _page in enumerate(obj.pages, start=1):
+             url = f"/api/admin/paper/{obj.paper_id}/page/{index}/"
              html += f'<a href="{url}" target="_blank"><img src="{url}" style="height: 150px; border: 1px solid #ccc;"></a>'
         html += '</div>'
         return mark_safe(html)

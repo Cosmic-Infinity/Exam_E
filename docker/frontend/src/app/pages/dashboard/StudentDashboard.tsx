@@ -132,7 +132,7 @@ const StudentDashboard = () => {
       const fileName = type === "question-paper" ? `${selectedCode}_Question_Paper.pdf` : `${selectedCode}_Answer_Key.pdf`;
 
       const resolvedPath = resolveAssetUrl(filePath) || filePath;
-      downloadFile(resolvedPath, fileName);
+      await downloadFile(resolvedPath, fileName);
       toast.success(`${type === "question-paper" ? "Question Paper" : "Answer Key"} downloaded successfully!`);
     } catch (error) {
       console.error("Download failed:", error);

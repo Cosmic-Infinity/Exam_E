@@ -6,7 +6,7 @@ import autoTable from "jspdf-autotable";
 import { ArrowLeft, ChevronDown, Download, Eraser, Eye, FileText, FileX2, Files, KeyRound, Pencil, RotateCcw, RotateCw, X } from "lucide-react";
 import { useUserSession } from "@/app/context/UserSessionContext";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/app/components/ui/resizable";
-import { getScript, saveMarks, submitGrievance, acceptGrievance, rejectGrievance, downloadFile, getStudentGrievancesBySubject, getTeacherPaperMarkings, saveTeacherPaperMarkings } from "@/app/services/evaluationService";
+import { getScript, saveMarks, submitGrievance, acceptGrievance, rejectGrievance, downloadFile, getStudentGrievancesBySubject, getTeacherPaperMarkings, getStudentPaperMarkings, saveTeacherPaperMarkings } from "@/app/services/evaluationService";
 import AuthService from "@/app/services/authService";
 import type { StudentGrievanceItem } from "@/app/services/evaluationService";
 import { MarksRow, SUBJECT_MAP, createEmptyMarks, computeTotal, getCountedRowIndexes, AnswerScript } from "@/app/types/evaluation";
@@ -315,6 +315,7 @@ const EvaluationViewer = () => {
 
   const [activePage, setActivePage] = useState(1);
   const [currentScript, setCurrentScript] = useState<AnswerScript | null>(null);
+  const isMarksAlreadySaved = currentScript?.status === "graded";
   const [marks, setMarks] = useState<MarksRow[]>(createEmptyMarks());
   const [grievanceText, setGrievanceText] = useState("");
   const [scriptGrievance, setScriptGrievance] = useState<{ text: string; date: string } | null>(null);
@@ -602,8 +603,7 @@ const EvaluationViewer = () => {
   }, [currentScript?.id]);
 
   useEffect(() => {
-    if (!currentScript?.id || !isFaculty) return;
-    if (persistedDrawingsRef.current[activePage] || drawingsRef.current[activePage]) return;
+    if (!currentScript?.id) return;
     if (loadedMarkingsPagesRef.current.has(activePage)) return;
 
     let cancelled = false;
@@ -611,7 +611,9 @@ const EvaluationViewer = () => {
 
     const loadMarkings = async () => {
       try {
-        const payload = await getTeacherPaperMarkings(currentScript.id, activePage);
+        const payload = isFaculty
+          ? await getTeacherPaperMarkings(currentScript.id, activePage)
+          : await getStudentPaperMarkings(currentScript.id, activePage);
         if (cancelled || !payload) return;
         const parsed = parseStoredMarkingsPayload(payload);
         if (!parsed) return;
@@ -820,6 +822,7 @@ const EvaluationViewer = () => {
 
       await saveMarks(rollNo, subjectId || "", marks, role as "student" | "faculty");
       await persistSavedDrawings();
+      setCurrentScript((prev) => (prev ? { ...prev, status: "graded" } : prev));
       toast.success("Marks saved successfully.", { duration: 2500 });
     };
 
@@ -1644,7 +1647,7 @@ const EvaluationViewer = () => {
                           pointerEvents: drawMode ? "auto" : "none",
                           cursor: drawMode === "eraser" ? ERASER_CURSOR : drawMode ? "crosshair" : "default",
                           backgroundColor: "transparent",
-                          opacity: drawMode ? 1 : 0.5,
+                          opacity: 1,
                         }}
                       />
                     </div>
@@ -2015,7 +2018,7 @@ const EvaluationViewer = () => {
                           hasInvalidMarks ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-primary text-primary-foreground hover:bg-primary/90"
                         }`}
                       >
-                        Save Marks
+                        {isMarksAlreadySaved ? "Update Marks" : "Save Marks"}
                       </button>
                     )}
                   </div>

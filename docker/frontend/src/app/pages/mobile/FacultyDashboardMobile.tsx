@@ -31,7 +31,7 @@ const FacultyDashboardMobile = () => {
         const [allScripts, stats] = await Promise.all([getAllScripts(), getFacultyGrievanceStats()]);
         if (active) {
           setScripts(Array.isArray(allScripts) ? allScripts : []);
-          setAssignedGrievanceCount(Number(stats.assigned_open_count || 0));
+          setAssignedGrievanceCount(Number(stats.visible_open_count || 0));
         }
       } catch (error) {
         console.error("Failed to load faculty data:", error);

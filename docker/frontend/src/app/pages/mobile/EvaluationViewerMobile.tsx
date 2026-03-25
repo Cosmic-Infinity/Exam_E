@@ -7,7 +7,7 @@ import { Download, Eraser, Moon, Pencil, RefreshCw, RotateCcw, RotateCw, Sun, Tr
 import { useUserSession } from "@/app/context/UserSessionContext";
 import { useTheme } from "@/app/context/ThemeContext";
 import AuthService from "@/app/services/authService";
-import { getScript, saveMarks, submitGrievance, acceptGrievance, rejectGrievance, getStudentGrievancesBySubject, downloadFile, getTeacherPaperMarkings, saveTeacherPaperMarkings } from "@/app/services/evaluationService";
+import { getScript, saveMarks, submitGrievance, acceptGrievance, rejectGrievance, getStudentGrievancesBySubject, downloadFile, getTeacherPaperMarkings, getStudentPaperMarkings, saveTeacherPaperMarkings } from "@/app/services/evaluationService";
 import { SUBJECT_MAP, createEmptyMarks, computeTotal, getCountedRowIndexes, type MarksRow } from "@/app/types/evaluation";
 import { resolveAssetUrl } from "@/app/utils/assetResolver";
 
@@ -170,6 +170,7 @@ const EvaluationViewerMobile = () => {
   const persistedDrawingsRef = useRef<Record<number, string>>({});
   const removedPersistedPagesRef = useRef<Set<number>>(new Set());
   const [currentScript, setCurrentScript] = useState<any>(null);
+  const isMarksAlreadySaved = currentScript?.status === "graded";
   const [headerSubjectCode, setHeaderSubjectCode] = useState("");
   const [headerSubjectName, setHeaderSubjectName] = useState("");
 
@@ -200,8 +201,8 @@ const EvaluationViewerMobile = () => {
             const tool = s.tool === "eraser" ? "eraser" : "pencil";
             return {
               tool,
-              color: typeof s.color === "string" && s.color.length > 0 ? s.color : tool === "eraser" ? "rgba(0,0,0,1)" : "rgba(255, 0, 0, 0.95)",
-              size: Number.isFinite(Number(s.size)) ? Number(s.size) : tool === "eraser" ? 16 : 3,
+              color: typeof s.color === "string" && s.color.length > 0 ? s.color : tool === "eraser" ? "rgba(0,0,0,1)" : "rgba(255, 0, 0, 1)",
+              size: Number.isFinite(Number(s.size)) ? Number(s.size) : tool === "eraser" ? 16 : 1.5,
               points,
             } as DrawingStroke;
           })
@@ -399,6 +400,7 @@ const EvaluationViewerMobile = () => {
     try {
       await saveMarks(rollNo, subjectId || "", marks, "faculty");
       await persistSavedDrawings();
+      setCurrentScript((prev: any) => (prev ? { ...prev, status: "graded" } : prev));
       toast.success("Marks saved successfully.", { duration: 2500 });
     } catch (error) {
       console.error("Save failed:", error);
@@ -478,8 +480,8 @@ const EvaluationViewerMobile = () => {
     if (!ctx) return;
 
     ctx.globalCompositeOperation = drawMode === "eraser" ? "destination-out" : "source-over";
-    ctx.strokeStyle = drawMode === "eraser" ? "rgba(0,0,0,1)" : pencilColor === "green" ? "rgba(34, 197, 94, 0.95)" : "rgba(255, 0, 0, 0.95)";
-    ctx.lineWidth = getAdaptiveStrokeWidth(drawMode === "eraser" ? 16 : 3);
+    ctx.strokeStyle = drawMode === "eraser" ? "rgba(0,0,0,1)" : pencilColor === "green" ? "rgba(34, 197, 94, 1)" : "rgba(255, 0, 0, 1)";
+    ctx.lineWidth = getAdaptiveStrokeWidth(drawMode === "eraser" ? 16 : 1.5);
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.beginPath();
@@ -585,8 +587,8 @@ const EvaluationViewerMobile = () => {
     removedPersistedPagesRef.current.delete(activePage);
     activeStrokeRef.current = {
       tool: drawMode,
-      color: drawMode === "eraser" ? "rgba(0,0,0,1)" : pencilColor === "green" ? "rgba(34, 197, 94, 0.95)" : "rgba(255, 0, 0, 0.95)",
-      size: drawMode === "eraser" ? 16 : 3,
+      color: drawMode === "eraser" ? "rgba(0,0,0,1)" : pencilColor === "green" ? "rgba(34, 197, 94, 1)" : "rgba(255, 0, 0, 1)",
+      size: drawMode === "eraser" ? 16 : 1.5,
       points: [[point.x, point.y]],
     };
   };
@@ -630,8 +632,8 @@ const EvaluationViewerMobile = () => {
     removedPersistedPagesRef.current.delete(activePage);
     activeStrokeRef.current = {
       tool: drawMode,
-      color: drawMode === "eraser" ? "rgba(0,0,0,1)" : pencilColor === "green" ? "rgba(34, 197, 94, 0.95)" : "rgba(255, 0, 0, 0.95)",
-      size: drawMode === "eraser" ? 16 : 3,
+      color: drawMode === "eraser" ? "rgba(0,0,0,1)" : pencilColor === "green" ? "rgba(34, 197, 94, 1)" : "rgba(255, 0, 0, 1)",
+      size: drawMode === "eraser" ? 16 : 1.5,
       points: [[point.x, point.y]],
     };
   };
@@ -889,8 +891,7 @@ const EvaluationViewerMobile = () => {
   }, [activePage, activeDocView]);
 
   useEffect(() => {
-    if (!isFaculty || !currentScript?.id || activeDocView !== "sheet") return;
-    if (drawingByPageRef.current[activePage] || persistedDrawingsRef.current[activePage]) return;
+    if (!currentScript?.id || activeDocView !== "sheet") return;
     if (loadedMarkingsPagesRef.current.has(activePage)) return;
 
     let cancelled = false;
@@ -898,7 +899,9 @@ const EvaluationViewerMobile = () => {
 
     const loadMarkings = async () => {
       try {
-        const payload = await getTeacherPaperMarkings(currentScript.id, activePage);
+        const payload = isFaculty
+          ? await getTeacherPaperMarkings(currentScript.id, activePage)
+          : await getStudentPaperMarkings(currentScript.id, activePage);
         if (cancelled || !payload) return;
         const parsed = parseStoredMarkingsPayload(payload);
         if (!parsed) return;
@@ -1429,8 +1432,8 @@ const EvaluationViewerMobile = () => {
               )}
 
               {isFaculty && (
-                <button onClick={handleSaveMarks} disabled={savingMarks || getInvalidMarkEntries(marks).length > 0} className="w-full rounded-lg bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50" title={getInvalidMarkEntries(marks).length > 0 ? `Fix invalid marks before saving. Example: ${getInvalidMarkEntries(marks)[0].q} part ${getInvalidMarkEntries(marks)[0].part.toUpperCase()} exceeds max ${getInvalidMarkEntries(marks)[0].expected}.` : "Save marks"}>
-                  {savingMarks ? "Saving..." : "Save Marks"}
+                <button onClick={handleSaveMarks} disabled={savingMarks || getInvalidMarkEntries(marks).length > 0} className="w-full rounded-lg bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50" title={getInvalidMarkEntries(marks).length > 0 ? `Fix invalid marks before saving. Example: ${getInvalidMarkEntries(marks)[0].q} part ${getInvalidMarkEntries(marks)[0].part.toUpperCase()} exceeds max ${getInvalidMarkEntries(marks)[0].expected}.` : isMarksAlreadySaved ? "Update marks" : "Save marks"}>
+                  {savingMarks ? "Saving..." : isMarksAlreadySaved ? "Update Marks" : "Save Marks"}
                 </button>
               )}
             </section>

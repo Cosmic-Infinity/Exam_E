@@ -551,6 +551,11 @@ export async function getTeacherPaperMarkings(paperId: string | number, pageInde
   return response?.markings ?? null;
 }
 
+export async function getStudentPaperMarkings(paperId: string | number, pageIndex: number): Promise<unknown | null> {
+  const response = (await AuthService.get(`/student/paper/${paperId}/markings/${pageIndex}/`)) as TeacherPaperMarkingDetailResponse;
+  return response?.markings ?? null;
+}
+
 export async function saveTeacherPaperMarkings(paperId: string | number, pageIndex: number, markings: unknown): Promise<void> {
   await AuthService.put(`/teacher/paper/${paperId}/markings/${pageIndex}/`, {
     markings,

@@ -43,7 +43,7 @@ const FacultyDashboard = () => {
       try {
         const stats = await getFacultyGrievanceStats();
         if (active) {
-          setAssignedGrievanceCount(Number(stats.assigned_open_count || 0));
+          setAssignedGrievanceCount(Number(stats.visible_open_count || 0));
         }
       } catch {
         if (active) {

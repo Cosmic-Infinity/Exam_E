@@ -184,14 +184,9 @@ const FacultyDashboard = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate("/dashboard/faculty/grievances")}
-            className="relative rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-2 pr-10 text-sm font-medium text-destructive hover:bg-destructive/20 transition-colors"
+            className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/20 transition-colors"
           >
-            Grievance Management
-            {assignedGrievanceCount > 0 && (
-              <span className="absolute -right-2 -top-2 inline-flex min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-bold leading-none text-destructive-foreground">
-                {assignedGrievanceCount}
-              </span>
-            )}
+            Grievance Management ({assignedGrievanceCount})
           </button>
           {hasCoordinatedCourses && (
             <button

@@ -7,7 +7,7 @@ import { Download, Eraser, Moon, Pencil, RefreshCw, RotateCcw, RotateCw, Sun, Tr
 import { useUserSession } from "@/app/context/UserSessionContext";
 import { useTheme } from "@/app/context/ThemeContext";
 import AuthService from "@/app/services/authService";
-import { getScript, saveMarks, submitGrievance, acceptGrievance, rejectGrievance, getStudentGrievancesBySubject, downloadFile } from "@/app/services/evaluationService";
+import { getScript, saveMarks, submitGrievance, acceptGrievance, rejectGrievance, getStudentGrievancesBySubject, downloadFile, getTeacherPaperMarkings, saveTeacherPaperMarkings } from "@/app/services/evaluationService";
 import { SUBJECT_MAP, createEmptyMarks, computeTotal, getCountedRowIndexes, type MarksRow } from "@/app/types/evaluation";
 import { resolveAssetUrl } from "@/app/utils/assetResolver";
 
@@ -46,6 +46,19 @@ const DRAWINGS_STORAGE_PREFIX = "evaluation-drawings-v1";
 type SavedDrawingPayload = {
   version: 1;
   pages: Record<string, string>;
+};
+
+type DrawingStroke = {
+  tool: "pencil" | "eraser";
+  color: string;
+  size: number;
+  points: Array<[number, number]>;
+};
+
+type StoredMarkingsPayload = {
+  version: 1;
+  snapshot: string | null;
+  strokes: DrawingStroke[];
 };
 
 const getDrawingsStorageKey = (rollNo: string, subjectCode: string): string => {
@@ -150,12 +163,57 @@ const EvaluationViewerMobile = () => {
   const answerCanvasWrapRef = useRef<HTMLDivElement>(null);
   const isDrawingRef = useRef(false);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+  const activeStrokeRef = useRef<DrawingStroke | null>(null);
+  const strokesByPageRef = useRef<Record<number, DrawingStroke[]>>({});
+  const loadedMarkingsPagesRef = useRef<Set<number>>(new Set());
   const drawingByPageRef = useRef<Record<number, string>>({});
   const persistedDrawingsRef = useRef<Record<number, string>>({});
   const removedPersistedPagesRef = useRef<Set<number>>(new Set());
   const [currentScript, setCurrentScript] = useState<any>(null);
   const [headerSubjectCode, setHeaderSubjectCode] = useState("");
   const [headerSubjectName, setHeaderSubjectName] = useState("");
+
+  const getAdaptiveStrokeWidth = (baseSize: number) => {
+    const sheetWidth = answerCanvasWrapRef.current?.getBoundingClientRect().width || canvasRef.current?.width || 1;
+    const viewportZoom = window.visualViewport?.scale || 1;
+    const relativeSheetScale = Math.max(0.4, sheetWidth / 380);
+    const zoomFactor = Math.max(0.25, viewportZoom * relativeSheetScale);
+    const minWidth = baseSize >= 8 ? 4 : 1;
+    return Math.max(minWidth, baseSize / zoomFactor);
+  };
+
+  const parseStoredMarkingsPayload = (value: unknown): StoredMarkingsPayload | null => {
+    if (!value || typeof value !== "object") return null;
+    const raw = value as { snapshot?: unknown; strokes?: unknown };
+    const snapshot = typeof raw.snapshot === "string" && raw.snapshot.length > 0 ? raw.snapshot : null;
+    const strokes = Array.isArray(raw.strokes)
+      ? raw.strokes
+          .map((stroke) => {
+            if (!stroke || typeof stroke !== "object") return null;
+            const s = stroke as { tool?: unknown; color?: unknown; size?: unknown; points?: unknown };
+            const points = Array.isArray(s.points)
+              ? s.points
+                  .map((point) => (Array.isArray(point) && point.length >= 2 ? [Number(point[0]), Number(point[1])] : null))
+                  .filter((point): point is [number, number] => Boolean(point) && Number.isFinite(point[0]) && Number.isFinite(point[1]))
+              : [];
+            if (points.length === 0) return null;
+            const tool = s.tool === "eraser" ? "eraser" : "pencil";
+            return {
+              tool,
+              color: typeof s.color === "string" && s.color.length > 0 ? s.color : tool === "eraser" ? "rgba(0,0,0,1)" : "rgba(255, 0, 0, 0.95)",
+              size: Number.isFinite(Number(s.size)) ? Number(s.size) : tool === "eraser" ? 16 : 3,
+              points,
+            } as DrawingStroke;
+          })
+          .filter((stroke): stroke is DrawingStroke => Boolean(stroke))
+      : [];
+
+    return {
+      version: 1,
+      snapshot,
+      strokes,
+    };
+  };
 
   if (!user) {
     navigate("/");
@@ -219,6 +277,8 @@ const EvaluationViewerMobile = () => {
         window.localStorage.removeItem(storageKey);
         persistedDrawingsRef.current = {};
         drawingByPageRef.current = {};
+        strokesByPageRef.current = {};
+        loadedMarkingsPagesRef.current.clear();
         removedPersistedPagesRef.current.clear();
         return;
       }
@@ -227,6 +287,8 @@ const EvaluationViewerMobile = () => {
       if (!raw) {
         persistedDrawingsRef.current = {};
         drawingByPageRef.current = {};
+        strokesByPageRef.current = {};
+        loadedMarkingsPagesRef.current.clear();
         removedPersistedPagesRef.current.clear();
         return;
       }
@@ -240,9 +302,13 @@ const EvaluationViewerMobile = () => {
         }
       }
       persistedDrawingsRef.current = hydrated;
+      strokesByPageRef.current = {};
+      loadedMarkingsPagesRef.current.clear();
     } catch {
       persistedDrawingsRef.current = {};
       drawingByPageRef.current = {};
+      strokesByPageRef.current = {};
+      loadedMarkingsPagesRef.current.clear();
     }
   }, [currentScript?.id, currentScript?.status, rollNo, subjectCode]);
 
@@ -299,6 +365,26 @@ const EvaluationViewerMobile = () => {
     const storageKey = getDrawingsStorageKey(rollNo, subjectCode);
     window.localStorage.setItem(storageKey, JSON.stringify(payload));
     persistedDrawingsRef.current = merged;
+
+    if (isFaculty && currentScript?.id) {
+      const pageSet = new Set<number>();
+      Object.keys(merged).forEach((page) => pageSet.add(Number(page)));
+      Object.keys(strokesByPageRef.current).forEach((page) => pageSet.add(Number(page)));
+
+      await Promise.all(
+        Array.from(pageSet)
+          .filter((pageNum) => Number.isFinite(pageNum) && pageNum > 0)
+          .map(async (pageNum) => {
+            const markingsPayload: StoredMarkingsPayload = {
+              version: 1,
+              snapshot: merged[pageNum] || null,
+              strokes: strokesByPageRef.current[pageNum] || [],
+            };
+            await saveTeacherPaperMarkings(currentScript.id, pageNum, markingsPayload);
+          }),
+      );
+    }
+
     removedPersistedPagesRef.current.clear();
   };
 
@@ -393,7 +479,7 @@ const EvaluationViewerMobile = () => {
 
     ctx.globalCompositeOperation = drawMode === "eraser" ? "destination-out" : "source-over";
     ctx.strokeStyle = drawMode === "eraser" ? "rgba(0,0,0,1)" : pencilColor === "green" ? "rgba(34, 197, 94, 0.95)" : "rgba(255, 0, 0, 0.95)";
-    ctx.lineWidth = drawMode === "eraser" ? 16 : 3;
+    ctx.lineWidth = getAdaptiveStrokeWidth(drawMode === "eraser" ? 16 : 3);
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.beginPath();
@@ -496,6 +582,13 @@ const EvaluationViewerMobile = () => {
     if (!point) return;
     isDrawingRef.current = true;
     lastPointRef.current = point;
+    removedPersistedPagesRef.current.delete(activePage);
+    activeStrokeRef.current = {
+      tool: drawMode,
+      color: drawMode === "eraser" ? "rgba(0,0,0,1)" : pencilColor === "green" ? "rgba(34, 197, 94, 0.95)" : "rgba(255, 0, 0, 0.95)",
+      size: drawMode === "eraser" ? 16 : 3,
+      points: [[point.x, point.y]],
+    };
   };
 
   const handleCanvasMouseMove = (event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -503,23 +596,44 @@ const EvaluationViewerMobile = () => {
     const point = getPointerPosition(event);
     if (!point || !lastPointRef.current) return;
     drawLine(lastPointRef.current, point);
+    activeStrokeRef.current?.points.push([point.x, point.y]);
     lastPointRef.current = point;
   };
 
   const handleCanvasMouseUp = () => {
     isDrawingRef.current = false;
     lastPointRef.current = null;
+    const stroke = activeStrokeRef.current;
+    if (stroke && stroke.points.length > 0) {
+      if (!strokesByPageRef.current[activePage]) {
+        strokesByPageRef.current[activePage] = [];
+      }
+      strokesByPageRef.current[activePage].push(stroke);
+    }
+    activeStrokeRef.current = null;
     saveActivePageDrawing();
   };
 
   const handleCanvasTouchStart = (event: React.TouchEvent<HTMLCanvasElement>) => {
     if (!drawMode) return;
-    if (event.touches.length !== 1) return;
+    if (event.touches.length !== 1) {
+      isDrawingRef.current = false;
+      lastPointRef.current = null;
+      activeStrokeRef.current = null;
+      return;
+    }
     event.preventDefault();
     const point = getPointerPosition(event);
     if (!point) return;
     isDrawingRef.current = true;
     lastPointRef.current = point;
+    removedPersistedPagesRef.current.delete(activePage);
+    activeStrokeRef.current = {
+      tool: drawMode,
+      color: drawMode === "eraser" ? "rgba(0,0,0,1)" : pencilColor === "green" ? "rgba(34, 197, 94, 0.95)" : "rgba(255, 0, 0, 0.95)",
+      size: drawMode === "eraser" ? 16 : 3,
+      points: [[point.x, point.y]],
+    };
   };
 
   const handleCanvasTouchMove = (event: React.TouchEvent<HTMLCanvasElement>) => {
@@ -527,18 +641,28 @@ const EvaluationViewerMobile = () => {
     if (event.touches.length !== 1) {
       isDrawingRef.current = false;
       lastPointRef.current = null;
+      activeStrokeRef.current = null;
       return;
     }
     event.preventDefault();
     const point = getPointerPosition(event);
     if (!point || !lastPointRef.current) return;
     drawLine(lastPointRef.current, point);
+    activeStrokeRef.current?.points.push([point.x, point.y]);
     lastPointRef.current = point;
   };
 
   const handleCanvasTouchEnd = () => {
     isDrawingRef.current = false;
     lastPointRef.current = null;
+    const stroke = activeStrokeRef.current;
+    if (stroke && stroke.points.length > 0) {
+      if (!strokesByPageRef.current[activePage]) {
+        strokesByPageRef.current[activePage] = [];
+      }
+      strokesByPageRef.current[activePage].push(stroke);
+    }
+    activeStrokeRef.current = null;
     saveActivePageDrawing();
   };
 
@@ -549,6 +673,7 @@ const EvaluationViewerMobile = () => {
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     delete drawingByPageRef.current[activePage];
+    strokesByPageRef.current[activePage] = [];
     removedPersistedPagesRef.current.add(activePage);
   };
 
@@ -763,6 +888,41 @@ const EvaluationViewerMobile = () => {
     restorePageDrawing(activePage);
   }, [activePage, activeDocView]);
 
+  useEffect(() => {
+    if (!isFaculty || !currentScript?.id || activeDocView !== "sheet") return;
+    if (drawingByPageRef.current[activePage] || persistedDrawingsRef.current[activePage]) return;
+    if (loadedMarkingsPagesRef.current.has(activePage)) return;
+
+    let cancelled = false;
+    loadedMarkingsPagesRef.current.add(activePage);
+
+    const loadMarkings = async () => {
+      try {
+        const payload = await getTeacherPaperMarkings(currentScript.id, activePage);
+        if (cancelled || !payload) return;
+        const parsed = parseStoredMarkingsPayload(payload);
+        if (!parsed) return;
+
+        if (parsed.snapshot) {
+          persistedDrawingsRef.current[activePage] = parsed.snapshot;
+          drawingByPageRef.current[activePage] = parsed.snapshot;
+          restorePageDrawing(activePage);
+        }
+
+        if (parsed.strokes.length > 0) {
+          strokesByPageRef.current[activePage] = parsed.strokes;
+        }
+      } catch {
+        // Preserve local behavior if backend read fails.
+      }
+    };
+
+    void loadMarkings();
+    return () => {
+      cancelled = true;
+    };
+  }, [activePage, activeDocView, currentScript?.id, isFaculty]);
+
   const activeToolIndicator = useMemo(() => {
     if (drawMode === "pencil") {
       return { label: "Pencil", icon: <Pencil className="h-3.5 w-3.5" /> };
@@ -811,6 +971,9 @@ const EvaluationViewerMobile = () => {
 
   useEffect(() => {
     drawingByPageRef.current = {};
+    persistedDrawingsRef.current = {};
+    strokesByPageRef.current = {};
+    loadedMarkingsPagesRef.current.clear();
   }, [rollNo, subjectId]);
 
   return (
@@ -1100,7 +1263,7 @@ const EvaluationViewerMobile = () => {
                             className="absolute inset-0"
                             style={{
                               pointerEvents: drawMode ? "auto" : "none",
-                              touchAction: "none",
+                              touchAction: drawMode ? "pinch-zoom" : "auto",
                               cursor: drawMode === "eraser" ? ERASER_CURSOR : drawMode ? "crosshair" : "default",
                             }}
                           />

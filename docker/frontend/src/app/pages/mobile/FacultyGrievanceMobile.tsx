@@ -94,7 +94,9 @@ const FacultyGrievanceMobile = () => {
           {!loading && sortedItems.length === 0 && <p className="text-sm text-muted-foreground py-8 text-center">No grievances found.</p>}
 
           {!loading &&
-            sortedItems.map((item) => (
+            sortedItems.map((item) => {
+              const canShowCommentAndAction = item.assignment_status === "ASSIGNED_TO_YOU";
+              return (
               <article key={item.id} className="rounded-xl border border-border bg-card p-3 space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-semibold text-sm">#{item.id}</p>
@@ -102,24 +104,30 @@ const FacultyGrievanceMobile = () => {
                 </div>
                 <p className="text-xs text-muted-foreground">{item.student_name} ({item.student_university_id})</p>
                 <p className="font-mono text-xs text-primary">{item.subject_code} • Sec {item.section_name}</p>
-                <p className="text-xs line-clamp-3">{item.student_comment}</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => navigate(`/evaluation/${item.subject_code.toLowerCase()}?role=faculty&mode=grievance&roll=${item.student_university_id}&grievanceId=${item.id}`)}
-                    className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"
-                  >
-                    Review
-                  </button>
-                  <button
-                    disabled={rejectingId === item.id || !item.can_resolve}
-                    onClick={() => handleReject(item)}
-                    className="rounded-lg border border-destructive/50 px-3 py-2 text-xs text-destructive disabled:opacity-50"
-                  >
-                    Reject
-                  </button>
-                </div>
+                {canShowCommentAndAction ? (
+                  <>
+                    <p className="text-xs line-clamp-3">{item.student_comment}</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => navigate(`/evaluation/${item.subject_code.toLowerCase()}?role=faculty&mode=grievance&roll=${item.student_university_id}&grievanceId=${item.id}`)}
+                        className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"
+                      >
+                        Review
+                      </button>
+                      <button
+                        disabled={rejectingId === item.id || !item.can_resolve}
+                        onClick={() => handleReject(item)}
+                        className="rounded-lg border border-destructive/50 px-3 py-2 text-xs text-destructive disabled:opacity-50"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Comment and actions are hidden for unassigned grievances.</p>
+                )}
               </article>
-            ))}
+            );})}
         </section>
       </main>
     </div>

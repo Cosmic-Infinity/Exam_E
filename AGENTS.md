@@ -46,11 +46,11 @@ This repository contains a **university‑level paper evaluation and student vie
  - The application has desktop and mobile views
  - The mobile version of the site can be found in docker\frontend\src\app\pages\mobile
  - Make sure that bug fixes/routing changes, if any, must be applied to both the desktop and mobile versions
- - DO NOT modify any UI features which already exist without explicit request of the developer
- - For new UI features added to the the desktop version, you must confirm from the developer how to present them in mobile version, while providing suggestions reegarding the same.
+ - DO NOT modify any UI features which already exist without explicit request of the developer. Although you may bring it to the attention of the developer if a certain feature isn't on par with the desktop version.
+ - For new UI features added to the desktop version, you must confirm from the developer how to present them in mobile version, while providing suggestions regarding the same.
 
 
- ### 7. Testing credinals for API calls
+ ### 7. Testing credentials for API calls
  - Django admin : django admin = admin@kiit.ac.in, pass : admin
  - Faculty : id = kavita.mishra@example.com, pass : Check@123
  - Student : id = 2305101@kiit.ac.in, pass : Check@123

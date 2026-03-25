@@ -6,7 +6,7 @@ import autoTable from "jspdf-autotable";
 import { ArrowLeft, ChevronDown, Download, Eraser, Eye, FileText, FileX2, Files, KeyRound, Pencil, RotateCcw, RotateCw, X } from "lucide-react";
 import { useUserSession } from "@/app/context/UserSessionContext";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/app/components/ui/resizable";
-import { getScript, saveMarks, submitGrievance, acceptGrievance, rejectGrievance, downloadFile, getStudentGrievancesBySubject } from "@/app/services/evaluationService";
+import { getScript, saveMarks, submitGrievance, acceptGrievance, rejectGrievance, downloadFile, getStudentGrievancesBySubject, getTeacherPaperMarkings, saveTeacherPaperMarkings } from "@/app/services/evaluationService";
 import AuthService from "@/app/services/authService";
 import type { StudentGrievanceItem } from "@/app/services/evaluationService";
 import { MarksRow, SUBJECT_MAP, createEmptyMarks, computeTotal, getCountedRowIndexes, AnswerScript } from "@/app/types/evaluation";
@@ -65,6 +65,19 @@ const ERASER_CURSOR = `url("data:image/svg+xml;utf8,${encodeURIComponent(
 type SavedDrawingPayload = {
   version: 1;
   pages: Record<string, string>;
+};
+
+type DrawingStroke = {
+  tool: "pencil" | "eraser";
+  color: string;
+  size: number;
+  points: Array<[number, number]>;
+};
+
+type StoredMarkingsPayload = {
+  version: 1;
+  snapshot: string | null;
+  strokes: DrawingStroke[];
 };
 
 const parseMarkValue = (value: string): number => {
@@ -356,6 +369,10 @@ const EvaluationViewer = () => {
   const isDrawingRef = useRef(false);
   const drawDropdownRef = useRef<HTMLDivElement>(null);
   const drawingsRef = useRef<{ [key: number]: ImageData }>({});
+  const strokesByPageRef = useRef<Record<number, DrawingStroke[]>>({});
+  const activeStrokeRef = useRef<DrawingStroke | null>(null);
+  const lastDrawPointRef = useRef<{ x: number; y: number } | null>(null);
+  const loadedMarkingsPagesRef = useRef<Set<number>>(new Set());
   const persistedDrawingsRef = useRef<Record<number, string>>({});
   const removedPersistedPagesRef = useRef<Set<number>>(new Set());
   const lastPageRef = useRef<number>(1);
@@ -446,6 +463,45 @@ const EvaluationViewer = () => {
     return `${DRAWINGS_STORAGE_PREFIX}:${identityPart}`;
   };
 
+  const getAdaptiveStrokeWidth = (baseSize: number) => {
+    const sheetWidth = answerSheetContainerRef.current?.getBoundingClientRect().width || canvasRef.current?.width || 1;
+    const viewportZoom = window.visualViewport?.scale || 1;
+    const relativeSheetScale = Math.max(0.4, sheetWidth / 900);
+    const zoomFactor = Math.max(0.25, viewportZoom * relativeSheetScale);
+    const minWidth = baseSize >= 8 ? 4 : 1;
+    return Math.max(minWidth, baseSize / zoomFactor);
+  };
+
+  const parseStoredMarkingsPayload = (value: unknown): StoredMarkingsPayload | null => {
+    if (!value || typeof value !== "object") return null;
+    const raw = value as { snapshot?: unknown; strokes?: unknown; version?: unknown };
+    const rawStrokes = Array.isArray(raw.strokes) ? raw.strokes : [];
+    const strokes: DrawingStroke[] = rawStrokes
+      .map((stroke) => {
+        if (!stroke || typeof stroke !== "object") return null;
+        const s = stroke as { tool?: unknown; color?: unknown; size?: unknown; points?: unknown };
+        const points = Array.isArray(s.points)
+          ? s.points
+              .map((point) => (Array.isArray(point) && point.length >= 2 ? [Number(point[0]), Number(point[1])] : null))
+              .filter((point): point is [number, number] => Boolean(point) && Number.isFinite(point[0]) && Number.isFinite(point[1]))
+          : [];
+        const tool = s.tool === "eraser" ? "eraser" : "pencil";
+        return {
+          tool,
+          color: typeof s.color === "string" && s.color.length > 0 ? s.color : tool === "eraser" ? "rgba(0,0,0,1)" : "rgba(255, 0, 0, 0.8)",
+          size: Number.isFinite(Number(s.size)) ? Number(s.size) : tool === "eraser" ? 16 : 2,
+          points,
+        } as DrawingStroke;
+      })
+      .filter((stroke): stroke is DrawingStroke => Boolean(stroke) && stroke.points.length > 0);
+
+    return {
+      version: 1,
+      snapshot: typeof raw.snapshot === "string" && raw.snapshot.length > 0 ? raw.snapshot : null,
+      strokes,
+    };
+  };
+
   const captureCurrentCanvasDrawing = () => {
     if (!canvasRef.current) return;
     const canvas = canvasRef.current;
@@ -476,6 +532,8 @@ const EvaluationViewer = () => {
         window.localStorage.removeItem(storageKey);
         persistedDrawingsRef.current = {};
         drawingsRef.current = {};
+        strokesByPageRef.current = {};
+        loadedMarkingsPagesRef.current.clear();
         removedPersistedPagesRef.current.clear();
         return;
       }
@@ -484,6 +542,8 @@ const EvaluationViewer = () => {
       if (!raw) {
         persistedDrawingsRef.current = {};
         drawingsRef.current = {};
+        strokesByPageRef.current = {};
+        loadedMarkingsPagesRef.current.clear();
         removedPersistedPagesRef.current.clear();
         return;
       }
@@ -492,6 +552,8 @@ const EvaluationViewer = () => {
       if (!parsed || parsed.version !== 1 || !parsed.pages || typeof parsed.pages !== "object") {
         persistedDrawingsRef.current = {};
         drawingsRef.current = {};
+        strokesByPageRef.current = {};
+        loadedMarkingsPagesRef.current.clear();
         removedPersistedPagesRef.current.clear();
         return;
       }
@@ -506,10 +568,14 @@ const EvaluationViewer = () => {
 
       persistedDrawingsRef.current = hydrated;
       drawingsRef.current = {};
+      strokesByPageRef.current = {};
+      loadedMarkingsPagesRef.current.clear();
       removedPersistedPagesRef.current.clear();
     } catch {
       persistedDrawingsRef.current = {};
       drawingsRef.current = {};
+      strokesByPageRef.current = {};
+      loadedMarkingsPagesRef.current.clear();
       removedPersistedPagesRef.current.clear();
     }
   }, [currentScript?.id, currentScript?.status, rollNo, subjectCode]);
@@ -534,6 +600,43 @@ const EvaluationViewer = () => {
       window.clearTimeout(timeoutId);
     };
   }, [currentScript?.id]);
+
+  useEffect(() => {
+    if (!currentScript?.id || !isFaculty) return;
+    if (persistedDrawingsRef.current[activePage] || drawingsRef.current[activePage]) return;
+    if (loadedMarkingsPagesRef.current.has(activePage)) return;
+
+    let cancelled = false;
+    loadedMarkingsPagesRef.current.add(activePage);
+
+    const loadMarkings = async () => {
+      try {
+        const payload = await getTeacherPaperMarkings(currentScript.id, activePage);
+        if (cancelled || !payload) return;
+        const parsed = parseStoredMarkingsPayload(payload);
+        if (!parsed) return;
+
+        if (parsed.snapshot) {
+          persistedDrawingsRef.current[activePage] = parsed.snapshot;
+          const canvas = canvasRef.current;
+          if (canvas) {
+            await restoreDataUrlToCanvas(canvas, parsed.snapshot);
+          }
+        }
+
+        if (parsed.strokes.length > 0) {
+          strokesByPageRef.current[activePage] = parsed.strokes;
+        }
+      } catch {
+        // Keep local/offline behavior unchanged if markings API fails.
+      }
+    };
+
+    void loadMarkings();
+    return () => {
+      cancelled = true;
+    };
+  }, [activePage, currentScript?.id, isFaculty]);
 
   // Dynamically switch thumbnail density based on available width in strip area.
   useEffect(() => {
@@ -687,6 +790,25 @@ const EvaluationViewer = () => {
       window.localStorage.setItem(getDrawingsStorageKey(), JSON.stringify(payload));
       persistedDrawingsRef.current = merged;
       removedPersistedPagesRef.current.clear();
+
+      if (isFaculty && currentScript?.id) {
+        const pageSet = new Set<number>();
+        Object.keys(merged).forEach((page) => pageSet.add(Number(page)));
+        Object.keys(strokesByPageRef.current).forEach((page) => pageSet.add(Number(page)));
+
+        await Promise.all(
+          Array.from(pageSet)
+            .filter((pageNum) => Number.isFinite(pageNum) && pageNum > 0)
+            .map(async (pageNum) => {
+              const markingsPayload: StoredMarkingsPayload = {
+                version: 1,
+                snapshot: merged[pageNum] || null,
+                strokes: strokesByPageRef.current[pageNum] || [],
+              };
+              await saveTeacherPaperMarkings(currentScript.id, pageNum, markingsPayload);
+            }),
+        );
+      }
     };
 
     const runSave = async () => {
@@ -1023,6 +1145,16 @@ const EvaluationViewer = () => {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
+    const baseSize = drawMode === "eraser" ? 16 : 2;
+    const color = drawMode === "eraser" ? "rgba(0,0,0,1)" : pencilColor === "green" ? "rgba(34, 197, 94, 0.85)" : "rgba(255, 0, 0, 0.8)";
+    activeStrokeRef.current = {
+      tool: drawMode,
+      color,
+      size: baseSize,
+      points: [[x, y]],
+    };
+    lastDrawPointRef.current = { x, y };
+
     ctx.beginPath();
     ctx.moveTo(x, y);
   };
@@ -1037,20 +1169,38 @@ const EvaluationViewer = () => {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    if (drawMode === "pencil") {
-      ctx.strokeStyle = pencilColor === "green" ? "rgba(34, 197, 94, 0.85)" : "rgba(255, 0, 0, 0.8)";
-      ctx.lineWidth = 2;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.lineTo(x, y);
-      ctx.stroke();
-    } else if (drawMode === "eraser") {
-      ctx.clearRect(x - 20, y - 20, 40, 40);
+    const from = lastDrawPointRef.current;
+    if (!from) {
+      lastDrawPointRef.current = { x, y };
+      return;
     }
+
+    const baseSize = drawMode === "eraser" ? 16 : 2;
+    ctx.globalCompositeOperation = drawMode === "eraser" ? "destination-out" : "source-over";
+    ctx.strokeStyle = drawMode === "eraser" ? "rgba(0,0,0,1)" : pencilColor === "green" ? "rgba(34, 197, 94, 0.85)" : "rgba(255, 0, 0, 0.8)";
+    ctx.lineWidth = getAdaptiveStrokeWidth(baseSize);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+
+    activeStrokeRef.current?.points.push([x, y]);
+    lastDrawPointRef.current = { x, y };
   };
 
   const handleCanvasMouseUp = () => {
     isDrawingRef.current = false;
+    lastDrawPointRef.current = null;
+    const stroke = activeStrokeRef.current;
+    if (stroke && stroke.points.length > 0) {
+      if (!strokesByPageRef.current[activePage]) {
+        strokesByPageRef.current[activePage] = [];
+      }
+      strokesByPageRef.current[activePage].push(stroke);
+    }
+    activeStrokeRef.current = null;
   };
 
   const handleClearCanvas = () => {
@@ -1061,6 +1211,7 @@ const EvaluationViewer = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       // Also remove from stored drawings for this page
       delete drawingsRef.current[activePage];
+      strokesByPageRef.current[activePage] = [];
       removedPersistedPagesRef.current.add(activePage);
     }
   };

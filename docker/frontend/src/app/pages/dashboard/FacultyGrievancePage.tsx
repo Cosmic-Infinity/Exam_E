@@ -204,7 +204,9 @@ const FacultyGrievancePage = () => {
                     </td>
                   </tr>
                 ) : (
-                  sortedItems.map((item) => (
+                  sortedItems.map((item) => {
+                    const canShowCommentAndAction = item.assignment_status === "ASSIGNED_TO_YOU";
+                    return (
                     <tr key={item.id} className="border-b border-border last:border-0 align-top">
                       <td className="px-4 py-3">
                         <div className="font-medium">#{item.id}</div>
@@ -238,25 +240,30 @@ const FacultyGrievancePage = () => {
                         </div>
                       </td>
                       <td className="px-4 py-3 max-w-[360px]">
-                        <p className="line-clamp-3 text-xs text-foreground/90">{item.student_comment}</p>
+                        {canShowCommentAndAction ? <p className="line-clamp-3 text-xs text-foreground/90">{item.student_comment}</p> : <span className="text-xs text-muted-foreground">-</span>}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <div className="inline-flex gap-2">
-                          <button type="button" onClick={() => handleReview(item)} className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">
-                            Review
-                          </button>
-                          <button
-                            type="button"
-                            disabled={rejectingId === item.id || !item.can_resolve}
-                            onClick={() => handleReject(item)}
-                            className="rounded-md border border-destructive/50 px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-60 disabled:cursor-not-allowed"
-                          >
-                            Reject
-                          </button>
-                        </div>
+                        {canShowCommentAndAction ? (
+                          <div className="inline-flex gap-2">
+                            <button type="button" onClick={() => handleReview(item)} className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">
+                              Review
+                            </button>
+                            <button
+                              type="button"
+                              disabled={rejectingId === item.id || !item.can_resolve}
+                              onClick={() => handleReject(item)}
+                              className="rounded-md border border-destructive/50 px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>

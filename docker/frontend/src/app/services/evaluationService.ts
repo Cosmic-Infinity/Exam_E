@@ -133,6 +133,14 @@ export type FacultyGrievanceStats = {
   }>;
 };
 
+type TeacherPaperMarkingDetailResponse = {
+  paper_id: number;
+  page_index: number;
+  markings: unknown | null;
+  updated_by: number | null;
+  updated_at: string | null;
+};
+
 type PaperMeta = {
   id: string;
   rollNo: string;
@@ -536,6 +544,17 @@ export async function rejectGrievance(rollNo: string, subjectCode: string, griev
   }
 
   await decideFacultyGrievance(resolvedGrievanceId, { status: "REJECTED" });
+}
+
+export async function getTeacherPaperMarkings(paperId: string | number, pageIndex: number): Promise<unknown | null> {
+  const response = (await AuthService.get(`/teacher/paper/${paperId}/markings/${pageIndex}/`)) as TeacherPaperMarkingDetailResponse;
+  return response?.markings ?? null;
+}
+
+export async function saveTeacherPaperMarkings(paperId: string | number, pageIndex: number, markings: unknown): Promise<void> {
+  await AuthService.put(`/teacher/paper/${paperId}/markings/${pageIndex}/`, {
+    markings,
+  });
 }
 
 /** Student results from backend (no hardcoded subjects) */

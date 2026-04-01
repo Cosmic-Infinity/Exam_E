@@ -133,6 +133,7 @@ class FacultyGrievanceListSerializer(serializers.ModelSerializer):
     original_faculty_name = serializers.SerializerMethodField()
     assigned_faculty_id = serializers.IntegerField(read_only=True, allow_null=True)
     assigned_faculty_name = serializers.SerializerMethodField()
+    student_comment = serializers.SerializerMethodField()
     grievance_type = serializers.SerializerMethodField()
     grievance_type_label = serializers.SerializerMethodField()
     assignment_status = serializers.SerializerMethodField()
@@ -211,10 +212,35 @@ class FacultyGrievanceListSerializer(serializers.ModelSerializer):
         assigned = getattr(obj, 'assigned_faculty', None)
         return getattr(assigned, 'full_name', None)
 
+    def _can_view_details(self, obj):
+        user = getattr(self.context.get('request'), 'user', None)
+        if not user or not user.is_authenticated:
+            return False
+
+        if user.role == 'CONTROLLER':
+            return True
+
+        if obj.assigned_faculty_id == user.id:
+            return True
+
+        allocation = self._allocation(obj)
+        course = getattr(allocation, 'course', None) if allocation else None
+        coordinator_id = getattr(course, 'coordinator_id', None) if course else None
+        return bool(user.role == 'TEACHER' and coordinator_id == user.id)
+
+    def get_student_comment(self, obj):
+        if self._can_view_details(obj):
+            return obj.student_comment
+        return None
+
     def get_grievance_type(self, obj):
+        if not self._can_view_details(obj):
+            return None
         return getattr(obj, 'grievance_type', Grievance.GRIEVANCE_TYPE_GENERAL)
 
     def get_grievance_type_label(self, obj):
+        if not self._can_view_details(obj):
+            return None
         return getattr(obj, 'grievance_type_label', 'General Grievance')
 
     def get_assignment_status(self, obj):

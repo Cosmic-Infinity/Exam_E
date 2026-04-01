@@ -22,6 +22,40 @@ from core.services.paper_markings import (
     write_page_markings,
 )
 
+
+def _is_grievance_super_viewer(user):
+    return bool(user and user.is_authenticated and user.role == 'CONTROLLER')
+
+
+def _grievance_visibility_q(user):
+    """
+    Visibility scope for grievance list/stats.
+    - Controller: all grievances.
+    - Teacher: own section OR explicitly assigned OR coordinated courses.
+    """
+    if _is_grievance_super_viewer(user):
+        return Q()
+
+    visibility_q = Q(paper__exam__allocation__teacher=user) | Q(assigned_faculty=user)
+    if user.role == 'TEACHER':
+        visibility_q |= Q(paper__exam__allocation__course__coordinator=user)
+    return visibility_q
+
+
+def _grievance_detail_q(user):
+    """
+    Scope allowed to view grievance content fields (comment/type).
+    - Controller: all grievances.
+    - Teacher: assigned grievances OR grievances for coordinated courses.
+    """
+    if _is_grievance_super_viewer(user):
+        return Q()
+
+    detail_q = Q(assigned_faculty=user)
+    if user.role == 'TEACHER':
+        detail_q |= Q(paper__exam__allocation__course__coordinator=user)
+    return detail_q
+
 class IsTeacher(permissions.BasePermission):
     """
     Custom permission to only allow teachers or controllers to access the view.
@@ -81,8 +115,8 @@ class TeacherPaperListView(generics.ListAPIView):
             paper_id=OuterRef('pk'),
             status='OPEN',
         ).filter(
-            Q(assigned_faculty=self.request.user)
-            | Q(assigned_faculty__isnull=True)
+            Q(paper__exam__allocation__teacher=self.request.user)
+            | Q(assigned_faculty=self.request.user)
         )
         
         # Security: Ensure the exam belongs to an allocation owned by this teacher
@@ -104,15 +138,19 @@ class TeacherPaperDetailView(generics.RetrieveUpdateAPIView):
     queryset = ExamPaper.objects.all()
 
     def get_queryset(self):
-        latest_open_grievance = Grievance.objects.filter(
+        visible_open_grievance = Grievance.objects.filter(
             paper_id=OuterRef('pk'),
             status='OPEN',
         ).filter(
-            Q(assigned_faculty=self.request.user)
-            | Q(
-                assigned_faculty__isnull=True,
-                paper__exam__allocation__teacher=self.request.user,
-            )
+            Q(paper__exam__allocation__teacher=self.request.user)
+            | Q(assigned_faculty=self.request.user)
+        )
+
+        detail_open_grievance = Grievance.objects.filter(
+            paper_id=OuterRef('pk'),
+            status='OPEN',
+        ).filter(
+            _grievance_detail_q(self.request.user)
         ).order_by('-id')
 
         # Access either own-section papers or papers from other sections explicitly assigned to this faculty.
@@ -120,9 +158,9 @@ class TeacherPaperDetailView(generics.RetrieveUpdateAPIView):
             Q(exam__allocation__teacher=self.request.user)
             | Q(grievance__assigned_faculty=self.request.user)
         ).select_related('exam', 'enrollment__student').annotate(
-            has_grievance=Exists(latest_open_grievance),
-            grievance_text=Subquery(latest_open_grievance.values('student_comment')[:1]),
-            grievance_date=Subquery(latest_open_grievance.values('id')[:1]),
+            has_grievance=Exists(visible_open_grievance),
+            grievance_text=Subquery(detail_open_grievance.values('student_comment')[:1]),
+            grievance_date=Subquery(detail_open_grievance.values('id')[:1]),
         ).distinct()
 
 
@@ -315,22 +353,25 @@ class TeacherGrievanceListView(generics.ListAPIView):
 
         base_qs = Grievance.objects.filter(status='OPEN').select_related(
             'paper__enrollment__student',
-            'paper__exam__allocation__course',
+            'paper__exam__allocation__course__coordinator',
             'paper__exam__allocation__teacher',
             'assigned_faculty',
         )
 
         my_section_qs = base_qs.filter(paper__exam__allocation__teacher=user)
-        other_section_qs = base_qs.filter(assigned_faculty=user).exclude(paper__exam__allocation__teacher=user)
+        if _is_grievance_super_viewer(user):
+            visible_qs = base_qs
+        else:
+            visible_qs = base_qs.filter(_grievance_visibility_q(user)).distinct()
+
+        other_section_qs = visible_qs.exclude(paper__exam__allocation__teacher=user)
 
         if grievance_filter == 'my_section':
             return my_section_qs.order_by('-id')
         if grievance_filter == 'other_section':
             return other_section_qs.order_by('-id')
 
-        return base_qs.filter(
-            Q(paper__exam__allocation__teacher=user) | Q(assigned_faculty=user)
-        ).distinct().order_by('-id')
+        return visible_qs.order_by('-id')
 
 
 class TeacherGrievanceDecisionView(APIView):
@@ -405,14 +446,15 @@ class TeacherGrievanceStatsView(APIView):
     def get(self, request):
         user = request.user
 
-        visible_qs = Grievance.objects.filter(
-            Q(paper__exam__allocation__teacher=user) | Q(assigned_faculty=user)
-        )
-        my_section_qs = Grievance.objects.filter(paper__exam__allocation__teacher=user)
+        if _is_grievance_super_viewer(user):
+            visible_qs = Grievance.objects.all()
+        else:
+            visible_qs = Grievance.objects.filter(_grievance_visibility_q(user)).distinct()
+
         assigned_to_me_qs = Grievance.objects.filter(assigned_faculty=user)
 
         section_rows = (
-            my_section_qs.values('paper__exam__allocation__section_name')
+            visible_qs.values('paper__exam__allocation__section_name')
             .annotate(
                 total=Count('id'),
                 open=Count('id', filter=Q(status='OPEN')),

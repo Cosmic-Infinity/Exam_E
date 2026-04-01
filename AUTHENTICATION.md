@@ -210,14 +210,14 @@ class IsController(BasePermission):
 
 Statistics and grading require additional authorization based on course assignment.
 
-**[core/api/stats.py - \_get_accessible_courses()](docker/backend/core/api/stats.py#L11-L21)**
+**[core/api/stats.py - \_get_api_accessible_courses()](docker/backend/core/api/stats.py#L11-L21)**
 
 ```python
-def _get_accessible_courses(user):
+def _get_api_accessible_courses(user):
     """
     Returns courses accessible to user for statistics.
     """
-  if user.role == 'CONTROLLER' or (user.is_authenticated and user.is_staff):
+  if user.role == 'CONTROLLER':
         return Course.objects.all()  # See all courses
     elif user.role == 'TEACHER':
         # Only courses where this teacher is the coordinator
@@ -234,7 +234,7 @@ def _get_accessible_courses(user):
   - Can only view statistics for courses they explicitly coordinate
   - If assigned to teach specific courses, can grade those papers
 - **STUDENT** → No courses → No statistics access
-- **DJANGO ADMIN (`is_staff`)** → ALL courses in admin statistics dashboard and admin stats APIs
+- **DJANGO ADMIN (`is_staff`)** → Admin statistics dashboard and admin stats APIs only (`/admin/stats/*`)
 
 ---
 
@@ -268,6 +268,11 @@ All require `[IsAuthenticated, IsTeacher]`
 
 **Security**:
 - Paper access remains filtered by `exam__allocation__teacher = request.user`.
+- Grievance list visibility is role-scoped:
+  - TEACHER: own sections + grievances assigned to them.
+  - TEACHER (course coordinator): all sections for coordinated courses.
+  - CONTROLLER: all sections for all courses.
+- Grievance content fields (`student_comment`, `grievance_type`, `grievance_type_label`) are returned only for assigned faculty, course coordinators of that course, or controller.
 - Grievance decisions are allowed only for assigned faculty.
 
 \*For CONTROLLERs, this shows courses where they are directly assigned as a teacher via `CourseAllocation.teacher`, separate from their global oversight access to all courses' statistics.
@@ -292,11 +297,11 @@ All require `[IsAuthenticated, CanAccessStatistics]` + course access checks for 
 
 | Endpoint                     | Method |        Role(s)         |          Scope          |
 | ---------------------------- | :----: | :--------------------: | :---------------------: |
-| `/api/stats/dashboard/data/` |  GET   | TEACHER\* / CONTROLLER / ADMIN | Accessible courses list |
-| `/api/stats/subjects/`       |  GET   | TEACHER\* / CONTROLLER / ADMIN |     Course catalog      |
-| `/api/stats/sections/`       |  GET   | TEACHER\* / CONTROLLER / ADMIN |     Course sections     |
-| `/api/stats/grievances/`     |  GET   | TEACHER\* / CONTROLLER / ADMIN |    Grievance metrics    |
-| `/api/stats/scores/`         |  GET   | TEACHER\* / CONTROLLER / ADMIN |   Score distribution    |
+| `/api/stats/dashboard/data/` |  GET   | TEACHER\* / CONTROLLER | Accessible courses list |
+| `/api/stats/subjects/`       |  GET   | TEACHER\* / CONTROLLER |     Course catalog      |
+| `/api/stats/sections/`       |  GET   | TEACHER\* / CONTROLLER |     Course sections     |
+| `/api/stats/grievances/`     |  GET   | TEACHER\* / CONTROLLER |    Grievance metrics    |
+| `/api/stats/scores/`         |  GET   | TEACHER\* / CONTROLLER |   Score distribution    |
 
 \*TEACHER must be course coordinator
 
@@ -305,6 +310,10 @@ Admin dashboard endpoints (Django admin only):
 - `/admin/stats/api/grievances/`
 - `/admin/stats/api/scores/`
 - `/admin/stats/api/students/`
+
+Isolation guarantee:
+- `/admin/stats/*` endpoints are staff-session endpoints for Django Admin.
+- `/api/stats/*` endpoints are frontend application-role endpoints (`CONTROLLER` or coordinator `TEACHER`) and do not reuse admin-only authorization.
 
 ---
 

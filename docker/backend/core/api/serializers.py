@@ -40,7 +40,7 @@ class UserMeSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'university_id', 'full_name', 'email', 'role',
-                  'is_active', 'is_staff', 'date_joined', 'is_course_coordinator', 'is_controller']
+                  'is_active', 'date_joined', 'is_course_coordinator', 'is_controller']
         read_only_fields = fields
 
     def get_is_course_coordinator(self, obj):

@@ -77,7 +77,6 @@ Returns the profile information of the currently authenticated user.
     "email": "admin@kiit.ac.in",
     "role": "TEACHER",
     "is_active": true,
-    "is_staff": true,
     "date_joined": "2026-02-20T12:00:00Z",
     "is_course_coordinator": false,
     "is_controller": false
@@ -336,11 +335,25 @@ Stored file location pattern:
 
 ### `GET /api/teacher/grievances/?filter={my_section|other_section|all}`
 
-Returns OPEN grievances visible to the logged-in faculty.
+Returns OPEN grievances visible to the logged-in faculty/controller.
 
-- `my_section`: grievances raised on papers from sections taught by the faculty.
-- `other_section`: grievances assigned to the faculty from other sections.
-- `all`: union of both.
+- `my_section`: grievances raised on papers from sections taught by the logged-in user.
+- `other_section`: visible grievances outside sections taught by the logged-in user.
+- `all`: union of all grievances visible to the logged-in user.
+
+Visibility rules:
+
+- `TEACHER` (non-coordinator): can list grievances from own sections and grievances explicitly assigned to them.
+- `TEACHER` (course coordinator): can also list grievances from all sections of coordinated courses.
+- `CONTROLLER`: can list grievances across all courses and sections.
+
+Detail-field rules:
+
+- `student_comment`, `grievance_type`, `grievance_type_label` are visible only to:
+  - assigned faculty,
+  - course coordinator of that grievance's course,
+  - controller.
+- For other visible users, those fields are returned as `null`.
 
 - **Auth Required**: Yes
 - **Role Required**: `TEACHER` or `CONTROLLER`
@@ -371,7 +384,9 @@ Returns OPEN grievances visible to the logged-in faculty.
 
 ### `GET /api/teacher/grievances/stats/`
 
-Returns faculty grievance summary cards and section-wise load distribution.
+Returns grievance summary cards and section-wise load distribution for the user's visibility scope.
+
+Visibility scope follows the same rules as `GET /api/teacher/grievances/`.
 
 - **Auth Required**: Yes
 - **Role Required**: `TEACHER` or `CONTROLLER`
@@ -436,6 +451,8 @@ For rejection:
 
 These APIs power the dashboards for Controllers (global view) and Course Coordinators—TEACHER users with assigned courses (course-specific view).
 
+Isolation note: `/api/stats/*` endpoints are application-role APIs for frontend dashboards. Django admin analytics use separate `/admin/stats/api/*` endpoints and are not routed through frontend stats permission logic.
+
 ### `GET /api/stats/dashboard/data/`
 
 Returns the list of courses accessible to the current user for the dashboard dropdown.
@@ -457,7 +474,7 @@ Returns the list of courses accessible to the current user for the dashboard dro
 Returns a high-level overview of all subjects the user has access to, including checking progress.
 
 - **Auth Required**: Yes
-- **Role Required**: `CONTROLLER` or `TEACHER` (assigned as course coordinator) or Django Admin staff
+- **Role Required**: `CONTROLLER` or `TEACHER` (assigned as course coordinator)
 - **Input**: None
 - **Output (200 OK)**:
   ```json
@@ -480,7 +497,7 @@ Returns a high-level overview of all subjects the user has access to, including 
 Drills down into a specific course to show progress per section.
 
 - **Auth Required**: Yes
-- **Role Required**: `CONTROLLER` or `TEACHER` (assigned as course coordinator) or Django Admin staff
+- **Role Required**: `CONTROLLER` or `TEACHER` (assigned as course coordinator)
 - **Input**: `course_code` (query param)
 - **Output (200 OK)**:
   ```json
@@ -504,7 +521,7 @@ Drills down into a specific course to show progress per section.
 Returns histogram data for score distribution.
 
 - **Auth Required**: Yes
-- **Role Required**: `CONTROLLER` or `TEACHER` (assigned as course coordinator) or Django Admin staff
+- **Role Required**: `CONTROLLER` or `TEACHER` (assigned as course coordinator)
 - **Input**: `course_code` (optional query param)
 - **Output (200 OK)**:
   ```json
@@ -520,7 +537,7 @@ Returns histogram data for score distribution.
 Returns grievance statistics.
 
 - **Auth Required**: Yes
-- **Role Required**: `CONTROLLER` or `TEACHER` (assigned as course coordinator) or Django Admin staff
+- **Role Required**: `CONTROLLER` or `TEACHER` (assigned as course coordinator)
 - **Input**: `course_code` (optional query param)
 - **Output (200 OK)**:
   ```json
@@ -825,7 +842,9 @@ Returns grievance history for the logged-in student.
 
 ## 5. Analytics & Statistics APIs
 
-These endpoints provide data for the dashboard visualizations. They are primarily designed for the Admin/Staff dashboard but can be consumed by the frontend for course coordinator views.
+These endpoints provide data for frontend dashboard visualizations for application roles.
+
+Note: Django admin/staff statistics are isolated to `/admin/stats/*` endpoints and are not mixed with `/api/stats/*` role checks.
 
 Students are explicitly denied from all `/api/stats/*` endpoints and will receive `403 Forbidden`.
 
@@ -887,7 +906,7 @@ Returns sections for a specific course with their evaluation progress.
 
 Returns grievance statistics.
 
-- **Auth**: `CONTROLLER` or `TEACHER` (if course coordinator) or Django Admin staff.
+- **Auth**: `CONTROLLER` or `TEACHER` (if course coordinator).
 - **Query Params**: `course_code` (Optional. If omitted, returns aggregate of all accessible courses).
 - **Output**:
   ```json
@@ -902,7 +921,7 @@ Returns grievance statistics.
 
 Returns score distribution histograms.
 
-- **Auth**: `CONTROLLER` or `TEACHER` (if course coordinator) or Django Admin staff.
+- **Auth**: `CONTROLLER` or `TEACHER` (if course coordinator).
 - **Query Params**: `course_code` (Optional).
 - **Output**:
   ```json
@@ -917,7 +936,7 @@ Returns score distribution histograms.
 
 Drill down to see students in a specific score range.
 
-- **Auth**: `CONTROLLER` or `TEACHER` (if course coordinator) or Django Admin staff.
+- **Auth**: `CONTROLLER` or `TEACHER` (if course coordinator).
 - **Query Params**: `course_code`, `min`, `max`.
 - **Output**:
   ```json

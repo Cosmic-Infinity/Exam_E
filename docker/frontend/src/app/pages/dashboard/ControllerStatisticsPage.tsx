@@ -38,6 +38,9 @@ const ControllerStatisticsPage = () => {
     new Map()
   );
 
+  const formatSemesterLabel = (semester: number) =>
+    semester === 0 ? "Data not available" : `Semester ${semester}`;
+
   // Fetch and set permission flags from backend role on mount
   useEffect(() => {
     if (user?.backendRole) {
@@ -206,7 +209,7 @@ const ControllerStatisticsPage = () => {
             Semesters
           </button>
 
-          {selectedSemester && (
+          {selectedSemester !== null && (
             <>
               <span className="text-muted-foreground">/</span>
               <button
@@ -220,7 +223,7 @@ const ControllerStatisticsPage = () => {
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                Semester {selectedSemester}
+                {formatSemesterLabel(selectedSemester)}
               </button>
             </>
           )}
@@ -260,7 +263,7 @@ const ControllerStatisticsPage = () => {
                 className="rounded-xl border border-border bg-card p-6 hover:bg-card/80 hover:border-primary transition-all text-left"
               >
                 <h3 className="text-lg font-semibold text-foreground mb-2">
-                  Semester {semester.semester}
+                  {formatSemesterLabel(semester.semester)}
                 </h3>
                 <div className="space-y-1 text-sm">
                   <p className="text-muted-foreground">
@@ -279,12 +282,12 @@ const ControllerStatisticsPage = () => {
         )}
 
         {/* View: Subjects */}
-        {!loading && viewLevel === "subjects" && selectedSemester && (
+        {!loading && viewLevel === "subjects" && selectedSemester !== null && (
           <>
             <div className="rounded-xl border border-border bg-card overflow-hidden">
               <div className="px-5 py-4 border-b border-border">
                 <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">
-                  Subjects - Semester {selectedSemester}
+                  Subjects - {formatSemesterLabel(selectedSemester)}
                 </h2>
               </div>
 
@@ -327,7 +330,7 @@ const ControllerStatisticsPage = () => {
                           {subject.courseTitle}
                         </td>
                         <td className="px-5 py-3 text-center text-muted-foreground">
-                          {subject.sectionsCount}
+                          {subject.sectionsCount ?? "Data not available"}
                         </td>
                         <td className="px-5 py-3 text-center text-muted-foreground">
                           {subject.totalStudents}
@@ -408,9 +411,15 @@ const ControllerStatisticsPage = () => {
                           </span>
                         </td>
                         <td className="px-5 py-3 text-center">
-                          <span className="inline-flex items-center rounded-md bg-success/10 px-2.5 py-1 text-xs font-medium text-success">
-                            {section.markingProgress}/{section.totalStudents}
-                          </span>
+                          {section.markingProgressAvailable ? (
+                            <span className="inline-flex items-center rounded-md bg-success/10 px-2.5 py-1 text-xs font-medium text-success">
+                              {section.markingProgress}/{section.totalStudents}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center rounded-md bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                              Data not available
+                            </span>
+                          )}
                         </td>
                         <td className="px-5 py-3 text-center">
                           <span className="inline-flex items-center rounded-md bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
@@ -503,34 +512,40 @@ const ControllerStatisticsPage = () => {
                       <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                         Marking Progress
                       </h4>
-                      <div className="flex items-end gap-2">
-                        <span className="text-3xl font-bold text-success">
-                          {sectionDetailsMap.get(expandedSection)?.markingProgress || 0}
-                        </span>
-                        <span className="text-sm text-muted-foreground mb-1">
-                          / {sectionDetailsMap.get(expandedSection)?.totalStudents || 0}
-                        </span>
-                      </div>
-                      <div className="mt-3 h-2 rounded-full bg-success/20">
-                        <div
-                          className="h-full rounded-full bg-success transition-all"
-                          style={{
-                            width: `${
+                      {sectionDetailsMap.get(expandedSection)?.markingProgressAvailable ? (
+                        <>
+                          <div className="flex items-end gap-2">
+                            <span className="text-3xl font-bold text-success">
+                              {sectionDetailsMap.get(expandedSection)?.markingProgress || 0}
+                            </span>
+                            <span className="text-sm text-muted-foreground mb-1">
+                              / {sectionDetailsMap.get(expandedSection)?.totalStudents || 0}
+                            </span>
+                          </div>
+                          <div className="mt-3 h-2 rounded-full bg-success/20">
+                            <div
+                              className="h-full rounded-full bg-success transition-all"
+                              style={{
+                                width: `${
+                                  ((sectionDetailsMap.get(expandedSection)?.markingProgress || 0) /
+                                    (sectionDetailsMap.get(expandedSection)?.totalStudents || 1)) *
+                                  100
+                                }%`,
+                              }}
+                            ></div>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            {Math.round(
                               ((sectionDetailsMap.get(expandedSection)?.markingProgress || 0) /
                                 (sectionDetailsMap.get(expandedSection)?.totalStudents || 1)) *
-                              100
-                            }%`,
-                          }}
-                        ></div>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        {Math.round(
-                          ((sectionDetailsMap.get(expandedSection)?.markingProgress || 0) /
-                            (sectionDetailsMap.get(expandedSection)?.totalStudents || 1)) *
-                            100
-                        )}
-                        % complete
-                      </p>
+                                100
+                            )}
+                            % complete
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-sm text-muted-foreground mt-6">Data not available</p>
+                      )}
                     </div>
 
                     {/* Grievances */}
@@ -559,51 +574,55 @@ const ControllerStatisticsPage = () => {
                           Grievance Details
                         </h4>
                       </div>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b border-border">
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
-                                Student ID
-                              </th>
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
-                                Student Name
-                              </th>
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
-                                Roll No
-                              </th>
-                              <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
-                                Grievance Type
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {(sectionDetailsMap.get(expandedSection)?.grievanceDetails || []).map(
-                              (grievance) => (
-                                <tr
-                                  key={grievance.studentId}
-                                  className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
-                                >
-                                  <td className="px-4 py-2 font-mono text-foreground">
-                                    {grievance.studentId}
-                                  </td>
-                                  <td className="px-4 py-2 text-foreground">
-                                    {grievance.studentName}
-                                  </td>
-                                  <td className="px-4 py-2 font-mono text-muted-foreground">
-                                    {grievance.rollNo}
-                                  </td>
-                                  <td className="px-4 py-2">
-                                    <span className="inline-flex items-center rounded-md bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
-                                      {grievance.grievanceType}
-                                    </span>
-                                  </td>
-                                </tr>
-                              )
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
+                      {sectionDetailsMap.get(expandedSection)?.grievanceDetailsAvailable ? (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-border">
+                                <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
+                                  Student ID
+                                </th>
+                                <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
+                                  Student Name
+                                </th>
+                                <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
+                                  Roll No
+                                </th>
+                                <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
+                                  Grievance Type
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(sectionDetailsMap.get(expandedSection)?.grievanceDetails || []).map(
+                                (grievance) => (
+                                  <tr
+                                    key={grievance.studentId}
+                                    className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
+                                  >
+                                    <td className="px-4 py-2 font-mono text-foreground">
+                                      {grievance.studentId}
+                                    </td>
+                                    <td className="px-4 py-2 text-foreground">
+                                      {grievance.studentName}
+                                    </td>
+                                    <td className="px-4 py-2 font-mono text-muted-foreground">
+                                      {grievance.rollNo}
+                                    </td>
+                                    <td className="px-4 py-2">
+                                      <span className="inline-flex items-center rounded-md bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
+                                        {grievance.grievanceType}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                )
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="p-4 text-sm text-muted-foreground">Data not available</div>
+                      )}
                     </div>
                   )}
                 </div>

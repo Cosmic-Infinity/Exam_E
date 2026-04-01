@@ -16,7 +16,7 @@ export interface SubjectData {
   courseCode: string;
   courseTitle: string;
   semester: number;
-  sectionsCount: number;
+  sectionsCount: number | null;
   totalStudents: number;
   totalGrievances: number;
 }
@@ -25,10 +25,22 @@ export interface SectionStatistics {
   sectionName: string;
   totalStudents: number;
   checkingProgress: number; // Papers in IN_PROGRESS status
-  markingProgress: number; // Papers in COMPLETED status
+  markingProgress: number | null; // Backend does not provide this on current endpoint
+  markingProgressAvailable?: boolean;
   pendingProgress: number; // Papers in PENDING status
   grievanceCount: number;
   grievanceDetails: GrievanceDetail[];
+  grievanceDetailsAvailable?: boolean;
+}
+
+const UNKNOWN_SEMESTER = 0;
+
+function parseSemesterFromCourseCode(courseCode: string): number | null {
+  const codeMatch = courseCode.match(/(\d)0\d/);
+  if (!codeMatch) {
+    return null;
+  }
+  return parseInt(codeMatch[1], 10);
 }
 
 export interface GrievanceDetail {
@@ -57,18 +69,12 @@ export async function fetchAllSemesters(): Promise<SemesterData[]> {
 
     const subjects = subjectsResponse.subjects || [];
 
-    // Group subjects by semester (extract from course code pattern or use a default grouping)
-    // For now, we'll use a practical grouping based on course code patterns
+    // Group subjects by semester derived from course code when possible.
+    // Unknown semester values are grouped under 0 and shown as "Data not available" in UI.
     const semesterMap = new Map<number, SemesterData>();
 
     subjects.forEach((subject) => {
-      // Try to extract semester from course code (e.g., CS301 -> semester 3)
-      // If pattern doesn't match, use default semester assignment
-      let semester = 5; // default semester
-      const codeMatch = subject.course_code.match(/(\d)0\d/);
-      if (codeMatch) {
-        semester = parseInt(codeMatch[1]);
-      }
+      const semester = parseSemesterFromCourseCode(subject.course_code) ?? UNKNOWN_SEMESTER;
 
       if (!semesterMap.has(semester)) {
         semesterMap.set(semester, {
@@ -112,28 +118,37 @@ export async function fetchSubjectsBySemester(semester: number): Promise<Subject
 
     const subjects = subjectsResponse.subjects || [];
 
-    // Filter subjects by semester and convert to SubjectData format
-    const semesterSubjects: SubjectData[] = subjects
-      .map((subject) => {
-        // Extract semester from course code pattern (e.g., CS301 -> semester 3)
-        let detectedSemester = 5; // default
-        const codeMatch = subject.course_code.match(/(\d)0\d/);
-        if (codeMatch) {
-          detectedSemester = parseInt(codeMatch[1]);
+    const filteredSubjects = subjects
+      .map((subject) => ({
+        raw: subject,
+        detectedSemester: parseSemesterFromCourseCode(subject.course_code) ?? UNKNOWN_SEMESTER,
+      }))
+      .filter((s) => s.detectedSemester === semester);
+
+    const subjectsWithSections = await Promise.all(
+      filteredSubjects.map(async ({ raw, detectedSemester }) => {
+        let sectionsCount: number | null = null;
+        try {
+          const sectionResp = (await AuthService.get(
+            `/stats/sections/?course_code=${encodeURIComponent(raw.course_code)}`
+          )) as { sections?: Array<unknown> };
+          sectionsCount = Array.isArray(sectionResp.sections) ? sectionResp.sections.length : null;
+        } catch {
+          sectionsCount = null;
         }
 
         return {
-          courseCode: subject.course_code,
-          courseTitle: subject.title,
+          courseCode: raw.course_code,
+          courseTitle: raw.title,
           semester: detectedSemester,
-          sectionsCount: 3, // Default assumption, could be enhanced with actual data
-          totalStudents: subject.total_students,
-          totalGrievances: subject.grievances,
+          sectionsCount,
+          totalStudents: raw.total_students,
+          totalGrievances: raw.grievances,
         };
       })
-      .filter((s) => s.semester === semester);
+    );
 
-    return semesterSubjects;
+    return subjectsWithSections;
   } catch (error) {
     console.error("Error fetching subjects:", error);
     throw new Error(`Failed to fetch subjects for semester ${semester}`);
@@ -161,14 +176,16 @@ export async function fetchSectionsByCourse(courseCode: string): Promise<Section
     });
 
     // Transform sections response to SectionStatistics format
-    const sectionStatistics: SectionStatistics[] = sections.map((section: any) => ({
-      sectionName: section.section_name || `Section ${String.fromCharCode(65 + sections.indexOf(section))}`,
+    const sectionStatistics: SectionStatistics[] = sections.map((section: any, index: number) => ({
+      sectionName: section.section_name || `Data not available (${index + 1})`,
       totalStudents: section.total_students || 0,
       checkingProgress: section.checked || 0,
-      markingProgress: section.checked || 0, // reusing checked as marking progress
+      markingProgress: null,
+      markingProgressAvailable: false,
       pendingProgress: section.pending || 0,
       grievanceCount: grievanceMap.get(section.section_name) || section.grievances || 0,
       grievanceDetails: [],
+      grievanceDetailsAvailable: false,
     }));
 
     return sectionStatistics;

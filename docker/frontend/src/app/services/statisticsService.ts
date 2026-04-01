@@ -5,10 +5,12 @@ export interface SectionStatistics {
   teacherName: string;
   totalStudents: number;
   checkingProgress: number;
-  markingProgress: number;
+  markingProgress: number | null;
+  markingProgressAvailable?: boolean;
   pendingProgress: number;
   grievanceCount: number;
   grievanceDetails: GrievanceDetail[];
+  grievanceDetailsAvailable?: boolean;
 }
 
 export interface GrievanceDetail {
@@ -43,18 +45,21 @@ export async function fetchCourseStatistics(courseCode: string): Promise<CourseS
 
   const sections: SectionStatistics[] = (sectionData.sections || []).map((s) => ({
     sectionName: s.section_name,
-    teacherName: s.teacher__full_name || "Unassigned",
+    teacherName: s.teacher__full_name || "Data not available",
     totalStudents: Number(s.total_students ?? 0),
     checkingProgress: Number(s.checked ?? 0),
-    markingProgress: Number(s.checked ?? 0), // keep same visual bucket semantics currently used in UI
+    // Backend does not provide a dedicated "marked" metric on this endpoint.
+    markingProgress: null,
+    markingProgressAvailable: false,
     pendingProgress: Number(s.pending ?? 0),
     grievanceCount: Number(s.grievances ?? 0),
     grievanceDetails: [],
+    grievanceDetailsAvailable: false,
   }));
 
   return {
     courseCode,
-    courseTitle: courseCode,
+    courseTitle: "Data not available",
     sections,
   };
 }

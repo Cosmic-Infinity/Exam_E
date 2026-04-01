@@ -21,6 +21,11 @@ const ControllerStatisticsMobile = () => {
   const [selectedSemester, setSelectedSemester] = useState<number | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<SubjectData | null>(null);
 
+  const formatSemesterLabel = (semester: number | null) => {
+    if (semester === null) return "Data not available";
+    return semester === 0 ? "Data not available" : `Semester ${semester}`;
+  };
+
   useEffect(() => {
     if (!user?.isController) {
       navigate("/dashboard/faculty");
@@ -102,7 +107,7 @@ const ControllerStatisticsMobile = () => {
       <header className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur px-4 py-3 flex items-center justify-between gap-2">
         <div>
           <h1 className="text-sm font-semibold">Controller Statistics</h1>
-          <p className="text-[11px] text-muted-foreground">{view === "semesters" ? "Semester view" : view === "subjects" ? `Semester ${selectedSemester}` : selectedSubject?.courseCode}</p>
+          <p className="text-[11px] text-muted-foreground">{view === "semesters" ? "Semester view" : view === "subjects" ? formatSemesterLabel(selectedSemester) : selectedSubject?.courseCode}</p>
         </div>
         <div className="flex items-center gap-2">
           {view !== "semesters" && <button onClick={handleBack} className="rounded-md border border-border px-2 py-1.5 text-xs">Back</button>}
@@ -123,7 +128,7 @@ const ControllerStatisticsMobile = () => {
 
         {!loading && view === "semesters" && semesters.map((semester) => (
           <button key={semester.semester} onClick={() => openSemester(semester.semester)} className="w-full text-left rounded-xl border border-border bg-card p-3">
-            <p className="font-semibold">Semester {semester.semester}</p>
+            <p className="font-semibold">{formatSemesterLabel(semester.semester)}</p>
             <p className="text-xs text-muted-foreground mt-1">Courses: {semester.totalCourses} • Students: {semester.totalStudents}</p>
           </button>
         ))}
@@ -132,7 +137,7 @@ const ControllerStatisticsMobile = () => {
           <button key={subject.courseCode} onClick={() => openSubject(subject)} className="w-full text-left rounded-xl border border-border bg-card p-3">
             <p className="font-mono text-primary text-sm font-semibold">{subject.courseCode}</p>
             <p className="text-sm">{subject.courseTitle}</p>
-            <p className="text-xs text-muted-foreground mt-1">Sections: {subject.sectionsCount} • Students: {subject.totalStudents} • Grievances: {subject.totalGrievances}</p>
+            <p className="text-xs text-muted-foreground mt-1">Sections: {subject.sectionsCount ?? "Data not available"} • Students: {subject.totalStudents} • Grievances: {subject.totalGrievances}</p>
           </button>
         ))}
 
@@ -142,7 +147,7 @@ const ControllerStatisticsMobile = () => {
             <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
               <p>Total: <span className="font-semibold">{section.totalStudents}</span></p>
               <p>Checking: <span className="font-semibold text-primary">{section.checkingProgress}</span></p>
-              <p>Marked: <span className="font-semibold text-success">{section.markingProgress}</span></p>
+              <p>Marked: <span className="font-semibold text-success">{section.markingProgressAvailable ? section.markingProgress : "Data not available"}</span></p>
               <p>Pending: <span className="font-semibold text-warning">{section.pendingProgress}</span></p>
             </div>
           </article>

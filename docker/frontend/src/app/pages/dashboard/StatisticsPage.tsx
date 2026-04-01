@@ -691,45 +691,49 @@ const StatisticsPage = () => {
                       Grievance Details
                     </h4>
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-border">
-                          <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
-                            Student ID
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
-                            Student Name
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
-                            Grievance Type
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(sectionDetailsMap.get(expandedSection)?.grievanceDetails || []).map(
-                          (grievance) => (
-                            <tr
-                              key={grievance.studentId}
-                              className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
-                            >
-                              <td className="px-4 py-2 font-mono text-foreground">
-                                {grievance.studentId}
-                              </td>
-                              <td className="px-4 py-2 text-foreground">
-                                {grievance.studentName}
-                              </td>
-                              <td className="px-4 py-2">
-                                <span className="inline-flex items-center rounded-md bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
-                                  {grievance.grievanceType}
-                                </span>
-                              </td>
-                            </tr>
-                          )
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                  {sectionDetailsMap.get(expandedSection)?.grievanceDetailsAvailable ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border">
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
+                              Student ID
+                            </th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
+                              Student Name
+                            </th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
+                              Grievance Type
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(sectionDetailsMap.get(expandedSection)?.grievanceDetails || []).map(
+                            (grievance) => (
+                              <tr
+                                key={grievance.studentId}
+                                className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
+                              >
+                                <td className="px-4 py-2 font-mono text-foreground">
+                                  {grievance.studentId}
+                                </td>
+                                <td className="px-4 py-2 text-foreground">
+                                  {grievance.studentName}
+                                </td>
+                                <td className="px-4 py-2">
+                                  <span className="inline-flex items-center rounded-md bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
+                                    {grievance.grievanceType}
+                                  </span>
+                                </td>
+                              </tr>
+                            )
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="p-4 text-sm text-muted-foreground">Data not available</div>
+                  )}
                 </div>
               )}
             </div>

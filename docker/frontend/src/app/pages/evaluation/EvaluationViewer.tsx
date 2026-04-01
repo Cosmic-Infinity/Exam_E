@@ -296,7 +296,9 @@ const EvaluationViewer = () => {
   const roleParam = searchParams.get("role");
   const role = roleParam === "faculty" ? "faculty" : "student";
   const mode = searchParams.get("mode") || "graded";
+  const readOnlyParam = searchParams.get("readOnly");
   const panel = searchParams.get("panel");
+  const paperIdParam = searchParams.get("paper_id");
   const grievanceId = Number(searchParams.get("grievanceId") || "");
   const navigate = useNavigate();
   const { user } = useUserSession();
@@ -305,6 +307,7 @@ const EvaluationViewer = () => {
   const rollNo = role === "faculty" && searchParams.get("roll") ? searchParams.get("roll")! : user?.universityId || "";
 
   const isFaculty = role === "faculty";
+  const isReadOnlyMode = readOnlyParam === "1" || readOnlyParam === "true";
   const isFresh = mode === "fresh";
   const hasGrievance = mode === "grievance";
 
@@ -420,7 +423,7 @@ const EvaluationViewer = () => {
 
     const loadScript = async () => {
       try {
-        const script = await getScript(rollNo, subjectId || "", role);
+        const script = await getScript(rollNo, subjectId || "", role, paperIdParam || undefined);
         if (!active) return;
 
         if (!script) {
@@ -457,7 +460,7 @@ const EvaluationViewer = () => {
     return () => {
       active = false;
     };
-  }, [user, rollNo, subjectId, role, navigate]);
+  }, [user, rollNo, subjectId, role, navigate, paperIdParam]);
 
   const getDrawingsStorageKey = () => {
     const identityPart = currentScript?.id || `${rollNo}:${subjectCode}`;
@@ -761,6 +764,11 @@ const EvaluationViewer = () => {
   };
 
   const handleSaveMarks = () => {
+    if (isReadOnlyMode) {
+      toast.error("Read-only mode: marks cannot be changed from statistics view.");
+      return;
+    }
+
     const persistSavedDrawings = async () => {
       captureCurrentCanvasDrawing();
 
@@ -2010,7 +2018,7 @@ const EvaluationViewer = () => {
                 <div className="px-3 py-2.5 space-y-1.5 shrink-0">
                   <div className="flex items-center justify-between">
                     <h3 className="text-[11px] font-semibold text-foreground uppercase tracking-wider">Marks Breakdown</h3>
-                    {isFaculty && (
+                    {isFaculty && !isReadOnlyMode && (
                       <button
                         onClick={handleSaveMarks}
                         disabled={hasInvalidMarks}
@@ -2022,7 +2030,7 @@ const EvaluationViewer = () => {
                       </button>
                     )}
                   </div>
-                  {isFaculty && (
+                  {isFaculty && !isReadOnlyMode && (
                     <div
                       className={`rounded-md border px-2 py-1 text-[10px] ${hasInvalidMarks ? "border-destructive/40 bg-destructive/10 text-destructive" : "border-border bg-muted/25 text-muted-foreground"}`}
                     >

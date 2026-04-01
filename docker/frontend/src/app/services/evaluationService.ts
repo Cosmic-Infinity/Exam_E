@@ -150,6 +150,32 @@ type PaperMeta = {
 };
 
 const paperMetaCache = new Map<string, PaperMeta>();
+type CacheEntry<T> = {
+  expiresAt: number;
+  value: T;
+};
+
+const FACULTY_GRIEVANCE_CACHE_TTL_MS = 2 * 60 * 1000;
+const facultyGrievanceCache = new Map<string, CacheEntry<unknown>>();
+
+function getFacultyCachedValue<T>(key: string): T | null {
+  const entry = facultyGrievanceCache.get(key) as CacheEntry<T> | undefined;
+  if (!entry || entry.expiresAt <= Date.now()) {
+    return null;
+  }
+  return JSON.parse(JSON.stringify(entry.value)) as T;
+}
+
+function setFacultyCachedValue<T>(key: string, value: T, ttlMs: number = FACULTY_GRIEVANCE_CACHE_TTL_MS): void {
+  facultyGrievanceCache.set(key, {
+    expiresAt: Date.now() + ttlMs,
+    value: JSON.parse(JSON.stringify(value)) as T,
+  } as CacheEntry<unknown>);
+}
+
+function clearFacultyGrievanceCache(): void {
+  facultyGrievanceCache.clear();
+}
 
 function statusToScriptStatus(status: string): "pending" | "graded" {
   return status === "COMPLETED" ? "graded" : "pending";
@@ -230,6 +256,12 @@ function normalizeAssetPath(path?: string): string | undefined {
   if (!trimmed) return undefined;
   if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed;
   return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+}
+
+function normalizeReviewAssetPath(path?: string): string | undefined {
+  const normalized = normalizeAssetPath(path);
+  if (!normalized) return undefined;
+  return normalized.replace("/api/teacher/paper/", "/api/review/paper/");
 }
 
 function buildSectionMarksPayload(raw: unknown, rows: MarksRow[]) {
@@ -350,37 +382,73 @@ export async function getAllScripts(): Promise<AnswerScript[]> {
 }
 
 /** Lookup by roll + subject for viewer compatibility */
-export async function getScript(rollNo: string, subjectCode: string, role: "student" | "faculty" = "student"): Promise<AnswerScript | undefined> {
+export async function getScript(
+  rollNo: string,
+  subjectCode: string,
+  role: "student" | "faculty" = "student",
+  paperId?: string
+): Promise<AnswerScript | undefined> {
+  const detailEndpoint = (id: string | number) => `/review/paper/${id}/`;
+
+  if (role === "faculty" && paperId) {
+    try {
+      const detail = (await AuthService.get(detailEndpoint(paperId))) as TeacherPaperDetail;
+      return {
+        id: String(detail.paper_id),
+        rollNo: detail.student_university_id,
+        subjectCode,
+        subjectName: subjectCode,
+        submissionDate: "",
+        status: statusToScriptStatus(detail.evaluation_status),
+        hasGrievance: Boolean(detail.has_grievance),
+        grievanceText: detail.grievance_text || undefined,
+        grievanceDate: detail.grievance_date ? `Ref #${detail.grievance_date}` : undefined,
+        marks: normalizeMarks(detail.marks_json),
+        question_paper_path: normalizeReviewAssetPath(detail.question_paper_path),
+        answer_key_path: normalizeReviewAssetPath(detail.answer_key_path),
+        question_paper_schema: detail.question_paper_schema,
+        pages: detail.pages ? detail.pages.map((p) => normalizeReviewAssetPath(p)).filter((p): p is string => Boolean(p)) : undefined,
+        marksUnavailable: detail.marks_json === null,
+      };
+    } catch {
+      // fall back to existing discovery flow
+    }
+  }
+
   // 1) Try cached metadata
   const key = cacheKey(rollNo, subjectCode);
   const cached = paperMetaCache.get(key);
   if (cached && role === "faculty") {
-    const detail = (await AuthService.get(`/teacher/paper/${cached.id}/`)) as TeacherPaperDetail;
+    try {
+      const detail = (await AuthService.get(detailEndpoint(cached.id))) as TeacherPaperDetail;
 
-    return {
-      id: String(detail.paper_id),
-      rollNo: detail.student_university_id,
-      subjectCode: cached.subjectCode,
-      subjectName: cached.subjectName || cached.subjectCode,
-      submissionDate: "",
-      status: statusToScriptStatus(detail.evaluation_status),
-      hasGrievance: Boolean(detail.has_grievance),
-      grievanceText: detail.grievance_text || undefined,
-      grievanceDate: detail.grievance_date ? `Ref #${detail.grievance_date}` : undefined,
-      marks: normalizeMarks(detail.marks_json),
-      question_paper_path: normalizeAssetPath(detail.question_paper_path),
-      answer_key_path: normalizeAssetPath(detail.answer_key_path),
-      question_paper_schema: detail.question_paper_schema,
-      pages: detail.pages ? detail.pages.map((p) => normalizeAssetPath(p)).filter((p): p is string => Boolean(p)) : undefined,
-      marksUnavailable: detail.marks_json === null,
-    };
+      return {
+        id: String(detail.paper_id),
+        rollNo: detail.student_university_id,
+        subjectCode: cached.subjectCode,
+        subjectName: cached.subjectName || cached.subjectCode,
+        submissionDate: "",
+        status: statusToScriptStatus(detail.evaluation_status),
+        hasGrievance: Boolean(detail.has_grievance),
+        grievanceText: detail.grievance_text || undefined,
+        grievanceDate: detail.grievance_date ? `Ref #${detail.grievance_date}` : undefined,
+        marks: normalizeMarks(detail.marks_json),
+        question_paper_path: normalizeReviewAssetPath(detail.question_paper_path),
+        answer_key_path: normalizeReviewAssetPath(detail.answer_key_path),
+        question_paper_schema: detail.question_paper_schema,
+        pages: detail.pages ? detail.pages.map((p) => normalizeReviewAssetPath(p)).filter((p): p is string => Boolean(p)) : undefined,
+        marksUnavailable: detail.marks_json === null,
+      };
+    } catch {
+      // Continue to discovery fallback if cached paper is no longer accessible.
+    }
   } // 2) Try teacher discovery only for faculty
   if (role === "faculty") {
     try {
       const teacherScripts = await fetchTeacherScriptsInternal();
       const found = teacherScripts.find((s) => s.rollNo === rollNo && s.subjectCode.toLowerCase() === subjectCode.toLowerCase());
       if (found) {
-        const detail = (await AuthService.get(`/teacher/paper/${found.id}/`)) as TeacherPaperDetail;
+        const detail = (await AuthService.get(detailEndpoint(found.id))) as TeacherPaperDetail;
 
         return {
           id: String(detail.paper_id),
@@ -393,10 +461,10 @@ export async function getScript(rollNo: string, subjectCode: string, role: "stud
           grievanceText: detail.grievance_text || undefined,
           grievanceDate: detail.grievance_date ? `Ref #${detail.grievance_date}` : undefined,
           marks: normalizeMarks(detail.marks_json),
-          question_paper_path: normalizeAssetPath(detail.question_paper_path),
-          answer_key_path: normalizeAssetPath(detail.answer_key_path),
+          question_paper_path: normalizeReviewAssetPath(detail.question_paper_path),
+          answer_key_path: normalizeReviewAssetPath(detail.answer_key_path),
           question_paper_schema: detail.question_paper_schema,
-          pages: detail.pages ? detail.pages.map((p) => normalizeAssetPath(p)).filter((p): p is string => Boolean(p)) : undefined,
+          pages: detail.pages ? detail.pages.map((p) => normalizeReviewAssetPath(p)).filter((p): p is string => Boolean(p)) : undefined,
           marksUnavailable: detail.marks_json === null,
         };
       }
@@ -406,7 +474,7 @@ export async function getScript(rollNo: string, subjectCode: string, role: "stud
       const matchedGrievance = grievanceItems.find((item) => item.student_university_id === rollNo && item.subject_code.toLowerCase() === subjectCode.toLowerCase());
 
       if (matchedGrievance) {
-        const detail = (await AuthService.get(`/teacher/paper/${matchedGrievance.paper_id}/`)) as TeacherPaperDetail;
+        const detail = (await AuthService.get(detailEndpoint(matchedGrievance.paper_id))) as TeacherPaperDetail;
 
         return {
           id: String(detail.paper_id),
@@ -419,10 +487,10 @@ export async function getScript(rollNo: string, subjectCode: string, role: "stud
           grievanceText: detail.grievance_text || undefined,
           grievanceDate: detail.grievance_date ? `Ref #${detail.grievance_date}` : undefined,
           marks: normalizeMarks(detail.marks_json),
-          question_paper_path: normalizeAssetPath(detail.question_paper_path),
-          answer_key_path: normalizeAssetPath(detail.answer_key_path),
+          question_paper_path: normalizeReviewAssetPath(detail.question_paper_path),
+          answer_key_path: normalizeReviewAssetPath(detail.answer_key_path),
           question_paper_schema: detail.question_paper_schema,
-          pages: detail.pages ? detail.pages.map((p) => normalizeAssetPath(p)).filter((p): p is string => Boolean(p)) : undefined,
+          pages: detail.pages ? detail.pages.map((p) => normalizeReviewAssetPath(p)).filter((p): p is string => Boolean(p)) : undefined,
           marksUnavailable: detail.marks_json === null,
         };
       }
@@ -483,6 +551,8 @@ export async function submitGrievance(_rollNo: string, subjectCode: string, text
     paper: paper.paper_id,
     student_comment: text,
   });
+
+  clearFacultyGrievanceCache();
 }
 
 export async function getStudentGrievancesBySubject(subjectCode: string): Promise<StudentGrievanceItem[]> {
@@ -494,11 +564,15 @@ export async function getStudentGrievancesBySubject(subjectCode: string): Promis
 
 export async function getFacultyGrievances(filter: FacultyGrievanceFilter): Promise<FacultyGrievanceItem[]> {
   const query = encodeURIComponent(filter);
-  return (await AuthService.get(`/teacher/grievances/?filter=${query}`)) as FacultyGrievanceItem[];
+  const response = (await AuthService.get(`/teacher/grievances/?filter=${query}&_ts=${Date.now()}`)) as FacultyGrievanceItem[];
+  setFacultyCachedValue(`faculty-grievances:${query}`, response);
+  return response;
 }
 
 export async function getFacultyGrievanceStats(): Promise<FacultyGrievanceStats> {
-  return (await AuthService.get("/teacher/grievances/stats/")) as FacultyGrievanceStats;
+  const response = (await AuthService.get(`/teacher/grievances/stats/?_ts=${Date.now()}`)) as FacultyGrievanceStats;
+  setFacultyCachedValue("faculty-grievance-stats", response);
+  return response;
 }
 
 export async function decideFacultyGrievance(
@@ -510,6 +584,7 @@ export async function decideFacultyGrievance(
   },
 ): Promise<void> {
   await AuthService.post(`/teacher/grievances/${grievanceId}/decision/`, payload);
+  clearFacultyGrievanceCache();
 }
 
 /**

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import ThemeToggle from "@/app/components/common/ThemeToggle";
 import { useUserSession } from "@/app/context/UserSessionContext";
+import { getFacultyGrievances, type FacultyGrievanceItem } from "@/app/services/evaluationService";
 import {
   fetchCourseStatistics,
   fetchScoreDistribution,
@@ -143,13 +144,41 @@ const ControllerSubjectStatistics = () => {
 
       try {
         setDataLoading(true);
-        const [stats, scores, studentsResp] = await Promise.all([
+        const [stats, scores, studentsResp, grievanceRows] = await Promise.all([
           fetchCourseStatistics(selectedCourse),
           fetchScoreDistribution(selectedCourse),
-          fetchStudentsInRange(selectedCourse, 0, 100)
+          fetchStudentsInRange(selectedCourse, 0, 100),
+          getFacultyGrievances("all"),
         ]);
+
+        const courseGrievances = grievanceRows.filter(
+          (item: FacultyGrievanceItem) => item.subject_code?.toLowerCase() === selectedCourse.toLowerCase()
+        );
+
+        const grievanceMap = new Map<string, GrievanceDetail[]>();
+        courseGrievances.forEach((item) => {
+          const row: GrievanceDetail = {
+            studentId: item.student_university_id,
+            studentName: item.student_name,
+            grievanceType: item.grievance_type_label || "General",
+            rollNo: item.student_university_id,
+            grievanceComment: item.student_comment || "Data not available",
+          };
+
+          const section = item.section_name || "Data not available";
+          if (!grievanceMap.has(section)) {
+            grievanceMap.set(section, []);
+          }
+          grievanceMap.get(section)?.push(row);
+        });
         
-        setSectionsData(stats.sections);
+        setSectionsData(
+          stats.sections.map((section) => ({
+            ...section,
+            grievanceDetails: grievanceMap.get(section.sectionName) || [],
+            grievanceDetailsAvailable: true,
+          }))
+        );
         setScoreData(scores as any);
         
         const students = (studentsResp as any).students || [];
@@ -206,9 +235,11 @@ const ControllerSubjectStatistics = () => {
         totalStudents: section.totalStudents,
         checkingProgress: section.checkingProgress,
         markingProgress: section.markingProgress,
+        markingProgressAvailable: section.markingProgressAvailable,
         pendingProgress: section.pendingProgress,
         grievanceCount: section.grievanceCount,
         grievanceDetails: section.grievanceDetails || [],
+        grievanceDetailsAvailable: section.grievanceDetailsAvailable,
       };
 
       const newDetailsMap = new Map(sectionDetailsMap);
@@ -316,10 +347,8 @@ const ControllerSubjectStatistics = () => {
   };
   
   const handleViewScript = (student: StudentStats) => {
-     // For Controller, we can basically view everything
-     // Using role=faculty is fine as controllers are superset of faculty often, or we need role=controller logic in evaluation viewer
-     // But prompts says "don't change backend", so sticking to what works for viewers
-     navigate(`/evaluation/${selectedCourse}?roll=${student.university_id}&mode=graded&role=faculty`);
+      if (!selectedCourse) return;
+      navigate(`/evaluation/${selectedCourse}?roll=${student.university_id}&mode=graded&role=faculty&readOnly=1`);
   };
 
   return (
@@ -384,13 +413,15 @@ const ControllerSubjectStatistics = () => {
                   </p>
                 </div>
                 <div className="rounded-xl border border-border bg-card p-4 flex flex-col justify-between">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase">Evaluation Progress</h3>
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase">Marking Progress</h3>
                   <div className="mt-2">
                     <div className="flex items-baseline gap-2">
                         <span className="text-2xl font-bold text-primary">
-                          {Math.round((sectionsData.reduce((acc, curr) => acc + curr.checkingProgress, 0) / sectionsData.reduce((acc, curr) => acc + curr.totalStudents, 0) || 0) * 100)}%
+                          {sectionsData.reduce((acc, curr) => acc + curr.checkingProgress, 0)}/{sectionsData.reduce((acc, curr) => acc + curr.totalStudents, 0)}
                         </span>
-                        <span className="text-xs text-muted-foreground">Completed</span>
+                        <span className="text-xs text-muted-foreground">
+                          {Math.round((sectionsData.reduce((acc, curr) => acc + curr.checkingProgress, 0) / sectionsData.reduce((acc, curr) => acc + curr.totalStudents, 0) || 0) * 100)}% complete
+                        </span>
                     </div>
                     <div className="w-full bg-secondary h-2 rounded-full mt-2 overflow-hidden">
                         <div className="bg-primary h-full transition-all duration-500" style={{ width: `${(sectionsData.reduce((acc, curr) => acc + curr.checkingProgress, 0) / sectionsData.reduce((acc, curr) => acc + curr.totalStudents, 0) || 0) * 100}%` }}></div>
@@ -698,6 +729,43 @@ const ControllerSubjectStatistics = () => {
                   </p>
                 </div>
 
+                {/* Marking Progress */}
+                <div className="rounded-lg border border-border bg-muted/30 p-4">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                    Marking Progress
+                  </h4>
+                  <>
+                    <div className="flex items-end gap-2">
+                      <span className="text-3xl font-bold text-success">
+                        {sectionDetailsMap.get(expandedSection)?.checkingProgress || 0}
+                      </span>
+                      <span className="text-sm text-muted-foreground mb-1">
+                        / {sectionDetailsMap.get(expandedSection)?.totalStudents || 0}
+                      </span>
+                    </div>
+                    <div className="mt-3 h-2 rounded-full bg-success/20">
+                      <div
+                        className="h-full rounded-full bg-success transition-all"
+                        style={{
+                          width: `${
+                            ((sectionDetailsMap.get(expandedSection)?.checkingProgress || 0) /
+                              (sectionDetailsMap.get(expandedSection)?.totalStudents || 1)) *
+                            100
+                          }%`,
+                        }}
+                      ></div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {Math.round(
+                        ((sectionDetailsMap.get(expandedSection)?.checkingProgress || 0) /
+                          (sectionDetailsMap.get(expandedSection)?.totalStudents || 1)) *
+                          100
+                      )}
+                      % complete
+                    </p>
+                  </>
+                </div>
+
                 {/* Grievances */}
                 <div className="rounded-lg border border-border bg-muted/30 p-4">
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
@@ -724,45 +792,61 @@ const ControllerSubjectStatistics = () => {
                       Grievance Details
                     </h4>
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-border">
-                          <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
-                            Student ID
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
-                            Student Name
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
-                            Grievance Type
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(sectionDetailsMap.get(expandedSection)?.grievanceDetails || []).map(
-                          (grievance) => (
-                            <tr
-                              key={grievance.studentId}
-                              className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
-                            >
-                              <td className="px-4 py-2 font-mono text-foreground">
-                                {grievance.studentId}
-                              </td>
-                              <td className="px-4 py-2 text-foreground">
-                                {grievance.studentName}
-                              </td>
-                              <td className="px-4 py-2">
-                                <span className="inline-flex items-center rounded-md bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
-                                  {grievance.grievanceType}
-                                </span>
-                              </td>
-                            </tr>
-                          )
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                  {sectionDetailsMap.get(expandedSection)?.grievanceDetailsAvailable ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border">
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
+                              Student ID
+                            </th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
+                              Student Name
+                            </th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
+                              Roll No
+                            </th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
+                              Grievance Type
+                            </th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
+                              Grievance Comment
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(sectionDetailsMap.get(expandedSection)?.grievanceDetails || []).map(
+                            (grievance, index) => (
+                              <tr
+                                key={`${grievance.studentId}-${grievance.grievanceType}-${index}`}
+                                className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
+                              >
+                                <td className="px-4 py-2 font-mono text-foreground">
+                                  {grievance.studentId}
+                                </td>
+                                <td className="px-4 py-2 text-foreground">
+                                  {grievance.studentName}
+                                </td>
+                                <td className="px-4 py-2 font-mono text-muted-foreground">
+                                  {grievance.rollNo}
+                                </td>
+                                <td className="px-4 py-2">
+                                  <span className="inline-flex items-center rounded-md bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
+                                    {grievance.grievanceType}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-2 text-muted-foreground whitespace-pre-wrap">
+                                  {grievance.grievanceComment || "Data not available"}
+                                </td>
+                              </tr>
+                            )
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="p-4 text-sm text-muted-foreground">Data not available</div>
+                  )}
                 </div>
               )}
             </div>

@@ -232,6 +232,53 @@ Fetches the full details of a specific paper, including all page images, questio
   }
   ```
 
+### `GET /api/review/paper/{paper_id}/`
+
+Fetches full paper details for **read-only statistics drill-down** (controller/coordinator use-case).
+
+- **Auth Required**: Yes
+- **Role Required**: `TEACHER` or `CONTROLLER`
+- **Access Scope**:
+  - `CONTROLLER`: all papers
+  - `TEACHER` (including coordinators): own section papers, assigned-grievance papers, and coordinated-course papers
+- **Input**: `paper_id` (in the URL path)
+- **Output (200 OK)**: Same shape as `GET /api/teacher/paper/{paper_id}/`
+
+### `GET /api/review/paper/{paper_id}/page/{page_index}/`
+
+Fetches one answer-sheet page image for read-only review access.
+
+- **Auth Required**: Yes
+- **Role Required**: `TEACHER` or `CONTROLLER`
+
+### `GET /api/review/paper/{paper_id}/question-paper/`
+
+Fetches question paper file for read-only review access.
+
+- **Auth Required**: Yes
+- **Role Required**: `TEACHER` or `CONTROLLER`
+
+### `GET /api/review/paper/{paper_id}/answer-key/`
+
+Fetches answer key file for read-only review access.
+
+- **Auth Required**: Yes
+- **Role Required**: `TEACHER` or `CONTROLLER`
+
+### `GET /api/review/paper/{paper_id}/markings/`
+
+Fetches markings index metadata for the paper in read-only mode.
+
+- **Auth Required**: Yes
+- **Role Required**: `TEACHER` or `CONTROLLER`
+
+### `GET /api/review/paper/{paper_id}/markings/{page_index}/`
+
+Fetches markings JSON payload for one page in read-only mode.
+
+- **Auth Required**: Yes
+- **Role Required**: `TEACHER` or `CONTROLLER`
+
 ### `GET /api/teacher/paper/{paper_id}/markings/`
 
 Returns the marking manifest for a paper. Each entry is a page-level marking JSON saved by faculty.

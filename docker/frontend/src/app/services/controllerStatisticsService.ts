@@ -5,6 +5,56 @@
 
 import AuthService from "@/app/services/authService";
 
+type CacheEntry<T> = {
+  expiresAt: number;
+  value: T;
+};
+
+const CONTROLLER_STATS_CACHE_TTL_MS = 5 * 60 * 1000;
+const controllerStatsCache = new Map<string, CacheEntry<unknown>>();
+
+function cloneValue<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function getCachedValue<T>(key: string): T | null {
+  const now = Date.now();
+  const memoryEntry = controllerStatsCache.get(key) as CacheEntry<T> | undefined;
+  if (memoryEntry && memoryEntry.expiresAt > now) {
+    return cloneValue(memoryEntry.value);
+  }
+
+  try {
+    const raw = window.sessionStorage.getItem(`controller-stats-cache:${key}`);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as CacheEntry<T>;
+    if (parsed.expiresAt <= now) {
+      window.sessionStorage.removeItem(`controller-stats-cache:${key}`);
+      return null;
+    }
+    controllerStatsCache.set(key, parsed as CacheEntry<unknown>);
+    return cloneValue(parsed.value);
+  } catch {
+    return null;
+  }
+}
+
+function setCachedValue<T>(key: string, value: T, ttlMs: number = CONTROLLER_STATS_CACHE_TTL_MS): void {
+  const entry: CacheEntry<T> = {
+    expiresAt: Date.now() + ttlMs,
+    value: cloneValue(value),
+  };
+
+  controllerStatsCache.set(key, entry as CacheEntry<unknown>);
+  try {
+    window.sessionStorage.setItem(`controller-stats-cache:${key}`, JSON.stringify(entry));
+  } catch {
+    // sessionStorage may not always be available
+  }
+}
+
 export interface SemesterData {
   semester: number;
   totalCourses: number;
@@ -48,6 +98,7 @@ export interface GrievanceDetail {
   studentName: string;
   grievanceType: string;
   rollNo: string;
+  grievanceComment?: string;
 }
 
 /**
@@ -55,6 +106,12 @@ export interface GrievanceDetail {
  */
 export async function fetchAllSemesters(): Promise<SemesterData[]> {
   try {
+    const cacheKey = "semesters";
+    const cached = getCachedValue<SemesterData[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     // Fetch all accessible subjects
     const subjectsResponse = (await AuthService.get("/stats/subjects/")) as {
       subjects: Array<{
@@ -92,7 +149,9 @@ export async function fetchAllSemesters(): Promise<SemesterData[]> {
     });
 
     // Return sorted semesters
-    return Array.from(semesterMap.values()).sort((a, b) => a.semester - b.semester);
+    const payload = Array.from(semesterMap.values()).sort((a, b) => a.semester - b.semester);
+    setCachedValue(cacheKey, payload);
+    return payload;
   } catch (error) {
     console.error("Error fetching semesters:", error);
     throw new Error("Failed to fetch semester data");
@@ -104,6 +163,12 @@ export async function fetchAllSemesters(): Promise<SemesterData[]> {
  */
 export async function fetchSubjectsBySemester(semester: number): Promise<SubjectData[]> {
   try {
+    const cacheKey = `subjects-by-semester:${semester}`;
+    const cached = getCachedValue<SubjectData[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     // Fetch all accessible subjects
     const subjectsResponse = (await AuthService.get("/stats/subjects/")) as {
       subjects: Array<{
@@ -148,6 +213,7 @@ export async function fetchSubjectsBySemester(semester: number): Promise<Subject
       })
     );
 
+    setCachedValue(cacheKey, subjectsWithSections);
     return subjectsWithSections;
   } catch (error) {
     console.error("Error fetching subjects:", error);
@@ -160,6 +226,12 @@ export async function fetchSubjectsBySemester(semester: number): Promise<Subject
  */
 export async function fetchSectionsByCourse(courseCode: string): Promise<SectionStatistics[]> {
   try {
+    const cacheKey = `sections-by-course:${courseCode}`;
+    const cached = getCachedValue<SectionStatistics[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     // Fetch sections and grievance data in parallel
     const [sectionsResponse, grievanceResponse] = await Promise.all([
       AuthService.get(`/stats/sections/?course_code=${encodeURIComponent(courseCode)}`),
@@ -188,6 +260,7 @@ export async function fetchSectionsByCourse(courseCode: string): Promise<Section
       grievanceDetailsAvailable: false,
     }));
 
+    setCachedValue(cacheKey, sectionStatistics);
     return sectionStatistics;
   } catch (error) {
     console.error("Error fetching section statistics:", error);

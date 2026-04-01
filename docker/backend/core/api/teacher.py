@@ -171,6 +171,22 @@ def _teacher_visible_papers(user):
     ).select_related('exam', 'enrollment__student').distinct()
 
 
+def _review_visible_papers(user):
+    """
+    Read-only visibility scope for statistics drill-down review.
+    - Controller: all papers.
+    - Teacher/Coordinator: own-section papers, assigned grievances, coordinated-course papers.
+    """
+    if user.role == 'CONTROLLER':
+        return ExamPaper.objects.all().select_related('exam', 'enrollment__student').distinct()
+
+    return ExamPaper.objects.filter(
+        Q(exam__allocation__teacher=user)
+        | Q(grievance__assigned_faculty=user)
+        | Q(exam__allocation__course__coordinator=user)
+    ).select_related('exam', 'enrollment__student').distinct()
+
+
 def _validate_paper_page_index(paper, page_index):
     pages = paper.pages or []
     index = page_index - 1
@@ -316,6 +332,149 @@ class TeacherPaperQuestionFileView(APIView):
 
         try:
             return build_protected_file_response(question_path)
+        except FileAccessError:
+            return Response({'detail': 'File path is invalid.'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ReviewPaperDetailView(generics.RetrieveAPIView):
+    """
+    Read-only paper detail endpoint for controller/coordinator statistics drill-down.
+    URL: /api/review/paper/<int:pk>/
+    """
+
+    serializer_class = ExamPaperDetailSerializer
+    permission_classes = [permissions.IsAuthenticated, IsTeacher]
+
+    def get_queryset(self):
+        visible_open_grievance = Grievance.objects.filter(
+            paper_id=OuterRef('pk'),
+            status='OPEN',
+        ).filter(
+            _grievance_visibility_q(self.request.user)
+        )
+
+        detail_open_grievance = Grievance.objects.filter(
+            paper_id=OuterRef('pk'),
+            status='OPEN',
+        ).filter(
+            _grievance_detail_q(self.request.user)
+        ).order_by('-id')
+
+        return _review_visible_papers(self.request.user).annotate(
+            has_grievance=Exists(visible_open_grievance),
+            grievance_text=Subquery(detail_open_grievance.values('student_comment')[:1]),
+            grievance_date=Subquery(detail_open_grievance.values('id')[:1]),
+        )
+
+
+class ReviewPaperPageFileView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsTeacher]
+
+    def get(self, request, pk, page_index):
+        paper = get_object_or_404(_review_visible_papers(request.user), pk=pk)
+
+        pages = paper.pages or []
+        index = page_index - 1
+        if index < 0 or index >= len(pages):
+            return Response({'detail': 'Page not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            return build_protected_file_response(pages[index])
+        except FileAccessError:
+            return Response({'detail': 'File path is invalid.'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ReviewPaperMarkingsIndexView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsTeacher]
+
+    def get(self, request, pk):
+        paper = get_object_or_404(_review_visible_papers(request.user), pk=pk)
+        index_payload = paper.markings_index or {}
+        page_entries = index_payload.get('pages') or {}
+
+        items = []
+        if isinstance(page_entries, dict):
+            for page_key, metadata in page_entries.items():
+                try:
+                    page_index = int(page_key)
+                except (TypeError, ValueError):
+                    continue
+
+                metadata = metadata or {}
+                items.append(
+                    {
+                        'page_index': page_index,
+                        'api_path': metadata.get('api_path') or f'/api/review/paper/{paper.paper_id}/markings/{page_index}/',
+                        'updated_at': metadata.get('updated_at'),
+                        'updated_by': metadata.get('updated_by'),
+                    }
+                )
+
+        items.sort(key=lambda row: row['page_index'])
+        return Response(
+            {
+                'paper_id': paper.paper_id,
+                'count': len(items),
+                'markings': items,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class ReviewPaperMarkingDetailView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsTeacher]
+
+    def get(self, request, pk, page_index):
+        paper = get_object_or_404(_review_visible_papers(request.user), pk=pk)
+        if not _validate_paper_page_index(paper, page_index):
+            return Response({'detail': 'Page not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            payload = read_page_markings(paper, page_index)
+        except PaperMarkingStorageError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        if payload is None:
+            return Response(
+                {
+                    'paper_id': paper.paper_id,
+                    'page_index': page_index,
+                    'markings': None,
+                    'updated_by': None,
+                    'updated_at': None,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        return Response(payload, status=status.HTTP_200_OK)
+
+
+class ReviewPaperQuestionFileView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsTeacher]
+
+    def get(self, request, pk):
+        paper = get_object_or_404(_review_visible_papers(request.user), pk=pk)
+        question_path = paper.exam.question_paper_path if paper.exam else None
+        if not question_path:
+            return Response({'detail': 'Question paper not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            return build_protected_file_response(question_path)
+        except FileAccessError:
+            return Response({'detail': 'File path is invalid.'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ReviewPaperAnswerKeyFileView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsTeacher]
+
+    def get(self, request, pk):
+        paper = get_object_or_404(_review_visible_papers(request.user), pk=pk)
+        answer_key_path = paper.exam.answer_key_path if paper.exam else None
+        if not answer_key_path:
+            return Response({'detail': 'Answer key not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            return build_protected_file_response(answer_key_path)
         except FileAccessError:
             return Response({'detail': 'File path is invalid.'}, status=status.HTTP_404_NOT_FOUND)
 

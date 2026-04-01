@@ -25,6 +25,10 @@ backend/media/
 backend/static_root/
 docker/backend/staticfiles
 docker/backend/core/api/__pycache__
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
 
 # --- OS Specific ---
 .DS_Store

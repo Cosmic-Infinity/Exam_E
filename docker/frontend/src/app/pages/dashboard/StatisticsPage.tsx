@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import ThemeToggle from "@/app/components/common/ThemeToggle";
 import { useUserSession } from "@/app/context/UserSessionContext";
+import { getFacultyGrievances, type FacultyGrievanceItem } from "@/app/services/evaluationService";
 import {
   fetchCourseStatistics,
   fetchAccessibleCourses,
@@ -121,8 +122,36 @@ const StatisticsPage = () => {
           fetchScoreDistribution(selectedCourse),
           fetchStudentsInRange(selectedCourse, 0, 100)
         ]);
+
+        const grievanceRows = await getFacultyGrievances("all");
+        const courseGrievances = grievanceRows.filter(
+          (item: FacultyGrievanceItem) => item.subject_code?.toLowerCase() === selectedCourse.toLowerCase()
+        );
+
+        const grievanceMap = new Map<string, GrievanceDetail[]>();
+        courseGrievances.forEach((item) => {
+          const row: GrievanceDetail = {
+            studentId: item.student_university_id,
+            studentName: item.student_name,
+            grievanceType: item.grievance_type_label || "General",
+            rollNo: item.student_university_id,
+            grievanceComment: item.student_comment || "Data not available",
+          };
+
+          const section = item.section_name || "Data not available";
+          if (!grievanceMap.has(section)) {
+            grievanceMap.set(section, []);
+          }
+          grievanceMap.get(section)?.push(row);
+        });
         
-        setSectionsData(stats.sections);
+        setSectionsData(
+          stats.sections.map((section) => ({
+            ...section,
+            grievanceDetails: grievanceMap.get(section.sectionName) || [],
+            grievanceDetailsAvailable: true,
+          }))
+        );
         setScoreData(scores as any);
         
         const students = (studentsResp as any).students || [];
@@ -179,9 +208,11 @@ const StatisticsPage = () => {
         totalStudents: section.totalStudents,
         checkingProgress: section.checkingProgress,
         markingProgress: section.markingProgress,
+        markingProgressAvailable: section.markingProgressAvailable,
         pendingProgress: section.pendingProgress,
         grievanceCount: section.grievanceCount,
         grievanceDetails: section.grievanceDetails || [],
+        grievanceDetailsAvailable: section.grievanceDetailsAvailable,
       };
 
       const newDetailsMap = new Map(sectionDetailsMap);
@@ -293,7 +324,7 @@ const StatisticsPage = () => {
      // We need to pass the correct mode for read-only view
      // We'll use "graded" mode as specified in the prompt ("checked by teacher")
      // Also pass role=faculty to ensure we view the student's script, not the logged-in user's
-     navigate(`/evaluation/${selectedCourse}?roll=${student.university_id}&mode=graded&role=faculty`);
+      navigate(`/evaluation/${selectedCourse}?roll=${student.university_id}&mode=graded&role=faculty&readOnly=1`);
   };
 
   return (
@@ -703,15 +734,21 @@ const StatisticsPage = () => {
                               Student Name
                             </th>
                             <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
+                              Roll No
+                            </th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
                               Grievance Type
+                            </th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
+                              Grievance Comment
                             </th>
                           </tr>
                         </thead>
                         <tbody>
                           {(sectionDetailsMap.get(expandedSection)?.grievanceDetails || []).map(
-                            (grievance) => (
+                            (grievance, index) => (
                               <tr
-                                key={grievance.studentId}
+                                key={`${grievance.studentId}-${grievance.grievanceType}-${index}`}
                                 className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
                               >
                                 <td className="px-4 py-2 font-mono text-foreground">
@@ -720,10 +757,16 @@ const StatisticsPage = () => {
                                 <td className="px-4 py-2 text-foreground">
                                   {grievance.studentName}
                                 </td>
+                                <td className="px-4 py-2 font-mono text-muted-foreground">
+                                  {grievance.rollNo}
+                                </td>
                                 <td className="px-4 py-2">
                                   <span className="inline-flex items-center rounded-md bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
                                     {grievance.grievanceType}
                                   </span>
+                                </td>
+                                <td className="px-4 py-2 text-muted-foreground whitespace-pre-wrap">
+                                  {grievance.grievanceComment || "Data not available"}
                                 </td>
                               </tr>
                             )

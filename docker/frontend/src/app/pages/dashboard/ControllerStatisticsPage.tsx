@@ -1,8 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import ThemeToggle from "@/app/components/common/ThemeToggle";
 import { useUserSession } from "@/app/context/UserSessionContext";
+import { fetchStudentsInRange, type StudentStats } from "@/app/services/statisticsService";
+import { getFacultyGrievances, type FacultyGrievanceItem } from "@/app/services/evaluationService";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/app/components/ui/dialog";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from "recharts";
 import {
   fetchAllSemesters,
   fetchSubjectsBySemester,
@@ -37,9 +47,45 @@ const ControllerStatisticsPage = () => {
   const [sectionDetailsMap, setSectionDetailsMap] = useState<Map<string, SectionDetail>>(
     new Map()
   );
+  const [allStudents, setAllStudents] = useState<StudentStats[]>([]);
+  const [chartModalOpen, setChartModalOpen] = useState(false);
+  const [chartModalTitle, setChartModalTitle] = useState("Section Details");
+  const [chartModalRows, setChartModalRows] = useState<
+    Array<{
+      name: string;
+      university_id: string;
+      section: string;
+      score?: number;
+      paper_id?: number;
+      checkedStatus?: "Checked" | "Unchecked";
+      grievanceStatus?: "Yes" | "No";
+    }>
+  >([]);
+  const [chartModalMessage, setChartModalMessage] = useState<string | null>(null);
 
   const formatSemesterLabel = (semester: number) =>
     semester === 0 ? "Data not available" : `Semester ${semester}`;
+
+  const aggregateChecked = useMemo(
+    () => sections.reduce((acc, section) => acc + (section.checkingProgress || 0), 0),
+    [sections]
+  );
+  const aggregateStudents = useMemo(
+    () => sections.reduce((acc, section) => acc + (section.totalStudents || 0), 0),
+    [sections]
+  );
+  const aggregateCheckedPct = aggregateStudents > 0 ? Math.round((aggregateChecked / aggregateStudents) * 100) : 0;
+
+  const sectionChartData = useMemo(
+    () =>
+      sections.map((section) => ({
+        sectionName: section.sectionName,
+        checking: section.checkingProgress || 0,
+        grievances: section.grievanceCount || 0,
+        unchecked: Math.max((section.totalStudents || 0) - (section.checkingProgress || 0), 0),
+      })),
+    [sections]
+  );
 
   // Fetch and set permission flags from backend role on mount
   useEffect(() => {
@@ -94,8 +140,41 @@ const ControllerStatisticsPage = () => {
     try {
       setLoading(true);
       setSelectedSubject(subject);
-      const data = await fetchSectionsByCourse(subject.courseCode);
-      setSections(data);
+      const [data, studentsResp, grievanceRows] = await Promise.all([
+        fetchSectionsByCourse(subject.courseCode),
+        fetchStudentsInRange(subject.courseCode, 0, 100),
+        getFacultyGrievances("all"),
+      ]);
+
+      const students = (studentsResp as { students?: StudentStats[] })?.students || [];
+      setAllStudents(students);
+
+      const courseGrievances = grievanceRows.filter(
+        (item: FacultyGrievanceItem) => item.subject_code?.toLowerCase() === subject.courseCode.toLowerCase()
+      );
+
+      const grievanceMap = new Map<string, Array<{ studentId: string; studentName: string; grievanceType: string; rollNo: string; grievanceComment: string }>>();
+      courseGrievances.forEach((item) => {
+        const section = item.section_name || "Data not available";
+        if (!grievanceMap.has(section)) {
+          grievanceMap.set(section, []);
+        }
+        grievanceMap.get(section)?.push({
+          studentId: item.student_university_id,
+          studentName: item.student_name,
+          grievanceType: item.grievance_type_label || "General",
+          rollNo: item.student_university_id,
+          grievanceComment: item.student_comment || "Data not available",
+        });
+      });
+
+      setSections(
+        data.map((section) => ({
+          ...section,
+          grievanceDetails: grievanceMap.get(section.sectionName) || [],
+          grievanceDetailsAvailable: true,
+        }))
+      );
       setExpandedSection(null);
       setSectionDetailsMap(new Map());
       setViewLevel("sections");
@@ -149,6 +228,77 @@ const ControllerStatisticsPage = () => {
   toast.success("Logged out successfully");
   navigate("/");
 };
+
+  const handleViewScript = (row: { university_id: string; paper_id?: number }) => {
+    if (!selectedSubject?.courseCode) return;
+    const paperSuffix = row.paper_id ? `&paper_id=${row.paper_id}` : "";
+    navigate(`/evaluation/${selectedSubject.courseCode}?roll=${row.university_id}&mode=graded&role=faculty&readOnly=1${paperSuffix}`);
+  };
+
+  const openChartModal = (
+    title: string,
+    rows: Array<{
+      name: string;
+      university_id: string;
+      section: string;
+      score?: number;
+      paper_id?: number;
+      checkedStatus?: "Checked" | "Unchecked";
+      grievanceStatus?: "Yes" | "No";
+    }>,
+    message: string | null = null
+  ) => {
+    setChartModalTitle(title);
+    setChartModalRows(rows);
+    setChartModalMessage(message);
+    setChartModalOpen(true);
+  };
+
+  const handleSectionMetricClick = (metric: "checking" | "grievances" | "unchecked", sectionName: string) => {
+    if (metric === "checking") {
+      const rows = allStudents
+        .filter((student) => student.section === sectionName)
+        .map((student) => ({
+          name: student.name,
+          university_id: student.university_id,
+          section: student.section,
+          score: student.score,
+          paper_id: student.paper_id,
+          checkedStatus: "Checked" as const,
+          grievanceStatus: "No" as const,
+        }));
+
+      const section = sections.find((item) => item.sectionName === sectionName);
+      const grievanceSet = new Set((section?.grievanceDetails || []).map((g) => g.studentId));
+      rows.forEach((row) => {
+        row.grievanceStatus = grievanceSet.has(row.university_id) ? "Yes" : "No";
+      });
+
+      openChartModal(`${sectionName} - Checked Copies`, rows, rows.length === 0 ? "No checked copies found." : null);
+      return;
+    }
+
+    if (metric === "grievances") {
+      const section = sections.find((item) => item.sectionName === sectionName);
+      const rows = (section?.grievanceDetails || []).map((item) => ({
+        name: item.studentName,
+        university_id: item.studentId,
+        section: sectionName,
+        score: allStudents.find((student) => student.university_id === item.studentId && student.section === sectionName)?.score,
+        paper_id: allStudents.find((student) => student.university_id === item.studentId && student.section === sectionName)?.paper_id,
+        checkedStatus: "Checked" as const,
+        grievanceStatus: "Yes" as const,
+      }));
+      openChartModal(`${sectionName} - Grievance Students`, rows, rows.length === 0 ? "No grievance rows found." : null);
+      return;
+    }
+
+    openChartModal(
+      `${sectionName} - Unchecked Copies`,
+      [],
+      "Unchecked student-level list is not exposed by current stats APIs."
+    );
+  };
 
   const handleBack = () => {
     if (viewLevel === "subjects") {
@@ -360,6 +510,14 @@ const ControllerStatisticsPage = () => {
         {/* View: Sections */}
         {!loading && viewLevel === "sections" && selectedSubject && (
           <>
+            <div className="rounded-xl border border-border bg-card p-4">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase">Marking Progress (All Sections)</h3>
+              <div className="mt-2 flex items-center gap-3">
+                <span className="text-2xl font-bold text-primary">{aggregateChecked}/{aggregateStudents}</span>
+                <span className="text-sm text-muted-foreground">{aggregateCheckedPct}% complete</span>
+              </div>
+            </div>
+
             <div className="rounded-xl border border-border bg-card overflow-hidden">
               <div className="px-5 py-4 border-b border-border">
                 <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">
@@ -411,15 +569,9 @@ const ControllerStatisticsPage = () => {
                           </span>
                         </td>
                         <td className="px-5 py-3 text-center">
-                          {section.markingProgressAvailable ? (
-                            <span className="inline-flex items-center rounded-md bg-success/10 px-2.5 py-1 text-xs font-medium text-success">
-                              {section.markingProgress}/{section.totalStudents}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center rounded-md bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                              Data not available
-                            </span>
-                          )}
+                          <span className="inline-flex items-center rounded-md bg-success/10 px-2.5 py-1 text-xs font-medium text-success">
+                            {section.checkingProgress}/{section.totalStudents}
+                          </span>
                         </td>
                         <td className="px-5 py-3 text-center">
                           <span className="inline-flex items-center rounded-md bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
@@ -433,7 +585,7 @@ const ControllerStatisticsPage = () => {
                             className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
                               expandedSection === section.sectionName
                                 ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                                : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                                : "bg-primary text-primary-foreground hover:bg-primary/90"
                             } disabled:opacity-50`}
                           >
                             {expandedSection === section.sectionName
@@ -512,40 +664,36 @@ const ControllerStatisticsPage = () => {
                       <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                         Marking Progress
                       </h4>
-                      {sectionDetailsMap.get(expandedSection)?.markingProgressAvailable ? (
-                        <>
-                          <div className="flex items-end gap-2">
-                            <span className="text-3xl font-bold text-success">
-                              {sectionDetailsMap.get(expandedSection)?.markingProgress || 0}
-                            </span>
-                            <span className="text-sm text-muted-foreground mb-1">
-                              / {sectionDetailsMap.get(expandedSection)?.totalStudents || 0}
-                            </span>
-                          </div>
-                          <div className="mt-3 h-2 rounded-full bg-success/20">
-                            <div
-                              className="h-full rounded-full bg-success transition-all"
-                              style={{
-                                width: `${
-                                  ((sectionDetailsMap.get(expandedSection)?.markingProgress || 0) /
-                                    (sectionDetailsMap.get(expandedSection)?.totalStudents || 1)) *
-                                  100
-                                }%`,
-                              }}
-                            ></div>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-2">
-                            {Math.round(
-                              ((sectionDetailsMap.get(expandedSection)?.markingProgress || 0) /
-                                (sectionDetailsMap.get(expandedSection)?.totalStudents || 1)) *
+                      <>
+                        <div className="flex items-end gap-2">
+                          <span className="text-3xl font-bold text-success">
+                            {sectionDetailsMap.get(expandedSection)?.checkingProgress || 0}
+                          </span>
+                          <span className="text-sm text-muted-foreground mb-1">
+                            / {sectionDetailsMap.get(expandedSection)?.totalStudents || 0}
+                          </span>
+                        </div>
+                        <div className="mt-3 h-2 rounded-full bg-success/20">
+                          <div
+                            className="h-full rounded-full bg-success transition-all"
+                            style={{
+                              width: `${
+                                ((sectionDetailsMap.get(expandedSection)?.checkingProgress || 0) /
+                                  (sectionDetailsMap.get(expandedSection)?.totalStudents || 1)) *
                                 100
-                            )}
-                            % complete
-                          </p>
-                        </>
-                      ) : (
-                        <p className="text-sm text-muted-foreground mt-6">Data not available</p>
-                      )}
+                              }%`,
+                            }}
+                          ></div>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {Math.round(
+                            ((sectionDetailsMap.get(expandedSection)?.checkingProgress || 0) /
+                              (sectionDetailsMap.get(expandedSection)?.totalStudents || 1)) *
+                              100
+                          )}
+                          % complete
+                        </p>
+                      </>
                     </div>
 
                     {/* Grievances */}
@@ -591,13 +739,16 @@ const ControllerStatisticsPage = () => {
                                 <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
                                   Grievance Type
                                 </th>
+                                <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
+                                  Grievance Comment
+                                </th>
                               </tr>
                             </thead>
                             <tbody>
                               {(sectionDetailsMap.get(expandedSection)?.grievanceDetails || []).map(
-                                (grievance) => (
+                                (grievance, index) => (
                                   <tr
-                                    key={grievance.studentId}
+                                    key={`${grievance.studentId}-${grievance.grievanceType}-${index}`}
                                     className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
                                   >
                                     <td className="px-4 py-2 font-mono text-foreground">
@@ -614,6 +765,9 @@ const ControllerStatisticsPage = () => {
                                         {grievance.grievanceType}
                                       </span>
                                     </td>
+                                    <td className="px-4 py-2 text-muted-foreground whitespace-pre-wrap">
+                                      {grievance.grievanceComment || "Data not available"}
+                                    </td>
                                   </tr>
                                 )
                               )}
@@ -628,8 +782,102 @@ const ControllerStatisticsPage = () => {
                 </div>
               </div>
             )}
+
+            <div className="rounded-xl border border-border bg-card p-5">
+              <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-4">
+                Section-Wise Detailed Statistics
+              </h3>
+              <div className="h-[360px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={sectionChartData} margin={{ top: 16, right: 20, left: 8, bottom: 8 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="sectionName" />
+                    <YAxis allowDecimals={false} />
+                    <RechartsTooltip cursor={false} content={() => null} />
+                    <Legend />
+                    <Area
+                      type="monotone"
+                      dataKey="checking"
+                      name="Checking Progress"
+                      stackId="sections"
+                      fill="#2563eb"
+                      stroke="#2563eb"
+                      fillOpacity={0.55}
+                      activeDot={false}
+                      onClick={(entry) => handleSectionMetricClick("checking", entry?.sectionName || entry?.payload?.sectionName)}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="grievances"
+                      name="Grievances"
+                      stackId="sections"
+                      fill="#ef4444"
+                      stroke="#ef4444"
+                      fillOpacity={0.55}
+                      activeDot={false}
+                      onClick={(entry) => handleSectionMetricClick("grievances", entry?.sectionName || entry?.payload?.sectionName)}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="unchecked"
+                      name="Unchecked"
+                      stackId="sections"
+                      fill="#f59e0b"
+                      stroke="#f59e0b"
+                      fillOpacity={0.55}
+                      activeDot={false}
+                      onClick={(entry) => handleSectionMetricClick("unchecked", entry?.sectionName || entry?.payload?.sectionName)}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </>
         )}
+
+        <Dialog open={chartModalOpen} onOpenChange={setChartModalOpen}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{chartModalTitle}</DialogTitle>
+              <DialogDescription>
+                Click a student row to open their answer sheet where available.
+              </DialogDescription>
+            </DialogHeader>
+            {chartModalMessage ? (
+              <div className="text-sm text-muted-foreground">{chartModalMessage}</div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left font-medium py-2 text-muted-foreground">Roll No</th>
+                    <th className="text-left font-medium py-2 text-muted-foreground">Name</th>
+                    <th className="text-left font-medium py-2 text-muted-foreground">Checked</th>
+                    <th className="text-left font-medium py-2 text-muted-foreground">Grievance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {chartModalRows.map((row) => (
+                    <tr
+                      key={`${row.university_id}-${row.section}-${row.paper_id || "na"}`}
+                      className="border-b last:border-0 hover:bg-muted/50 cursor-pointer transition-colors"
+                      onClick={() => handleViewScript(row)}
+                    >
+                      <td className="py-2">{row.university_id}</td>
+                      <td className="py-2">{row.name}</td>
+                      <td className="py-2">{row.checkedStatus || "Checked"}</td>
+                      <td className="py-2">{row.grievanceStatus || "No"}</td>
+                    </tr>
+                  ))}
+                  {chartModalRows.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="py-6 text-center text-muted-foreground">No rows found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );

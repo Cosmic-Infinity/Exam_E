@@ -16,6 +16,12 @@ from core.api.teacher import (
     TeacherGrievanceListView,
     TeacherGrievanceDecisionView,
     TeacherGrievanceStatsView,
+    ReviewPaperDetailView,
+    ReviewPaperMarkingsIndexView,
+    ReviewPaperMarkingDetailView,
+    ReviewPaperPageFileView,
+    ReviewPaperQuestionFileView,
+    ReviewPaperAnswerKeyFileView,
 )
 from core.api.student import (
     StudentEnrollmentListView,
@@ -76,6 +82,14 @@ urlpatterns += [
     path('api/teacher/grievances/', TeacherGrievanceListView.as_view(), name='teacher_grievance_list'),
     path('api/teacher/grievances/stats/', TeacherGrievanceStatsView.as_view(), name='teacher_grievance_stats'),
     path('api/teacher/grievances/<int:grievance_id>/decision/', TeacherGrievanceDecisionView.as_view(), name='teacher_grievance_decision'),
+
+    # Read-only review URLs for controller/coordinator stats drill-down
+    path('api/review/paper/<int:pk>/', ReviewPaperDetailView.as_view(), name='review_paper_detail'),
+    path('api/review/paper/<int:pk>/markings/', ReviewPaperMarkingsIndexView.as_view(), name='review_paper_markings'),
+    path('api/review/paper/<int:pk>/markings/<int:page_index>/', ReviewPaperMarkingDetailView.as_view(), name='review_paper_marking_detail'),
+    path('api/review/paper/<int:pk>/page/<int:page_index>/', ReviewPaperPageFileView.as_view(), name='review_paper_page_file'),
+    path('api/review/paper/<int:pk>/question-paper/', ReviewPaperQuestionFileView.as_view(), name='review_question_paper_file'),
+    path('api/review/paper/<int:pk>/answer-key/', ReviewPaperAnswerKeyFileView.as_view(), name='review_answer_key_file'),
 
     # Student URLs
     path('api/student/enrollments/', StudentEnrollmentListView.as_view(), name='student_enrollments'),

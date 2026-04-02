@@ -288,7 +288,7 @@ const ControllerStatisticsPage = () => {
         "unchecked",
         `${sectionName} - Unchecked Copies`,
         [],
-        `Unchecked copies: ${unchecked}. Student-level unchecked list is not exposed by current stats APIs.`
+        `Unchecked copies: ${unchecked}. Details not available.`
       );
       return;
     }
@@ -469,7 +469,7 @@ const ControllerStatisticsPage = () => {
                           i % 2 === 1 ? "bg-muted/30" : ""
                         }`}
                       >
-                        <td className="px-5 py-3 font-mono font-medium text-primary">
+                        <td className="px-5 py-3 font-mono font-medium text-foreground">
                           {subject.courseCode}
                         </td>
                         <td className="px-5 py-3 font-medium text-foreground">
@@ -521,17 +521,17 @@ const ControllerStatisticsPage = () => {
                 </h2>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+              <div>
+                <table className="w-full table-fixed text-xs">
                   <thead>
                     <tr className="border-b border-border">
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      <th className="w-[13%] px-2 py-2 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-normal break-words">
                         Section
                       </th>
-                      <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      <th className="w-[12%] px-2 py-2 text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-normal break-words">
                         Total Students
                       </th>
-                      <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      <th className="w-[18%] px-2 py-2 text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-normal break-words">
                         <div className="flex flex-col items-center gap-1">
                           <span>Checking Progress</span>
                           <span className="text-[10px] normal-case text-muted-foreground">
@@ -539,7 +539,7 @@ const ControllerStatisticsPage = () => {
                           </span>
                         </div>
                       </th>
-                      <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      <th className="w-[29%] px-2 py-2 text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-normal break-words">
                         <div className="flex flex-col items-center gap-2">
                           <span>Marking Progress</span>
                           <span className="text-[10px] normal-case text-muted-foreground">
@@ -571,10 +571,10 @@ const ControllerStatisticsPage = () => {
                           </details>
                         </div>
                       </th>
-                      <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      <th className="w-[12%] px-2 py-2 text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-normal break-words">
                         Grievances
                       </th>
-                      <th className="px-5 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      <th className="w-[16%] px-2 py-2 text-right text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-normal break-words">
                         Action
                       </th>
                     </tr>
@@ -587,18 +587,18 @@ const ControllerStatisticsPage = () => {
                           i % 2 === 1 ? "bg-muted/30" : ""
                         }`}
                       >
-                        <td className="px-5 py-3 font-medium text-foreground">
+                        <td className="px-2 py-2 font-medium text-foreground">
                           {section.sectionName}
                         </td>
-                        <td className="px-5 py-3 text-center text-muted-foreground">
+                        <td className="px-2 py-2 text-center text-muted-foreground">
                           {section.totalStudents}
                         </td>
-                        <td className="px-5 py-3 text-center">
+                        <td className="px-2 py-2 text-center">
                           <span className="inline-flex items-center rounded-md bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
                             {section.checkingProgress}/{section.totalStudents}
                           </span>
                         </td>
-                        <td className="px-5 py-3 text-center">
+                        <td className="px-2 py-2 text-center">
                           <div className="space-y-2">
                             <div className="flex items-center justify-center gap-2">
                               <span className="text-xs font-medium text-muted-foreground">
@@ -619,19 +619,19 @@ const ControllerStatisticsPage = () => {
                             </div>
                           </div>
                         </td>
-                        <td className="px-5 py-3 text-center">
+                        <td className="px-2 py-2 text-center">
                           <span className="inline-flex items-center rounded-md bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
                             {section.grievanceCount}
                           </span>
                         </td>
-                        <td className="px-5 py-3 text-right">
+                        <td className="px-2 py-2 text-right">
                           <button
                             onClick={() => handleExpandSection(section.sectionName)}
                             disabled={loading}
-                            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                            className={`rounded-md border border-primary/40 px-3 py-1.5 text-xs font-semibold transition-colors ${
                               expandedSection === section.sectionName
                                 ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                                : "bg-primary text-primary-foreground hover:bg-primary/90"
+                                : "bg-primary/10 text-primary hover:bg-primary/20"
                             } disabled:opacity-50`}
                           >
                             {expandedSection === section.sectionName
@@ -796,13 +796,13 @@ const ControllerStatisticsPage = () => {
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{chartModalTitle}</DialogTitle>
-              <DialogDescription>
-                {chartModalMode === "checking"
-                  ? "Checked copies in this section. Click a row to open answer sheet where available."
-                  : chartModalMode === "grievances"
-                    ? "Students with grievances in this section. Click a row to open answer sheet where available."
-                    : "Unchecked student-level list is not exposed by current stats APIs."}
-              </DialogDescription>
+              {chartModalMode !== "unchecked" && (
+                <DialogDescription>
+                  {chartModalMode === "checking"
+                    ? "Checked copies in this section. Click a row to open answer sheet where available."
+                    : "Students with grievances in this section. Click a row to open answer sheet where available."}
+                </DialogDescription>
+              )}
             </DialogHeader>
             {chartModalMessage ? (
               <div className="text-sm text-muted-foreground">{chartModalMessage}</div>

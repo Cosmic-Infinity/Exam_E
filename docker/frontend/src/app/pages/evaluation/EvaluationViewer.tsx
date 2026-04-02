@@ -721,6 +721,10 @@ const EvaluationViewer = () => {
   }, [activePage]);
 
   const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
     navigate(isFaculty ? "/dashboard/faculty" : "/dashboard/student");
   };
 

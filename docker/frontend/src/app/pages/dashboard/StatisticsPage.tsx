@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import ThemeToggle from "@/app/components/common/ThemeToggle";
@@ -60,6 +60,7 @@ const StatisticsPage = () => {
   const [isSectionDropdownOpen, setIsSectionDropdownOpen] = useState(false);
   const [activeModalData, setActiveModalData] = useState<{range: string, data: any[]} | null>(null);
   const [sectionColors, setSectionColors] = useState<Record<string, string>>({});
+  const expandedDetailsRef = useRef<HTMLDivElement | null>(null);
 
   const [sectionDetailsMap, setSectionDetailsMap] = useState<Map<string, SectionDetail>>(new Map());
   
@@ -205,6 +206,7 @@ const StatisticsPage = () => {
       // Create section details - grievance details come from the API as part of SectionStatistics
       const sectionDetails: SectionDetail = {
         sectionName: section.sectionName,
+        teacherName: section.teacherName,
         totalStudents: section.totalStudents,
         checkingProgress: section.checkingProgress,
         markingProgress: section.markingProgress,
@@ -233,6 +235,13 @@ const StatisticsPage = () => {
   };
 
   const expandedDetails = getExpandedDetails();
+
+  useEffect(() => {
+    if (!expandedSection || !sectionDetailsMap.has(expandedSection)) return;
+    requestAnimationFrame(() => {
+      expandedDetailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [expandedSection, sectionDetailsMap]);
   
   // Memoized Chart Data Calculation
   const chartData = useMemo(() => {
@@ -356,39 +365,29 @@ const StatisticsPage = () => {
       </header>
 
       <main className="p-6 max-w-7xl mx-auto space-y-6">
-        {/* Course Selector */}
-        {!dataLoading && courses.length > 0 && (
-          <div className="rounded-xl border border-border bg-card p-4">
-            <label className="text-sm font-medium text-foreground mb-2 block">
-              Select Course
-            </label>
-            <select
-              value={selectedCourse || ""}
-              onChange={(e) => setSelectedCourse(e.target.value)}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
-            >
-              {courses.map((course) => (
-                <option key={course.course_code} value={course.course_code}>
-                  {course.course_code} - {course.title}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+        {/* Top Section: Selector + Summary Cards */}
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
+          {!dataLoading && courses.length > 0 && (
+            <div className="rounded-xl border border-border bg-card p-4 w-[350px] shrink-0">
+              <label className="text-sm font-medium text-foreground mb-2 block">
+                Select Subject (Global)
+              </label>
+              <select
+                value={selectedCourse || ""}
+                onChange={(e) => setSelectedCourse(e.target.value)}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+              >
+                {courses.map((course) => (
+                  <option key={course.course_code} value={course.course_code}>
+                    {course.course_code} - {course.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
-        {/* Loading State */}
-        {dataLoading && (
-          <div className="rounded-xl border border-border bg-card p-8 text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            <p className="mt-3 text-sm text-muted-foreground">Loading statistics...</p>
-          </div>
-        )}
-
-        {/* At a Glance & Charts */}
-        {!dataLoading && sectionsData.length > 0 && (
-          <div className="space-y-6">
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {!dataLoading && sectionsData.length > 0 && (
+            <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
               <div className="rounded-xl border border-border bg-card p-4 flex flex-col justify-between">
                 <h3 className="text-xs font-semibold text-muted-foreground uppercase">Total Students</h3>
                 <p className="text-2xl font-bold mt-2">
@@ -396,17 +395,19 @@ const StatisticsPage = () => {
                 </p>
               </div>
               <div className="rounded-xl border border-border bg-card p-4 flex flex-col justify-between">
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase">Evaluation Progress</h3>
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase">Marking Progress</h3>
                 <div className="mt-2">
-                   <div className="flex items-baseline gap-2">
-                      <span className="text-2xl font-bold text-primary">
-                        {Math.round((sectionsData.reduce((acc, curr) => acc + curr.checkingProgress, 0) / sectionsData.reduce((acc, curr) => acc + curr.totalStudents, 0) || 0) * 100)}%
-                      </span>
-                      <span className="text-xs text-muted-foreground">Completed</span>
-                   </div>
-                   <div className="w-full bg-secondary h-2 rounded-full mt-2 overflow-hidden">
-                      <div className="bg-primary h-full transition-all duration-500" style={{ width: `${(sectionsData.reduce((acc, curr) => acc + curr.checkingProgress, 0) / sectionsData.reduce((acc, curr) => acc + curr.totalStudents, 0) || 0) * 100}%` }}></div>
-                   </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-primary">
+                      {sectionsData.reduce((acc, curr) => acc + curr.checkingProgress, 0)}/{sectionsData.reduce((acc, curr) => acc + curr.totalStudents, 0)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {Math.round((sectionsData.reduce((acc, curr) => acc + curr.checkingProgress, 0) / sectionsData.reduce((acc, curr) => acc + curr.totalStudents, 0) || 0) * 100)}% complete
+                    </span>
+                  </div>
+                  <div className="w-full bg-secondary h-2 rounded-full mt-2 overflow-hidden">
+                    <div className="bg-primary h-full transition-all duration-500" style={{ width: `${(sectionsData.reduce((acc, curr) => acc + curr.checkingProgress, 0) / sectionsData.reduce((acc, curr) => acc + curr.totalStudents, 0) || 0) * 100}%` }}></div>
+                  </div>
                 </div>
               </div>
               <div className="rounded-xl border border-border bg-card p-4 flex flex-col justify-between">
@@ -422,12 +423,28 @@ const StatisticsPage = () => {
                 </p>
               </div>
             </div>
+          )}
+        </div>
 
+        {/* Loading State */}
+        {dataLoading && (
+          <div className="rounded-xl border border-border bg-card p-8 text-center">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <p className="mt-3 text-sm text-muted-foreground">Loading statistics...</p>
+          </div>
+        )}
+
+        {/* At a Glance & Sections */}
+        {!dataLoading && sectionsData.length > 0 && (
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
             <div className="rounded-xl border border-border bg-card p-6">
               <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">
-                  Score Distribution
-                </h3>
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">
+                    Score Distribution
+                  </h3>
+                  <p className="mt-1 text-xs text-muted-foreground">Click on the graph for more details.</p>
+                </div>
                 <div className="relative w-[220px]">
                   <Button
                     variant="outline"
@@ -504,6 +521,7 @@ const StatisticsPage = () => {
                       <YAxis tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} width={30} />
                       <RechartsTooltip 
                         cursor={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
+                        labelFormatter={(label) => `${label} - Click for details`}
                         contentStyle={{ 
                           backgroundColor: 'hsl(var(--card))', 
                           borderColor: 'hsl(var(--border))', 
@@ -533,97 +551,94 @@ const StatisticsPage = () => {
                 )}
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Sections Table */}
-        {!dataLoading && sectionsData.length > 0 && (
-          <div className="rounded-xl border border-border bg-card overflow-hidden">
-            <div className="px-5 py-4 border-b border-border">
-              <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">
-                Sections Overview
-              </h2>
-            </div>
+            <div className="rounded-xl border border-border bg-card overflow-hidden">
+              <div className="px-5 py-4 border-b border-border">
+                <h2 className="text-sm font-semibold text-foreground uppercase tracking-wider">
+                  Sections Overview
+                </h2>
+              </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      Section
-                    </th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      Assigned Teacher
-                    </th>
-                    <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      Total Students
-                    </th>
-                    <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      Checking Progress
-                    </th>
-                    <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      Grievances
-                    </th>
-                    <th className="px-5 py-3 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      Action
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sectionsData.map((section, i) => (
-                    <tr
-                      key={section.sectionName}
-                      className={`border-b border-border last:border-0 ${
-                        i % 2 === 1 ? "bg-muted/30" : ""
-                      }`}
-                    >
-                      <td className="px-5 py-3 font-medium text-foreground">
-                        {section.sectionName}
-                      </td>
-                      <td className="px-5 py-3 text-sm text-muted-foreground">
-                        {section.teacherName}
-                      </td>
-                      <td className="px-5 py-3 text-center text-muted-foreground">
-                        {section.totalStudents}
-                      </td>
-                      <td className="px-5 py-3">
-                        <div className="flex flex-col gap-1 min-w-[120px]">
-                          <div className="flex text-xs justify-center mb-1">
-                             <span className="text-muted-foreground text-[10px] md:text-xs">
-                               {section.checkingProgress}/{section.totalStudents} ({Math.round((section.checkingProgress / (section.totalStudents || 1)) * 100)}%)
-                            </span>
-                          </div>
-                          <div className="h-2 w-full bg-secondary rounded-full flex overflow-hidden">
-                            <div className="h-full bg-success" style={{ width: `${(section.checkingProgress / (section.totalStudents || 1)) * 100}%` }} title="Completed" />
-                            <div className="h-full bg-warning" style={{ width: `${(section.pendingProgress / (section.totalStudents || 1)) * 100}%` }} title="Pending" />
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="px-5 py-3 text-center">
-                        <span className="inline-flex items-center rounded-md bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
-                          {section.grievanceCount}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        <button
-                          onClick={() => handleExpandSection(section.sectionName)}
-                          disabled={loading}
-                          className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
-                            expandedSection === section.sectionName
-                              ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                              : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                          } disabled:opacity-50`}
-                        >
-                          {expandedSection === section.sectionName
-                            ? "Hide Details"
-                            : "View Details"}
-                        </button>
-                      </td>
+              <div>
+                <table className="w-full table-fixed text-xs">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="w-[13%] px-2 py-2 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-normal break-words">
+                        Section
+                      </th>
+                      <th className="w-[22%] px-2 py-2 text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-normal break-words">
+                        Assigned Teacher
+                      </th>
+                      <th className="w-[12%] px-2 py-2 text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-normal break-words">
+                        Total Students
+                      </th>
+                      <th className="w-[25%] px-2 py-2 text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-normal break-words">
+                        Checking Progress
+                      </th>
+                      <th className="w-[12%] px-2 py-2 text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-normal break-words">
+                        Grievances
+                      </th>
+                      <th className="w-[16%] px-2 py-2 text-right text-[10px] font-semibold text-muted-foreground uppercase tracking-wider whitespace-normal break-words">
+                        Action
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {sectionsData.map((section, i) => (
+                      <tr
+                        key={section.sectionName}
+                        className={`border-b border-border last:border-0 ${
+                          i % 2 === 1 ? "bg-muted/30" : ""
+                        }`}
+                      >
+                        <td className="px-2 py-2 font-medium text-foreground">
+                          {section.sectionName}
+                        </td>
+                        <td className="px-2 py-2 text-muted-foreground break-words">
+                          {section.teacherName}
+                        </td>
+                        <td className="px-2 py-2 text-center text-muted-foreground">
+                          {section.totalStudents}
+                        </td>
+                        <td className="px-2 py-2">
+                          <div className="flex flex-col gap-1">
+                            <div className="flex text-xs justify-center mb-1">
+                              <span className="text-muted-foreground text-[10px] md:text-xs">
+                                {section.checkingProgress}/{section.totalStudents} ({Math.round((section.checkingProgress / (section.totalStudents || 1)) * 100)}%)
+                              </span>
+                            </div>
+                            <div className="h-2 w-full bg-secondary rounded-full flex overflow-hidden">
+                              <div className="h-full bg-success" style={{ width: `${(section.checkingProgress / (section.totalStudents || 1)) * 100}%` }} title="Completed" />
+                              <div className="h-full bg-warning" style={{ width: `${(section.pendingProgress / (section.totalStudents || 1)) * 100}%` }} title="Pending" />
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="px-2 py-2 text-center">
+                          <span className="inline-flex items-center rounded-md bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
+                            {section.grievanceCount}
+                          </span>
+                        </td>
+                        <td className="px-2 py-2 text-right">
+                          <button
+                            onClick={() => handleExpandSection(section.sectionName)}
+                            disabled={loading}
+                            className={`rounded-md border border-primary/40 px-3 py-1.5 text-xs font-semibold transition-colors ${
+                              expandedSection === section.sectionName
+                                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                                : "bg-primary/10 text-primary hover:bg-primary/20"
+                            } disabled:opacity-50`}
+                          >
+                            {expandedSection === section.sectionName
+                              ? "Hide Details"
+                              : "View Details"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -639,7 +654,7 @@ const StatisticsPage = () => {
 
         {/* Expanded Section Details */}
         {expandedSection && sectionDetailsMap.has(expandedSection) && (
-          <div className="rounded-xl border border-border bg-card overflow-hidden">
+          <div ref={expandedDetailsRef} className="rounded-xl border border-border bg-card overflow-hidden">
             <div className="px-5 py-4 border-b border-border">
               <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">
                 {expandedSection} - Detailed Statistics

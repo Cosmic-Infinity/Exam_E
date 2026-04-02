@@ -181,17 +181,17 @@ const FacultyDashboard = () => {
           </h1>
           <p className="text-sm text-muted-foreground">Examination Grading Portal</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5">
           <button
             onClick={() => navigate("/dashboard/faculty/grievances")}
-            className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/20 transition-colors"
+            className="max-w-[185px] whitespace-normal leading-4 text-left rounded-lg border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-[11px] font-medium text-destructive hover:bg-destructive/20 transition-colors"
           >
             Grievance Management ({assignedGrievanceCount})
           </button>
           {hasCoordinatedCourses && (
             <button
               onClick={() => navigate("/dashboard/statistics")}
-              className="rounded-lg border border-primary bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20 transition-colors"
+              className="rounded-lg border border-primary bg-primary/10 px-2.5 py-1.5 text-[11px] font-medium text-primary hover:bg-primary/20 transition-colors"
             >
               Statistics
             </button>
@@ -200,22 +200,24 @@ const FacultyDashboard = () => {
             <>
               <button
                 onClick={() => navigate("/dashboard/controller-subject-statistics")}
-                className="rounded-lg border border-primary bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20 transition-colors"
+                className="rounded-lg border border-primary bg-primary/10 px-2.5 py-1.5 text-[11px] font-medium text-primary hover:bg-primary/20 transition-colors"
               >
                 Statistics
               </button>
               <button
                 onClick={() => navigate("/dashboard/controller-statistics")}
-                className="rounded-lg border border-primary bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20 transition-colors"
+                className="rounded-lg border border-primary bg-primary/10 px-2.5 py-1.5 text-[11px] font-medium text-primary hover:bg-primary/20 transition-colors"
               >
                 Controller Statistics
               </button>
             </>
           )}
-          <ThemeToggle />
+          <div className="scale-90 origin-right">
+            <ThemeToggle />
+          </div>
           <button
             onClick={handleLogout}
-            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
+            className="rounded-lg border border-border px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors"
           >
             Logout
           </button>
@@ -228,9 +230,9 @@ const FacultyDashboard = () => {
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {stats.map((stat) => (
-                <div key={stat.label} className="rounded-lg border border-border bg-card p-4 flex flex-col justify-between h-24">
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{stat.label}</span>
-                  <span className={`text-3xl font-bold font-mono ${stat.color} mt-auto`}>{stat.value}</span>
+                <div key={stat.label} className="rounded-lg border border-border bg-card p-2.5 flex flex-col justify-between h-16">
+                  <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{stat.label}</span>
+                  <span className={`text-xl font-bold font-mono ${stat.color} mt-auto`}>{stat.value}</span>
                 </div>
               ))}
             </div>

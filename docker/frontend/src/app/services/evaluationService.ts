@@ -564,13 +564,25 @@ export async function getStudentGrievancesBySubject(subjectCode: string): Promis
 
 export async function getFacultyGrievances(filter: FacultyGrievanceFilter): Promise<FacultyGrievanceItem[]> {
   const query = encodeURIComponent(filter);
-  const response = (await AuthService.get(`/teacher/grievances/?filter=${query}&_ts=${Date.now()}`)) as FacultyGrievanceItem[];
+  const cacheKey = `faculty-grievances:${query}`;
+  const cached = getFacultyCachedValue<FacultyGrievanceItem[]>(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const response = (await AuthService.get(`/teacher/grievances/?filter=${query}`)) as FacultyGrievanceItem[];
   setFacultyCachedValue(`faculty-grievances:${query}`, response);
   return response;
 }
 
 export async function getFacultyGrievanceStats(): Promise<FacultyGrievanceStats> {
-  const response = (await AuthService.get(`/teacher/grievances/stats/?_ts=${Date.now()}`)) as FacultyGrievanceStats;
+  const cacheKey = "faculty-grievance-stats";
+  const cached = getFacultyCachedValue<FacultyGrievanceStats>(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const response = (await AuthService.get(`/teacher/grievances/stats/`)) as FacultyGrievanceStats;
   setFacultyCachedValue("faculty-grievance-stats", response);
   return response;
 }

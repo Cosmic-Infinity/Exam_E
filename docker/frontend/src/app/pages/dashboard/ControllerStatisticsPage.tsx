@@ -12,7 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/app/components/ui/dialog";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from "recharts";
 import {
   fetchAllSemesters,
   fetchSubjectsBySemester,
@@ -28,6 +27,17 @@ interface SectionDetail extends SectionStatistics {
   courseCode: string;
   courseTitle: string;
 }
+
+type ChartModalMode = "checking" | "grievances" | "unchecked";
+
+type ChartModalRow = {
+  name: string;
+  university_id: string;
+  section: string;
+  score?: number;
+  paper_id?: number;
+  grievanceComment?: string;
+};
 
 const ControllerStatisticsPage = () => {
   const navigate = useNavigate();
@@ -50,18 +60,10 @@ const ControllerStatisticsPage = () => {
   const [allStudents, setAllStudents] = useState<StudentStats[]>([]);
   const [chartModalOpen, setChartModalOpen] = useState(false);
   const [chartModalTitle, setChartModalTitle] = useState("Section Details");
-  const [chartModalRows, setChartModalRows] = useState<
-    Array<{
-      name: string;
-      university_id: string;
-      section: string;
-      score?: number;
-      paper_id?: number;
-      checkedStatus?: "Checked" | "Unchecked";
-      grievanceStatus?: "Yes" | "No";
-    }>
-  >([]);
+  const [chartModalRows, setChartModalRows] = useState<ChartModalRow[]>([]);
+  const [chartModalMode, setChartModalMode] = useState<ChartModalMode>("checking");
   const [chartModalMessage, setChartModalMessage] = useState<string | null>(null);
+  const [selectedSectionFilter, setSelectedSectionFilter] = useState<string>("all");
 
   const formatSemesterLabel = (semester: number) =>
     semester === 0 ? "Data not available" : `Semester ${semester}`;
@@ -76,16 +78,13 @@ const ControllerStatisticsPage = () => {
   );
   const aggregateCheckedPct = aggregateStudents > 0 ? Math.round((aggregateChecked / aggregateStudents) * 100) : 0;
 
-  const sectionChartData = useMemo(
-    () =>
-      sections.map((section) => ({
-        sectionName: section.sectionName,
-        checking: section.checkingProgress || 0,
-        grievances: section.grievanceCount || 0,
-        unchecked: Math.max((section.totalStudents || 0) - (section.checkingProgress || 0), 0),
-      })),
-    [sections]
-  );
+  const filteredSections = useMemo(() => {
+    if (selectedSectionFilter === "all") {
+      return sections;
+    }
+
+    return sections.filter((section) => section.sectionName === selectedSectionFilter);
+  }, [sections, selectedSectionFilter]);
 
   // Fetch and set permission flags from backend role on mount
   useEffect(() => {
@@ -236,18 +235,12 @@ const ControllerStatisticsPage = () => {
   };
 
   const openChartModal = (
+    mode: ChartModalMode,
     title: string,
-    rows: Array<{
-      name: string;
-      university_id: string;
-      section: string;
-      score?: number;
-      paper_id?: number;
-      checkedStatus?: "Checked" | "Unchecked";
-      grievanceStatus?: "Yes" | "No";
-    }>,
+    rows: ChartModalRow[],
     message: string | null = null
   ) => {
+    setChartModalMode(mode);
     setChartModalTitle(title);
     setChartModalRows(rows);
     setChartModalMessage(message);
@@ -255,6 +248,8 @@ const ControllerStatisticsPage = () => {
   };
 
   const handleSectionMetricClick = (metric: "checking" | "grievances" | "unchecked", sectionName: string) => {
+    if (!sectionName) return;
+
     if (metric === "checking") {
       const rows = allStudents
         .filter((student) => student.section === sectionName)
@@ -264,17 +259,9 @@ const ControllerStatisticsPage = () => {
           section: student.section,
           score: student.score,
           paper_id: student.paper_id,
-          checkedStatus: "Checked" as const,
-          grievanceStatus: "No" as const,
         }));
 
-      const section = sections.find((item) => item.sectionName === sectionName);
-      const grievanceSet = new Set((section?.grievanceDetails || []).map((g) => g.studentId));
-      rows.forEach((row) => {
-        row.grievanceStatus = grievanceSet.has(row.university_id) ? "Yes" : "No";
-      });
-
-      openChartModal(`${sectionName} - Checked Copies`, rows, rows.length === 0 ? "No checked copies found." : null);
+      openChartModal("checking", `${sectionName} - Checked Copies`, rows, rows.length === 0 ? "No checked copies found." : null);
       return;
     }
 
@@ -284,20 +271,29 @@ const ControllerStatisticsPage = () => {
         name: item.studentName,
         university_id: item.studentId,
         section: sectionName,
-        score: allStudents.find((student) => student.university_id === item.studentId && student.section === sectionName)?.score,
         paper_id: allStudents.find((student) => student.university_id === item.studentId && student.section === sectionName)?.paper_id,
-        checkedStatus: "Checked" as const,
-        grievanceStatus: "Yes" as const,
+        grievanceComment: item.grievanceComment || "Data not available",
       }));
-      openChartModal(`${sectionName} - Grievance Students`, rows, rows.length === 0 ? "No grievance rows found." : null);
+      openChartModal("grievances", `${sectionName} - Grievance Students`, rows, rows.length === 0 ? "No grievance rows found." : null);
       return;
     }
 
-    openChartModal(
-      `${sectionName} - Unchecked Copies`,
-      [],
-      "Unchecked student-level list is not exposed by current stats APIs."
-    );
+    if (metric === "unchecked") {
+      const section = sections.find((item) => item.sectionName === sectionName);
+      const total = section?.totalStudents || 0;
+      const checked = section?.checkingProgress || 0;
+      const unchecked = Math.max(total - checked, 0);
+
+      openChartModal(
+        "unchecked",
+        `${sectionName} - Unchecked Copies`,
+        [],
+        `Unchecked copies: ${unchecked}. Student-level unchecked list is not exposed by current stats APIs.`
+      );
+      return;
+    }
+
+    openChartModal("unchecked", `${sectionName} - Unchecked Copies`, []);
   };
 
   const handleBack = () => {
@@ -536,10 +532,44 @@ const ControllerStatisticsPage = () => {
                         Total Students
                       </th>
                       <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                        Checking Progress
+                        <div className="flex flex-col items-center gap-1">
+                          <span>Checking Progress</span>
+                          <span className="text-[10px] normal-case text-muted-foreground">
+                            (number of checking progress of this section)
+                          </span>
+                        </div>
                       </th>
                       <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                        Marking Progress
+                        <div className="flex flex-col items-center gap-2">
+                          <span>Marking Progress</span>
+                          <span className="text-[10px] normal-case text-muted-foreground">
+                            ({aggregateChecked}/{aggregateStudents} for all sections)
+                          </span>
+                          <details className="w-full max-w-[250px] text-left normal-case">
+                            <summary className="cursor-pointer rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-foreground">
+                              {selectedSectionFilter === "all" ? "All Sections" : selectedSectionFilter}
+                            </summary>
+                            <div className="mt-1 rounded-md border border-border bg-background p-2 shadow-sm">
+                              <button
+                                onClick={() => setSelectedSectionFilter("all")}
+                                className="block w-full rounded px-1 py-1 text-left text-[11px] text-foreground hover:bg-muted/40"
+                              >
+                                All Sections
+                              </button>
+                              {sections.map((section) => (
+                                <div key={section.sectionName} className="flex items-center justify-between gap-2 px-1 py-1">
+                                  <span className="text-[11px] text-foreground">{section.sectionName}</span>
+                                  <button
+                                    onClick={() => setSelectedSectionFilter(section.sectionName)}
+                                    className="text-[11px] font-medium text-primary underline underline-offset-2"
+                                  >
+                                    View Section Totals
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </details>
+                        </div>
                       </th>
                       <th className="px-5 py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Grievances
@@ -550,7 +580,7 @@ const ControllerStatisticsPage = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {sections.map((section, i) => (
+                    {filteredSections.map((section, i) => (
                       <tr
                         key={section.sectionName}
                         className={`border-b border-border last:border-0 ${
@@ -569,9 +599,25 @@ const ControllerStatisticsPage = () => {
                           </span>
                         </td>
                         <td className="px-5 py-3 text-center">
-                          <span className="inline-flex items-center rounded-md bg-success/10 px-2.5 py-1 text-xs font-medium text-success">
-                            {section.checkingProgress}/{section.totalStudents}
-                          </span>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-center gap-2">
+                              <span className="text-xs font-medium text-muted-foreground">
+                                ({aggregateChecked}/{aggregateStudents})
+                              </span>
+                              <div className="h-2 w-28 overflow-hidden rounded-full bg-success/20">
+                                <div
+                                  className="h-full rounded-full bg-success transition-all"
+                                  style={{
+                                    width: `${
+                                      aggregateStudents > 0
+                                        ? Math.min((aggregateChecked / aggregateStudents) * 100, 100)
+                                        : 0
+                                    }%`,
+                                  }}
+                                ></div>
+                              </div>
+                            </div>
+                          </div>
                         </td>
                         <td className="px-5 py-3 text-center">
                           <span className="inline-flex items-center rounded-md bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
@@ -657,6 +703,25 @@ const ControllerStatisticsPage = () => {
                         )}
                         % complete
                       </p>
+                      <details className="mt-3">
+                        <summary className="cursor-pointer text-xs font-medium text-primary hover:underline">
+                          View checked and unchecked copies
+                        </summary>
+                        <div className="mt-2 space-y-2">
+                          <button
+                            onClick={() => handleSectionMetricClick("checking", expandedSection)}
+                            className="w-full rounded-md border border-border bg-background px-3 py-2 text-left text-xs font-medium text-foreground hover:bg-muted/40"
+                          >
+                            Checked copies ({sectionDetailsMap.get(expandedSection)?.checkingProgress || 0})
+                          </button>
+                          <button
+                            onClick={() => handleSectionMetricClick("unchecked", expandedSection)}
+                            className="w-full rounded-md border border-border bg-background px-3 py-2 text-left text-xs font-medium text-foreground hover:bg-muted/40"
+                          >
+                            Unchecked copies {`(${Math.max((sectionDetailsMap.get(expandedSection)?.totalStudents || 0) - (sectionDetailsMap.get(expandedSection)?.checkingProgress || 0), 0)})`}
+                          </button>
+                        </div>
+                      </details>
                     </div>
 
                     {/* Marking Progress */}
@@ -711,127 +776,19 @@ const ControllerStatisticsPage = () => {
                           ? "Requires attention"
                           : "All resolved"}
                       </p>
-                    </div>
-                  </div>
-
-                  {/* Grievances Table */}
-                  {(sectionDetailsMap.get(expandedSection)?.grievanceCount || 0) > 0 && (
-                    <div className="rounded-lg border border-border overflow-hidden">
-                      <div className="px-4 py-3 border-b border-border bg-muted/30">
-                        <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">
-                          Grievance Details
-                        </h4>
-                      </div>
-                      {sectionDetailsMap.get(expandedSection)?.grievanceDetailsAvailable ? (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="border-b border-border">
-                                <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
-                                  Student ID
-                                </th>
-                                <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
-                                  Student Name
-                                </th>
-                                <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
-                                  Roll No
-                                </th>
-                                <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
-                                  Grievance Type
-                                </th>
-                                <th className="px-4 py-2 text-left text-xs font-semibold text-muted-foreground">
-                                  Grievance Comment
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {(sectionDetailsMap.get(expandedSection)?.grievanceDetails || []).map(
-                                (grievance, index) => (
-                                  <tr
-                                    key={`${grievance.studentId}-${grievance.grievanceType}-${index}`}
-                                    className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
-                                  >
-                                    <td className="px-4 py-2 font-mono text-foreground">
-                                      {grievance.studentId}
-                                    </td>
-                                    <td className="px-4 py-2 text-foreground">
-                                      {grievance.studentName}
-                                    </td>
-                                    <td className="px-4 py-2 font-mono text-muted-foreground">
-                                      {grievance.rollNo}
-                                    </td>
-                                    <td className="px-4 py-2">
-                                      <span className="inline-flex items-center rounded-md bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
-                                        {grievance.grievanceType}
-                                      </span>
-                                    </td>
-                                    <td className="px-4 py-2 text-muted-foreground whitespace-pre-wrap">
-                                      {grievance.grievanceComment || "Data not available"}
-                                    </td>
-                                  </tr>
-                                )
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : (
-                        <div className="p-4 text-sm text-muted-foreground">Data not available</div>
+                      {(sectionDetailsMap.get(expandedSection)?.grievanceCount || 0) > 0 && (
+                        <button
+                          onClick={() => handleSectionMetricClick("grievances", expandedSection)}
+                          className="mt-2 text-xs font-medium text-primary underline underline-offset-2"
+                        >
+                          Click here for more details
+                        </button>
                       )}
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
             )}
-
-            <div className="rounded-xl border border-border bg-card p-5">
-              <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider mb-4">
-                Section-Wise Detailed Statistics
-              </h3>
-              <div className="h-[360px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={sectionChartData} margin={{ top: 16, right: 20, left: 8, bottom: 8 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="sectionName" />
-                    <YAxis allowDecimals={false} />
-                    <RechartsTooltip cursor={false} content={() => null} />
-                    <Legend />
-                    <Area
-                      type="monotone"
-                      dataKey="checking"
-                      name="Checking Progress"
-                      stackId="sections"
-                      fill="#2563eb"
-                      stroke="#2563eb"
-                      fillOpacity={0.55}
-                      activeDot={false}
-                      onClick={(entry) => handleSectionMetricClick("checking", entry?.sectionName || entry?.payload?.sectionName)}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="grievances"
-                      name="Grievances"
-                      stackId="sections"
-                      fill="#ef4444"
-                      stroke="#ef4444"
-                      fillOpacity={0.55}
-                      activeDot={false}
-                      onClick={(entry) => handleSectionMetricClick("grievances", entry?.sectionName || entry?.payload?.sectionName)}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="unchecked"
-                      name="Unchecked"
-                      stackId="sections"
-                      fill="#f59e0b"
-                      stroke="#f59e0b"
-                      fillOpacity={0.55}
-                      activeDot={false}
-                      onClick={(entry) => handleSectionMetricClick("unchecked", entry?.sectionName || entry?.payload?.sectionName)}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
           </>
         )}
 
@@ -840,7 +797,11 @@ const ControllerStatisticsPage = () => {
             <DialogHeader>
               <DialogTitle>{chartModalTitle}</DialogTitle>
               <DialogDescription>
-                Click a student row to open their answer sheet where available.
+                {chartModalMode === "checking"
+                  ? "Checked copies in this section. Click a row to open answer sheet where available."
+                  : chartModalMode === "grievances"
+                    ? "Students with grievances in this section. Click a row to open answer sheet where available."
+                    : "Unchecked student-level list is not exposed by current stats APIs."}
               </DialogDescription>
             </DialogHeader>
             {chartModalMessage ? (
@@ -849,10 +810,14 @@ const ControllerStatisticsPage = () => {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left font-medium py-2 text-muted-foreground">Roll No</th>
                     <th className="text-left font-medium py-2 text-muted-foreground">Name</th>
-                    <th className="text-left font-medium py-2 text-muted-foreground">Checked</th>
-                    <th className="text-left font-medium py-2 text-muted-foreground">Grievance</th>
+                    <th className="text-left font-medium py-2 text-muted-foreground">Roll No</th>
+                    {chartModalMode === "checking" && (
+                      <th className="text-right font-medium py-2 text-muted-foreground">Marks</th>
+                    )}
+                    {chartModalMode === "grievances" && (
+                      <th className="text-left font-medium py-2 text-muted-foreground">Grievance</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -862,15 +827,19 @@ const ControllerStatisticsPage = () => {
                       className="border-b last:border-0 hover:bg-muted/50 cursor-pointer transition-colors"
                       onClick={() => handleViewScript(row)}
                     >
-                      <td className="py-2">{row.university_id}</td>
                       <td className="py-2">{row.name}</td>
-                      <td className="py-2">{row.checkedStatus || "Checked"}</td>
-                      <td className="py-2">{row.grievanceStatus || "No"}</td>
+                      <td className="py-2">{row.university_id}</td>
+                      {chartModalMode === "checking" && (
+                        <td className="py-2 text-right font-mono">{row.score ?? "Data not available"}</td>
+                      )}
+                      {chartModalMode === "grievances" && (
+                        <td className="py-2 text-muted-foreground">{row.grievanceComment || "Data not available"}</td>
+                      )}
                     </tr>
                   ))}
                   {chartModalRows.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="py-6 text-center text-muted-foreground">No rows found.</td>
+                      <td colSpan={chartModalMode === "checking" || chartModalMode === "grievances" ? 3 : 2} className="py-6 text-center text-muted-foreground">No rows found.</td>
                     </tr>
                   )}
                 </tbody>

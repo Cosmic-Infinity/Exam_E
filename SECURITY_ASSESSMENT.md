@@ -407,26 +407,20 @@ add_header Referrer-Policy "strict-origin-when-cross-origin";
 ### Phase 10: Rate Limiting & DOS Protection (P10)
 
 **Severity:** 🟡 MEDIUM  
-**Status:** ⚠️ NOT IMPLEMENTED
+**Status:** ⚠️ PARTIALLY IMPLEMENTED
 
 | Test ID | Test Case | Expected | Actual | Status | Notes |
 |---------|-----------|----------|--------|--------|-------|
-| P10.1 | Rapid login attempts (5+ per second) | 429 after N attempts | 401 every time | ⚠️ | No rate limiting detected |
-| P10.2 | API endpoint spam | 429 after threshold | No limit | ⚠️ | Consider django-ratelimit |
-| P10.3 | File request flooding | 429 after threshold | No limit | ⚠️ | nginx rate_limit possible |
+| P10.1 | Rapid login attempts against one account | Request slowdown and temporary lockout | Progressive delays + timed lockout | ✅ | Account-based login protection is active |
+| P10.2 | API endpoint spam | 429 after threshold | No generic endpoint throttle | ⚠️ | Consider targeted throttles for non-auth APIs |
+| P10.3 | File request flooding | 429 after threshold | No dedicated flood control in this phase | ⚠️ | nginx `limit_req` still recommended |
 
 **Recommendation:**
 ```python
-# Install: pip install django-ratelimit
-# views.py
-from django_ratelimit.decorators import ratelimit
+# Keep existing login protection in core/api/auth_security.py.
+# Add endpoint-specific throttles for high-risk non-auth APIs if needed.
 
-@ratelimit(key='user', rate='5/m', method='POST')
-def login(request):
-    # Max 5 login attempts per minute per user
-    pass
-
-# OR nginx-based rate limiting
+# OR nginx-based request limiting for selected paths
 limit_req_zone $binary_remote_addr zone=login_limit:10m rate=5r/m;
 
 server {
@@ -437,7 +431,7 @@ server {
 }
 ```
 
-**Verdict:** ⚠️ RATE LIMITING NOT IMPLEMENTED — Recommended for production.
+**Verdict:** ⚠️ LOGIN ABUSE PROTECTION IMPLEMENTED; API-WIDE DOS CONTROLS STILL RECOMMENDED FOR PRODUCTION.
 
 ---
 
@@ -481,7 +475,7 @@ def authenticate(email, password):
 | CVE-P1 | Cross-Student IDOR (Critical) | 9.1 | ✅ FIXED | Mar 17, 2026 |
 | CVE-P2 | Path traversal in file gateway (Critical) | 8.6 | ✅ FIXED | Mar 17, 2026 |
 | CVE-P3 | CORS misconfiguration (Medium) | 5.7 | ✅ HARDENED | Mar 17, 2026 |
-| CVE-P4 | Missing rate limiting (Medium) | 5.3 | ⚠️ PENDING | TBD |
+| CVE-P4 | Incomplete DOS/rate-limiting coverage (Medium) | 5.3 | ⚠️ PARTIAL | Apr 12, 2026 |
 | CVE-P5 | Weak session security (Medium) | 4.9 | ✅ SECURED | Mar 17, 2026 |
 
 ---
@@ -490,24 +484,18 @@ def authenticate(email, password):
 
 ### 1. Rate Limiting (Priority: HIGH)
 
-**Current Status:** Not implemented  
+**Current Status:** Partially implemented  
 **Risk:** Brute force attacks, API abuse, denial of service
-
-```bash
-# Install rate limiting library
-pip install django-ratelimit
-```
 
 **Implementation:**
 ```python
-# core/api/auth.py
-from django_ratelimit.decorators import ratelimit
+# Login protection is implemented in core/api/auth_security.py
+# - Per-account failed attempt tracking
+# - Progressive delays (2s, 5s, 10s)
+# - Account lockout after threshold with timed expiry
 
-@ratelimit(key='ip', rate='5/m', method='POST')
-class LoginView(APIView):
-    def post(self, request):
-        # Max 5 login attempts per IP per minute
-        pass
+# Additional recommendation:
+# Add per-endpoint throttles for non-auth APIs with high abuse risk.
 ```
 
 **nginx configuration:**

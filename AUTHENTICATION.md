@@ -378,13 +378,28 @@ Runtime route mapping note:
 ✅ **Course Lookups** - Database verification for stats access  
 ✅ **User Isolation** - Filters by `request.user`
 
-### **Rate Limiting**
+### **Login Abuse Protection (Shared-Network Safe)**
 
-```python
-@ratelimit(key='ip', rate='5/m', block=True)
-def login(request):
-    # 5 login attempts per minute per IP
-```
+The login endpoint uses account-based protection in `core/api/auth_security.py` instead of strict per-IP throttling. This avoids blocking legitimate users behind campus NAT or shared Wi-Fi.
+
+Current behavior:
+
+- Failed attempts are tracked per email/username in Redis
+- Account lockout starts after 10 consecutive failures
+- Lockout duration is 15 minutes (auto-expiry)
+- Progressive response delays begin after 3 failures: 2s, 5s, then 10s
+- Successful login clears both failure counters and lock status
+
+HTTP responses during login:
+
+- `200`: Login successful
+- `400`: Missing email or password
+- `401`: Invalid credentials
+- `403`: Account temporarily locked
+
+Frontend note:
+
+- Desktop and mobile login handlers must treat `403` as account lockout feedback.
 
 ### **Database Constraints**
 

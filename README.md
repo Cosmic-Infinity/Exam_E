@@ -62,7 +62,7 @@ Email-based authentication (not username) for university compatibility.
 
 Per-username security tracking: Failed attempts traced to individual accounts (not IP addresses), enabling reliable operation in shared campus networks. Account lockout after 10 failures, with progressive delays (2s → 5s → 10s) after 3 attempts.
 
-For detailed security architecture, see [README_AUTHENTICATION_SECURITY.md](README_AUTHENTICATION_SECURITY.md).
+For detailed security architecture, see [AUTHENTICATION.md](AUTHENTICATION.md).
 
 Paper Evaluation:
 
@@ -103,7 +103,7 @@ Action: Django adds tasks to Redis. Celery workers pick them up one by one and t
 
 # 6. Authentication, Authorization & Security
 
-For comprehensive documentation on authentication, role-based access control, and security implementation, see **[AUTHENTICATION.md](AUTHENTICATION.md)** and **[README_AUTHENTICATION_SECURITY.md](README_AUTHENTICATION_SECURITY.md)**.
+For comprehensive documentation on authentication, role-based access control, and security implementation, see **[AUTHENTICATION.md](AUTHENTICATION.md)**.
 
 **Quick Reference**:
 
@@ -117,6 +117,7 @@ For comprehensive documentation on authentication, role-based access control, an
 - Failed login attempts tracked **per-username** (not per-IP) using Redis cache
 - Account lockout after 10 consecutive failed attempts (15-minute lockout)
 - Progressive delays (2s → 5s → 10s) after 3 failed attempts to slow brute-force attacks
+- Locked accounts return **HTTP 403** (invalid credentials remain **HTTP 401**)
 - Works reliably in campus networks and NAT environments (no legitimate user blocking)
 - Handles 5000+ concurrent users without IP-based collisions
 

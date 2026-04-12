@@ -220,7 +220,7 @@ const handleLogin = async (e: React.FormEvent) => {
 - [ ] Verify faculty can only grade assigned papers
 - [ ] Return 403 Forbidden for unauthorized access
 - [ ] Log all access attempts for audit trail
-- [ ] Rate limit login attempts (already done: 5/min)
+- [ ] Handle account lockout UX for login (`403` locked account response)
 
 ---
 

@@ -147,6 +147,21 @@ SIMPLE_JWT = {
     'AUTH_COOKIE_SAMESITE': 'Lax',
 }
 
+# ── Cache Configuration ───────────────────────────────────────────────────────
+# Used for authentication security (failed attempts tracking, account lockouts).
+# Redis is the primary cache backend for production; fallback to in-memory for dev.
+# Database 2 reserved for caching; Celery uses 0 and 1.
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': os.environ.get('CACHE_LOCATION', 'redis://redis:6379/2'),
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            'CONNECTION_POOL_KWARGS': {'max_connections': 50},
+        }
+    }
+}
+
 CORS_ALLOWED_ORIGINS = os.environ.get(
     'CORS_ALLOWED_ORIGINS', 'http://localhost:8080'
 ).split(',')

@@ -3,6 +3,7 @@ django-ninja
 psycopg2-binary
 celery
 redis
+django-redis
 gunicorn
 uvicorn
 python-dotenv

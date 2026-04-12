@@ -6,11 +6,15 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.exceptions import TokenError
 from django.contrib.auth import authenticate
-from django_ratelimit.decorators import ratelimit
-from django.utils.decorators import method_decorator
 from django.conf import settings
 
 from .serializers import CustomTokenObtainPairSerializer, UserMeSerializer
+from .auth_security import (
+    check_login_security,
+    handle_login_failure,
+    handle_login_success,
+    apply_progressive_delay,
+)
 from ..tasks import send_password_changed_email
 
 # ── cookie config (single source of truth: settings.SIMPLE_JWT) ──────────────
@@ -28,11 +32,16 @@ class LoginView(APIView):
     Body: { "email": "...", "password": "..." }
     Returns: { message, role, university_id, full_name }
              + sets HttpOnly access_token & refresh_token cookies.
+    
+    Security:
+      - Tracks failed login attempts per username using Django cache (Redis)
+      - Implements account locking after 10 consecutive failed attempts
+      - Progressive delays after 3 failed attempts (to slow brute-force attacks)
+      - Works reliably with shared IPs (campus networks, NAT environments)
     """
     permission_classes = []
     authentication_classes = []
 
-    @method_decorator(ratelimit(key='ip', rate='5/m', block=True))
     def post(self, request):
         email = request.data.get('email')
         password = request.data.get('password')
@@ -43,15 +52,37 @@ class LoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # ─ Step 1: Check security before processing login ─
+        security_check = check_login_security(email)
+        
+        if not security_check['allowed']:
+            # Account is locked; return 403 Forbidden
+            return Response(
+                {'error': security_check['error']},
+                status=security_check['status_code'],
+            )
+        
+        # ─ Step 2: Apply progressive delay if needed ─
+        # This slows down brute-force attempts without completely blocking legitimate users
+        if security_check['delay'] > 0:
+            apply_progressive_delay(security_check['delay'])
+        
+        # ─ Step 3: Authenticate user ─
         # authenticate() expects 'username' kwarg which maps to USERNAME_FIELD usually,
         # but our custom backend or ModelBackend handles it.
         user = authenticate(request, username=email, password=password)
 
+        # ─ Step 4: Handle authentication result ─
         if user is None or not user.is_active:
+            # Authentication failed; track the failure
+            failure_response = handle_login_failure(email)
             return Response(
-                {'error': 'Invalid credentials'},
-                status=status.HTTP_401_UNAUTHORIZED,
+                {'error': failure_response['error']},
+                status=failure_response['status_code'],
             )
+
+        # ─ Step 5: Login successful; reset security counters ─
+        handle_login_success(email)
 
         refresh = RefreshToken.for_user(user)
         # Embed custom claims in the token payload

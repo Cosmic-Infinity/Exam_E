@@ -56,11 +56,13 @@ Celery Worker: A separate background process that wakes up to send emails or shu
 
 Auth & Security:
 
-Use Django Allauth or built-in Auth.
+Stateless JWT (JSON Web Tokens) via Django REST Framework simplejwt for scalable, secure login without server-side sessions.
 
-JWT (JSON Web Tokens) for stateless student login.
+Email-based authentication (not username) for university compatibility.
 
-Rotation: A simple Python script that generates random strings, hashes them with bcrypt, and updates the User table.
+Per-username security tracking: Failed attempts traced to individual accounts (not IP addresses), enabling reliable operation in shared campus networks. Account lockout after 10 failures, with progressive delays (2s → 5s → 10s) after 3 attempts.
+
+For detailed security architecture, see [README_AUTHENTICATION_SECURITY.md](README_AUTHENTICATION_SECURITY.md).
 
 Paper Evaluation:
 
@@ -101,14 +103,28 @@ Action: Django adds tasks to Redis. Celery workers pick them up one by one and t
 
 # 6. Authentication, Authorization & Security
 
-For comprehensive documentation on authentication, role-based access control, and security implementation, see **[AUTHENTICATION.md](AUTHENTICATION.md)**.
+For comprehensive documentation on authentication, role-based access control, and security implementation, see **[AUTHENTICATION.md](AUTHENTICATION.md)** and **[README_AUTHENTICATION_SECURITY.md](README_AUTHENTICATION_SECURITY.md)**.
 
 **Quick Reference**:
-- Users authenticate with email + password
-- JWT tokens stored in secure HttpOnly cookies
+
+**Authentication**:
+- Users authenticate with email + password via `POST /api/auth/login/`
+- JWT tokens stored in secure HttpOnly cookies (HTTPS-only in production)
+- 15-minute access token TTL + 1-day refresh token TTL
+- Automatic token rotation with blacklisting on logout
+
+**Smart Security (University Network Safe)**:
+- Failed login attempts tracked **per-username** (not per-IP) using Redis cache
+- Account lockout after 10 consecutive failed attempts (15-minute lockout)
+- Progressive delays (2s → 5s → 10s) after 3 failed attempts to slow brute-force attacks
+- Works reliably in campus networks and NAT environments (no legitimate user blocking)
+- Handles 5000+ concurrent users without IP-based collisions
+
+**Authorization**:
 - Three roles: STUDENT, TEACHER, CONTROLLER
-- Role-based API access control via permission classes
+- Role-based API access control via permission classes (IsStudent, IsTeacher, IsController)
 - Course-level authorization for statistics and grading
+- System Admins (is_staff + is_superuser) access Django Admin panel only
 
 ---
 

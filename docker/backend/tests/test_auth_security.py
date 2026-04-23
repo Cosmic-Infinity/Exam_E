@@ -14,6 +14,7 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.utils import timezone
 import time
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from core.api.auth_security import (
     check_login_security,
@@ -509,6 +510,38 @@ class LoginViewSecurityTests(TestCase):
         }, content_type='application/json')
         
         self.assertEqual(response.status_code, 401)
+
+
+class TokenRevocationTests(TestCase):
+    """Tests for immediate revocation behavior after token blacklisting."""
+
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            email='revocation@kiit.ac.in',
+            password='TestPassword123',
+            university_id='2305999',
+            full_name='Revocation User',
+            role='STUDENT',
+        )
+
+    def test_blacklisted_refresh_forces_next_request_unauthorized(self):
+        """A manually blacklisted refresh token should invalidate session immediately."""
+        login_response = self.client.post('/api/auth/login/', {
+            'email': 'revocation@kiit.ac.in',
+            'password': 'TestPassword123',
+        }, content_type='application/json')
+        self.assertEqual(login_response.status_code, 200)
+
+        ok_response = self.client.get('/api/me/')
+        self.assertEqual(ok_response.status_code, 200)
+
+        raw_refresh = self.client.cookies.get('refresh_token').value
+        refresh = RefreshToken(raw_refresh)
+        refresh.blacklist()
+
+        revoked_response = self.client.get('/api/me/')
+        self.assertEqual(revoked_response.status_code, 401)
 
 
 class CacheExpirationTests(TestCase):

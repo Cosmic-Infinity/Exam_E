@@ -1609,16 +1609,7 @@ const EvaluationViewerMobile = () => {
             )}
 
             {isFaculty && mode === "grievance" && (
-              <section className="rounded-xl border border-border bg-card p-3 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resolve Grievance</h4>
-                  {scriptGrievance?.date && <span className="text-[10px] font-mono text-muted-foreground">{scriptGrievance.date}</span>}
-                </div>
-                {scriptGrievance?.text && (
-                  <p className="text-xs text-foreground bg-muted/40 rounded-lg p-2.5 border border-border/50 leading-relaxed line-clamp-3">
-                    {scriptGrievance.text}
-                  </p>
-                )}
+              <section className="rounded-xl border border-border bg-card p-3 space-y-2">
                 {!hasMarksChangedFromOriginal && (
                   <p className="text-[11px] text-muted-foreground text-center">
                     Update marks to enable Accept, or Reject if no changes are needed.

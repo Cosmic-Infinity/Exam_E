@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect, useRef } from "react";
+import { Fragment, useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { jsPDF } from "jspdf";
@@ -6,7 +6,7 @@ import autoTable from "jspdf-autotable";
 import { ArrowLeft, ChevronDown, Download, Eraser, Eye, FileText, FileX2, Files, KeyRound, Pencil, RotateCcw, RotateCw, X } from "lucide-react";
 import { useUserSession } from "@/app/context/UserSessionContext";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/app/components/ui/resizable";
-import { getScript, saveMarks, submitGrievance, acceptGrievance, rejectGrievance, downloadFile, getStudentGrievancesBySubject, getTeacherPaperMarkings, getStudentPaperMarkings, saveTeacherPaperMarkings } from "@/app/services/evaluationService";
+import { getScript, saveMarks, submitGrievance, acceptGrievance, rejectGrievance, getFacultyGrievances, downloadFile, getStudentGrievancesBySubject, getTeacherPaperMarkings, getStudentPaperMarkings, saveTeacherPaperMarkings } from "@/app/services/evaluationService";
 import AuthService from "@/app/services/authService";
 import type { StudentGrievanceItem } from "@/app/services/evaluationService";
 import { MarksRow, SUBJECT_MAP, createEmptyMarks, computeTotal, getCountedRowIndexes, AnswerScript } from "@/app/types/evaluation";
@@ -319,10 +319,22 @@ const EvaluationViewer = () => {
   const [currentScript, setCurrentScript] = useState<AnswerScript | null>(null);
   const isMarksAlreadySaved = currentScript?.status === "graded";
   const [marks, setMarks] = useState<MarksRow[]>(createEmptyMarks());
+  const [originalMarksJson, setOriginalMarksJson] = useState<string>("");
+  const [savedMarksJson, setSavedMarksJson] = useState<string>("");
   const [grievanceText, setGrievanceText] = useState("");
   const [scriptGrievance, setScriptGrievance] = useState<{ text: string; date: string } | null>(null);
   const [grievanceHistory, setGrievanceHistory] = useState<StudentGrievanceItem[]>([]);
   const [loadingGrievanceHistory, setLoadingGrievanceHistory] = useState(false);
+
+  const hasMarksChanged = useMemo(() => {
+    if (!savedMarksJson) return false;
+    return JSON.stringify(marks) !== savedMarksJson;
+  }, [marks, savedMarksJson]);
+
+  const hasMarksChangedFromOriginal = useMemo(() => {
+    if (!originalMarksJson) return false;
+    return JSON.stringify(marks) !== originalMarksJson;
+  }, [marks, originalMarksJson]);
 
   // Derived pages list
   const pagesList = currentScript?.pages && currentScript.pages.length > 0 ? currentScript.pages : Array.from({ length: DEFAULT_TOTAL_PAGES }, (_, i) => String(i + 1));
@@ -432,18 +444,37 @@ const EvaluationViewer = () => {
           return;
         }
 
-        setMarks(script.marks);
+        const initialMarks = script.marks || createEmptyMarks();
+        setMarks(initialMarks);
+        const marksStr = JSON.stringify(initialMarks);
+        setOriginalMarksJson(marksStr);
+        setSavedMarksJson(marksStr);
         setCurrentScript(script);
 
         // Use subject info from script (fetched from backend API in getScript)
         setHeaderSubjectCode(script.subjectCode?.toUpperCase() || subjectCode);
         setHeaderSubjectName(script.subjectName || subjectCode);
 
-        if (script.hasGrievance && script.grievanceText) {
-          setScriptGrievance({
-            text: script.grievanceText,
-            date: script.grievanceDate || "",
-          });
+        if (isFaculty && (mode === "grievance" || script.hasGrievance || grievanceId)) {
+          if (script.hasGrievance && script.grievanceText) {
+            setScriptGrievance({
+              text: script.grievanceText,
+              date: script.grievanceDate || (grievanceId ? `Ref #${grievanceId}` : ""),
+            });
+          } else {
+            try {
+              const grievances = await getFacultyGrievances("all");
+              const match = grievances.find((g) => (grievanceId && g.id === grievanceId) || g.student_university_id === rollNo);
+              if (match && match.student_comment) {
+                setScriptGrievance({
+                  text: match.student_comment,
+                  date: `Ref #${match.id}`,
+                });
+              }
+            } catch {
+              // ignore
+            }
+          }
         }
       } catch (err) {
         console.error("Failed to load script:", err);
@@ -832,6 +863,7 @@ const EvaluationViewer = () => {
 
       await saveMarks(rollNo, subjectId || "", marks, role as "student" | "faculty");
       await persistSavedDrawings();
+      setSavedMarksJson(JSON.stringify(marks));
       setCurrentScript((prev) => (prev ? { ...prev, status: "graded" } : prev));
       toast.success("Marks saved successfully.", { duration: 2500 });
     };
@@ -901,6 +933,8 @@ const EvaluationViewer = () => {
     try {
       await acceptGrievance(rollNo, subjectId || "", marks, Number.isFinite(grievanceId) && grievanceId > 0 ? grievanceId : undefined);
       toast.success("Grievance accepted. Marks updated.", { duration: 2500 });
+      setOriginalMarksJson(JSON.stringify(marks));
+      setSavedMarksJson(JSON.stringify(marks));
       setScriptGrievance(null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not resolve grievance.");
@@ -2022,15 +2056,25 @@ const EvaluationViewer = () => {
                     {isFaculty && !isReadOnlyMode && (
                       <button
                         onClick={handleSaveMarks}
-                        disabled={hasInvalidMarks}
+                        disabled={hasInvalidMarks || (isMarksAlreadySaved && !hasMarksChanged)}
                         className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${
                           hasInvalidMarks
                             ? "bg-destructive/15 border border-destructive/40 text-destructive cursor-not-allowed"
                             : isMarksAlreadySaved
-                              ? "bg-success text-success-foreground hover:bg-success/90"
+                              ? hasMarksChanged
+                                ? "bg-success text-success-foreground hover:bg-success/90"
+                                : "bg-muted text-muted-foreground border border-border cursor-not-allowed"
                               : "bg-primary text-primary-foreground hover:bg-primary/90"
                         }`}
-                        title={hasInvalidMarks ? "Fix marks exceeding question maximum before saving." : isMarksAlreadySaved ? "Update Marks" : "Save Marks"}
+                        title={
+                          hasInvalidMarks
+                            ? "Fix marks exceeding question maximum before saving."
+                            : isMarksAlreadySaved
+                              ? hasMarksChanged
+                                ? "Update Marks"
+                                : "Change marks to update."
+                              : "Save Marks"
+                        }
                       >
                         {isMarksAlreadySaved ? "Update Marks" : "Save Marks"}
                       </button>
@@ -2259,7 +2303,12 @@ const EvaluationViewer = () => {
                         <p className="text-[10px] text-muted-foreground mt-2 font-mono">Submitted: {scriptGrievance.date}</p>
                       </div>
                       <div className="flex gap-2">
-                        <button onClick={handleAcceptGrievance} className="flex-1 rounded-lg bg-success px-3 py-2 text-xs font-semibold text-success-foreground hover:bg-success/90 transition-colors">
+                        <button
+                          onClick={handleAcceptGrievance}
+                          disabled={hasInvalidMarks || !hasMarksChangedFromOriginal}
+                          className="flex-1 rounded-lg bg-success px-3 py-2 text-xs font-semibold text-success-foreground hover:bg-success/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title={!hasMarksChangedFromOriginal ? "Update marks before accepting grievance." : "Accept grievance and update marks"}
+                        >
                           Accept & Update Marks
                         </button>
                         <button

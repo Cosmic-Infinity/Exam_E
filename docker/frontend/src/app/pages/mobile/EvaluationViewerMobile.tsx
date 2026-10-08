@@ -7,7 +7,7 @@ import { ChevronDown, ChevronUp, Download, Eraser, Moon, Pencil, RefreshCw, Rota
 import { useUserSession } from "@/app/context/UserSessionContext";
 import { useTheme } from "@/app/context/ThemeContext";
 import AuthService from "@/app/services/authService";
-import { getScript, saveMarks, submitGrievance, acceptGrievance, rejectGrievance, getStudentGrievancesBySubject, downloadFile, getTeacherPaperMarkings, getStudentPaperMarkings, saveTeacherPaperMarkings } from "@/app/services/evaluationService";
+import { getScript, saveMarks, submitGrievance, acceptGrievance, rejectGrievance, getFacultyGrievances, getStudentGrievancesBySubject, downloadFile, getTeacherPaperMarkings, getStudentPaperMarkings, saveTeacherPaperMarkings } from "@/app/services/evaluationService";
 import { SUBJECT_MAP, createEmptyMarks, computeTotal, getCountedRowIndexes, type MarksRow } from "@/app/types/evaluation";
 import { resolveAssetUrl } from "@/app/utils/assetResolver";
 
@@ -124,6 +124,7 @@ const EvaluationViewerMobile = () => {
   const role = searchParams.get("role") === "faculty" ? "faculty" : "student";
   const mode = searchParams.get("mode") || "graded";
   const grievanceId = Number(searchParams.get("grievanceId") || "");
+  const paperIdParam = searchParams.get("paper_id");
   const navigate = useNavigate();
   const { user } = useUserSession();
   const { theme, setTheme } = useTheme();
@@ -135,6 +136,9 @@ const EvaluationViewerMobile = () => {
   const [questionPaperPath, setQuestionPaperPath] = useState<string | undefined>(undefined);
   const [answerKeyPath, setAnswerKeyPath] = useState<string | undefined>(undefined);
   const [marks, setMarks] = useState<MarksRow[]>(createEmptyMarks());
+  const [originalMarksJson, setOriginalMarksJson] = useState<string>("");
+  const [savedMarksJson, setSavedMarksJson] = useState<string>("");
+  const [scriptGrievance, setScriptGrievance] = useState<{ text: string; date: string } | null>(null);
   const [grievanceType, setGrievanceType] = useState<MobileGrievanceType>("GENERAL");
   const [grievanceText, setGrievanceText] = useState("");
   const [missingPages, setMissingPages] = useState("");
@@ -233,7 +237,7 @@ const EvaluationViewerMobile = () => {
       setLoading(true);
       setNotFound(false);
       try {
-        const script = await getScript(rollNo, subjectId || "", role);
+        const script = await getScript(rollNo, subjectId || "", role, paperIdParam || undefined);
         if (!active) return;
 
         if (!script) {
@@ -241,8 +245,12 @@ const EvaluationViewerMobile = () => {
           return;
         }
 
+        const initialMarks = script.marks || createEmptyMarks();
         setCurrentScript(script);
-        setMarks(script.marks || createEmptyMarks());
+        setMarks(initialMarks);
+        const marksStr = JSON.stringify(initialMarks);
+        setOriginalMarksJson(marksStr);
+        setSavedMarksJson(marksStr);
         setPages(script.pages || []);
         setQuestionPaperPath(script.question_paper_path || undefined);
         setAnswerKeyPath(script.answer_key_path || undefined);
@@ -250,6 +258,28 @@ const EvaluationViewerMobile = () => {
         // Use subject info from script (fetched from backend API in getScript)
         setHeaderSubjectCode(script.subjectCode?.toUpperCase() || subjectCode);
         setHeaderSubjectName(script.subjectName || subjectCode);
+
+        if (isFaculty && (mode === "grievance" || script.hasGrievance || grievanceId)) {
+          if (script.hasGrievance && script.grievanceText) {
+            setScriptGrievance({
+              text: script.grievanceText,
+              date: script.grievanceDate || (grievanceId ? `Ref #${grievanceId}` : ""),
+            });
+          } else {
+            try {
+              const grievances = await getFacultyGrievances("all");
+              const match = grievances.find((g) => (grievanceId && g.id === grievanceId) || g.student_university_id === rollNo);
+              if (match && match.student_comment) {
+                setScriptGrievance({
+                  text: match.student_comment,
+                  date: `Ref #${match.id}`,
+                });
+              }
+            } catch {
+              // ignore
+            }
+          }
+        }
 
         if (!isFaculty) {
           const list = await getStudentGrievancesBySubject(subjectId || "");
@@ -267,7 +297,7 @@ const EvaluationViewerMobile = () => {
     return () => {
       active = false;
     };
-  }, [rollNo, subjectId, role, isFaculty]);
+  }, [rollNo, subjectId, role, isFaculty, paperIdParam, mode, grievanceId]);
 
   useEffect(() => {
     if (!currentScript) return;
@@ -324,6 +354,16 @@ const EvaluationViewerMobile = () => {
 
   const invalidMarkEntries = useMemo(() => getInvalidMarkEntries(marks), [marks]);
   const hasInvalidMarks = invalidMarkEntries.length > 0;
+
+  const hasMarksChanged = useMemo(() => {
+    if (!savedMarksJson) return false;
+    return JSON.stringify(marks) !== savedMarksJson;
+  }, [marks, savedMarksJson]);
+
+  const hasMarksChangedFromOriginal = useMemo(() => {
+    if (!originalMarksJson) return false;
+    return JSON.stringify(marks) !== originalMarksJson;
+  }, [marks, originalMarksJson]);
 
   const handleMarkChange = (rowIndex: number, partKey: string, nextValue: string) => {
     const cleaned = sanitizeMarkInput(nextValue);
@@ -402,6 +442,7 @@ const EvaluationViewerMobile = () => {
     try {
       await saveMarks(rollNo, subjectId || "", marks, "faculty");
       await persistSavedDrawings();
+      setSavedMarksJson(JSON.stringify(marks));
       setCurrentScript((prev: any) => (prev ? { ...prev, status: "graded" } : prev));
       toast.success("Marks saved successfully.", { duration: 2500 });
     } catch (error) {
@@ -446,6 +487,8 @@ const EvaluationViewerMobile = () => {
     try {
       await acceptGrievance(rollNo, subjectId || "", marks, grievanceId || undefined);
       toast.success("Grievance accepted and marks updated");
+      setOriginalMarksJson(JSON.stringify(marks));
+      setSavedMarksJson(JSON.stringify(marks));
       navigate("/dashboard/faculty/grievances");
     } catch (error) {
       console.error("Accept grievance failed:", error);
@@ -1356,6 +1399,23 @@ const EvaluationViewerMobile = () => {
               </div>
             </section>
 
+            {/* Student Grievance Card (Mobile Review) */}
+            {isFaculty && mode === "grievance" && (
+              <section className="rounded-xl border border-warning/40 bg-warning/10 p-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-warning">Student Grievance</h3>
+                  {scriptGrievance?.date && (
+                    <span className="text-[10px] font-mono text-muted-foreground">{scriptGrievance.date}</span>
+                  )}
+                </div>
+                <div className="rounded-lg border border-warning/20 bg-background/80 p-2.5">
+                  <p className="text-xs text-foreground leading-relaxed whitespace-pre-wrap">
+                    {scriptGrievance?.text || "Grievance submitted by student for re-evaluation."}
+                  </p>
+                </div>
+              </section>
+            )}
+
             <section className="rounded-xl border border-border bg-card p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Marks</h3>
@@ -1457,15 +1517,25 @@ const EvaluationViewerMobile = () => {
               {isFaculty && (
                 <button
                   onClick={handleSaveMarks}
-                  disabled={savingMarks || hasInvalidMarks}
+                  disabled={savingMarks || hasInvalidMarks || (isMarksAlreadySaved && !hasMarksChanged)}
                   className={`w-full rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
                     hasInvalidMarks
                       ? "bg-destructive/15 border border-destructive/40 text-destructive cursor-not-allowed"
                       : isMarksAlreadySaved
-                        ? "bg-success text-success-foreground hover:bg-success/90"
+                        ? hasMarksChanged
+                          ? "bg-success text-success-foreground hover:bg-success/90"
+                          : "bg-muted text-muted-foreground border border-border cursor-not-allowed"
                         : "bg-primary text-primary-foreground hover:bg-primary/90"
                   }`}
-                  title={hasInvalidMarks ? "Fix marks exceeding question maximum before saving." : isMarksAlreadySaved ? "Update Marks" : "Save Marks"}
+                  title={
+                    hasInvalidMarks
+                      ? "Fix marks exceeding question maximum before saving."
+                      : isMarksAlreadySaved
+                        ? hasMarksChanged
+                          ? "Update Marks"
+                          : "Change marks to update."
+                        : "Save Marks"
+                  }
                 >
                   {savingMarks ? "Saving..." : isMarksAlreadySaved ? "Update Marks" : "Save Marks"}
                 </button>
@@ -1539,13 +1609,37 @@ const EvaluationViewerMobile = () => {
             )}
 
             {isFaculty && mode === "grievance" && (
-              <section className="rounded-xl border border-border bg-card p-3 grid grid-cols-2 gap-2">
-                <button onClick={handleAcceptGrievance} className="rounded-lg bg-success px-3 py-2.5 text-xs font-semibold text-success-foreground">
-                  Accept
-                </button>
-                <button onClick={handleRejectGrievance} className="rounded-lg bg-destructive px-3 py-2.5 text-xs font-semibold text-destructive-foreground">
-                  Reject
-                </button>
+              <section className="rounded-xl border border-border bg-card p-3 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resolve Grievance</h4>
+                  {scriptGrievance?.date && <span className="text-[10px] font-mono text-muted-foreground">{scriptGrievance.date}</span>}
+                </div>
+                {scriptGrievance?.text && (
+                  <p className="text-xs text-foreground bg-muted/40 rounded-lg p-2.5 border border-border/50 leading-relaxed line-clamp-3">
+                    {scriptGrievance.text}
+                  </p>
+                )}
+                {!hasMarksChangedFromOriginal && (
+                  <p className="text-[11px] text-muted-foreground text-center">
+                    Update marks to enable Accept, or Reject if no changes are needed.
+                  </p>
+                )}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={handleAcceptGrievance}
+                    disabled={hasInvalidMarks || !hasMarksChangedFromOriginal}
+                    className="rounded-lg bg-success px-3 py-2.5 text-xs font-semibold text-success-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+                    title={!hasMarksChangedFromOriginal ? "Change marks before accepting grievance" : "Accept grievance and update marks"}
+                  >
+                    Accept
+                  </button>
+                  <button
+                    onClick={handleRejectGrievance}
+                    className="rounded-lg bg-destructive px-3 py-2.5 text-xs font-semibold text-destructive-foreground hover:bg-destructive/90 transition-colors"
+                  >
+                    Reject
+                  </button>
+                </div>
               </section>
             )}
           </>

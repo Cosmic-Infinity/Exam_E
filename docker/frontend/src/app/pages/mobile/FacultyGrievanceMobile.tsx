@@ -108,7 +108,7 @@ const FacultyGrievanceMobile = () => {
                     <p className="text-xs line-clamp-3">{item.student_comment}</p>
                     <div className="grid grid-cols-2 gap-2">
                       <button
-                        onClick={() => navigate(`/evaluation/${item.subject_code.toLowerCase()}?role=faculty&mode=grievance&roll=${item.student_university_id}&grievanceId=${item.id}`)}
+                        onClick={() => navigate(`/evaluation/${item.subject_code.toLowerCase()}?role=faculty&mode=grievance&roll=${item.student_university_id}&grievanceId=${item.id}&paper_id=${item.paper_id}`)}
                         className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"
                       >
                         Review

@@ -72,7 +72,7 @@ const FacultyGrievancePage = () => {
   const sortedItems = useMemo(() => [...items].sort((a, b) => a.subject_code.localeCompare(b.subject_code) || a.student_university_id.localeCompare(b.student_university_id)), [items]);
 
   const handleReview = (item: FacultyGrievanceItem) => {
-    navigate(`/evaluation/${item.subject_code.toLowerCase()}?role=faculty&mode=grievance&roll=${item.student_university_id}&grievanceId=${item.id}`);
+    navigate(`/evaluation/${item.subject_code.toLowerCase()}?role=faculty&mode=grievance&roll=${item.student_university_id}&grievanceId=${item.id}&paper_id=${item.paper_id}`);
   };
 
   const handleReject = async (item: FacultyGrievanceItem) => {

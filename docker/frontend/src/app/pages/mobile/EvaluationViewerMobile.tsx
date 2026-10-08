@@ -1508,13 +1508,13 @@ const EvaluationViewerMobile = () => {
                 </div>
               )}
 
-              {isFaculty && hasInvalidMarks && (
+              {isFaculty && mode !== "grievance" && hasInvalidMarks && (
                 <div className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive text-center font-medium">
                   Fix marks exceeding question maximum before saving.
                 </div>
               )}
 
-              {isFaculty && (
+              {isFaculty && mode !== "grievance" && (
                 <button
                   onClick={handleSaveMarks}
                   disabled={savingMarks || hasInvalidMarks || (isMarksAlreadySaved && !hasMarksChanged)}
@@ -1622,7 +1622,7 @@ const EvaluationViewerMobile = () => {
                     className="rounded-lg bg-success px-3 py-2.5 text-xs font-semibold text-success-foreground disabled:opacity-40 disabled:cursor-not-allowed"
                     title={!hasMarksChangedFromOriginal ? "Change marks before accepting grievance" : "Accept grievance and update marks"}
                   >
-                    Accept
+                    Accept & Update Marks
                   </button>
                   <button
                     onClick={handleRejectGrievance}

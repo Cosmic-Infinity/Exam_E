@@ -2053,7 +2053,7 @@ const EvaluationViewer = () => {
                 <div className="px-3 py-2.5 space-y-1.5 shrink-0">
                   <div className="flex items-center justify-between">
                     <h3 className="text-[11px] font-semibold text-foreground uppercase tracking-wider">Marks Breakdown</h3>
-                    {isFaculty && !isReadOnlyMode && (
+                    {isFaculty && !isReadOnlyMode && !hasGrievance && (
                       <button
                         onClick={handleSaveMarks}
                         disabled={hasInvalidMarks || (isMarksAlreadySaved && !hasMarksChanged)}
@@ -2080,7 +2080,7 @@ const EvaluationViewer = () => {
                       </button>
                     )}
                   </div>
-                  {isFaculty && !isReadOnlyMode && hasInvalidMarks && (
+                  {isFaculty && !isReadOnlyMode && !hasGrievance && hasInvalidMarks && (
                     <div className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1 text-[10px] text-destructive">
                       Fix marks exceeding the question maximum before saving.
                     </div>

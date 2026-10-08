@@ -104,7 +104,7 @@ const Login = () => {
               </div>
 
               <div className="px-7 py-4 border-t border-border rounded-b-xl bg-muted/20">
-                <p className="text-center text-xs text-muted-foreground">Protected portal. Unauthorized access is prohibited.</p>
+                <p className="text-center text-xs text-muted-foreground">Login with your authorised username and password.</p>
               </div>
             </div>
           </form>

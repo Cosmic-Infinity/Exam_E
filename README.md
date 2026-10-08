@@ -181,6 +181,9 @@ System-wide notifications (password generation, grievance updates) are handled a
 
 ## 9. First-Time Setup & Initialization
 
+> [!NOTE]
+> The system is in debug/demo mode for the purposes of demonstartion out of the box. There is some pre-seeded data to assist with development and are provided as samples. Kindly do not treat the system in it's current state as a ready-made deployable version, and clean out the database and seeded data if you plan to use it. The **seeded data** is not meant to be redistributed and **is NOT covered by the opensource licenses** that this project may be distributed under, and is strictly not to be used for any purposes other than the demonstration of this system.
+
 The system is fully automated on startup.
 
 1. **Clean Start**: To reset everything (schema, data, and users):
@@ -204,8 +207,9 @@ The system is fully automated on startup.
 
 4. **Default Credentials**:
    - **Admin**: `admin@kiit.ac.in` / `admin`
-   - **Test Students**: Check [Data/test_data/1_students.csv](Data/test_data/1_students.csv) (Roll numbers are login IDs)
-   - **Test Teachers**: Check [Data/test_data/2_teachers.csv](Data/test_data/2_teachers.csv) (Emp IDs are login IDs)
+   - **Test Student**: id = `2305101@kiit.ac.in` / `Check@123` (generate more from the admin dashboard)
+   - **Test Teacher**: `kavita.mishra@example.com` / `Check@123` (generate more from the admin dashboard)
+
 
 For detailed authentication information, see [AUTHENTICATION.md](docs/AUTHENTICATION.md).
 

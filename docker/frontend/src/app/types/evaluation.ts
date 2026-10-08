@@ -1,11 +1,3 @@
-// ==========================================
-// Core types for the evaluation system.
-// When connecting to a real database, these
-// types stay the same — only the service
-// layer (src/services/evaluationService.ts)
-// needs to change.
-// ==========================================
-
 export type ScriptStatus = "pending" | "graded";
 export type RecheckStatus = "not-submitted" | "under-review" | "updated" | "unchanged";
 

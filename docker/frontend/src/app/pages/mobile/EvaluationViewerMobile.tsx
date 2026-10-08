@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Download, Eraser, Moon, Pencil, RefreshCw, RotateCcw, RotateCw, Sun, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Download, Eraser, Moon, Pencil, RefreshCw, RotateCcw, RotateCw, Sun, Trash2 } from "lucide-react";
 import { useUserSession } from "@/app/context/UserSessionContext";
 import { useTheme } from "@/app/context/ThemeContext";
 import AuthService from "@/app/services/authService";
@@ -1365,7 +1365,11 @@ const EvaluationViewerMobile = () => {
                 className="w-full rounded-md border border-border bg-secondary/60 px-3 py-2 text-xs text-left flex items-center justify-between"
               >
                 <span>{marksExpanded ? "Hide Question-wise Marks" : "Show Question-wise Marks"}</span>
-                <span className="text-muted-foreground">{marksExpanded ? "▲" : "▼"}</span>
+                {marksExpanded ? (
+                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                )}
               </button>
 
               {marksExpanded && (

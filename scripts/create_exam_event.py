@@ -42,13 +42,7 @@ def create_exam(session_label, course_code, exam_type, total_marks, schema_json)
             return
         session_id = res[0]
 
-        # 2. Find Allocations (Sections) for this Course + Session
-        # Exams are typically common across all sections of the same course in a session.
-        # We need to create an exam entry for EACH allocation (Section A, Section B, etc.) 
-        # or maybe we should have linked Exams to Course+Session directly?
-        # The schema links Exams to Allocation (one specific section). 
-        # So we will create an Exam entry for *every* allocation of this course in this session.
-        
+        # Find allocations for this course and session
         cur.execute("""
             SELECT allocation_id, section_name 
             FROM course_allocations 

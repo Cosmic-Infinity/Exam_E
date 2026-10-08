@@ -26,24 +26,21 @@ def password_management_view(request):
                     filters['stream__school'] = school
                 
                 if stream_id:
-                    # ModelChoiceField returns a Stream object
                     filters['stream'] = stream_id
-                
+
                 if section:
                     filters['section_name__iexact'] = section
-                
+
                 if semester:
                     filters['current_semester'] = semester
 
                 student_qs = Student.objects.filter(**filters).select_related('user', 'stream')
                 student_user_ids = list(student_qs.values_list('user_id', flat=True))
-                
-                # Store in session for generation step
                 request.session['filtered_student_ids'] = student_user_ids
-                
+
                 student_count = len(student_user_ids)
                 has_searched = True
-                
+
                 if student_count > 0:
                     messages.success(request, f"Found {student_count} students matching criteria.")
                 else:
@@ -52,10 +49,7 @@ def password_management_view(request):
                  messages.error(request, "Please correct the errors in the filter form.")
 
         elif '_generate' in request.POST:
-            # We use the previous search results from session to ensure consistency
             student_user_ids = request.session.get('filtered_student_ids', [])
-            
-            # Get algorithm from form data (even if not fully valid, this field should be)
             algorithm = request.POST.get('password_algorithm', 'numeric_8')
 
             if not student_user_ids:

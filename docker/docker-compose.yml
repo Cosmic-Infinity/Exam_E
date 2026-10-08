@@ -2,7 +2,7 @@ services:
   db:
     image: postgres:15-alpine
     volumes:
-      - ./init_db.sql:/docker-entrypoint-initdb.d/init_db.sql # MAGIC LINE
+      - ./init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
       - postgres_data:/var/lib/postgresql/data
     environment:
       - POSTGRES_DB=exam_e

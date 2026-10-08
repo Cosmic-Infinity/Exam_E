@@ -46,9 +46,7 @@ class AuthSecurityTests(TestCase):
         """Clean up after each test."""
         cache.clear()
     
-    # ────────────────────────────────────────────────────────────────────────
     # Test: Failed Attempt Tracking
-    # ────────────────────────────────────────────────────────────────────────
     
     def test_increment_failed_attempts(self):
         """Test that failed attempts are tracked correctly."""
@@ -83,9 +81,7 @@ class AuthSecurityTests(TestCase):
         handle_login_success(email)
         self.assertEqual(get_failed_attempts(email), 0)
     
-    # ────────────────────────────────────────────────────────────────────────
     # Test: Progressive Delays
-    # ────────────────────────────────────────────────────────────────────────
     
     def test_progressive_delay_thresholds(self):
         """Test that progressive delays increase with failed attempts."""
@@ -123,9 +119,7 @@ class AuthSecurityTests(TestCase):
         self.assertGreater(result['delay'], 0,
             f"Should have delay after {PROGRESSIVE_DELAY_THRESHOLD} attempts")
     
-    # ────────────────────────────────────────────────────────────────────────
     # Test: Account Lockout
-    # ────────────────────────────────────────────────────────────────────────
     
     def test_account_locked_after_max_attempts(self):
         """Test that account locks after MAX_FAILED_ATTEMPTS."""
@@ -180,9 +174,7 @@ class AuthSecurityTests(TestCase):
         result = check_login_security(email)
         self.assertEqual(result['status_code'], 403)
     
-    # ────────────────────────────────────────────────────────────────────────
     # Test: Security Check Function
-    # ────────────────────────────────────────────────────────────────────────
     
     def test_check_login_security_format(self):
         """Test that check_login_security returns correct dict format."""
@@ -211,9 +203,7 @@ class AuthSecurityTests(TestCase):
         self.assertEqual(result1, result2)
         self.assertEqual(result2, result3)
     
-    # ────────────────────────────────────────────────────────────────────────
     # Test: Handle Login Failure Function
-    # ────────────────────────────────────────────────────────────────────────
     
     def test_handle_login_failure_response_format(self):
         """Test that handle_login_failure returns correct format."""
@@ -244,9 +234,7 @@ class AuthSecurityTests(TestCase):
         self.assertEqual(result['status_code'], 403)
         self.assertTrue(result['locked'])
     
-    # ────────────────────────────────────────────────────────────────────────
     # Test: Cache Key Generation
-    # ────────────────────────────────────────────────────────────────────────
     
     def test_cache_keys_are_email_based(self):
         """Test that cache keys use email addresses."""
@@ -295,9 +283,7 @@ class LoginViewSecurityTests(TestCase):
         """Clean up after tests."""
         cache.clear()
     
-    # ────────────────────────────────────────────────────────────────────────
     # Test: Successful Login
-    # ────────────────────────────────────────────────────────────────────────
     
     def test_successful_login_returns_200(self):
         """Test that valid credentials return 200 OK."""
@@ -344,9 +330,7 @@ class LoginViewSecurityTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(get_failed_attempts(email), 0)
     
-    # ────────────────────────────────────────────────────────────────────────
     # Test: Invalid Credentials
-    # ────────────────────────────────────────────────────────────────────────
     
     def test_invalid_credentials_returns_401(self):
         """Test that invalid credentials return 401."""
@@ -381,9 +365,7 @@ class LoginViewSecurityTests(TestCase):
         
         self.assertEqual(get_failed_attempts(email), 2)
     
-    # ────────────────────────────────────────────────────────────────────────
     # Test: Account Lockout (Integration)
-    # ────────────────────────────────────────────────────────────────────────
     
     def test_account_locks_after_10_failures(self):
         """Test that account locks after 10 failed attempts."""
@@ -429,9 +411,7 @@ class LoginViewSecurityTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertIn('temporarily locked', response.json()['error'])
     
-    # ────────────────────────────────────────────────────────────────────────
     # Test: Shared IP (Multiple Users)
-    # ────────────────────────────────────────────────────────────────────────
     
     def test_failed_attempts_isolated_by_email(self):
         """Test that failed attempts don't affect other users."""
@@ -467,9 +447,7 @@ class LoginViewSecurityTests(TestCase):
         self.assertEqual(response.status_code, 200,
             "User 2 should login successfully despite User 1's failures")
     
-    # ────────────────────────────────────────────────────────────────────────
     # Test: Edge Cases
-    # ────────────────────────────────────────────────────────────────────────
     
     def test_missing_email_returns_400(self):
         """Test that missing email returns 400."""

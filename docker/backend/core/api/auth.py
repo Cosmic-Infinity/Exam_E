@@ -17,7 +17,7 @@ from .auth_security import (
 )
 from ..tasks import send_password_changed_email
 
-# ── cookie config (single source of truth: settings.SIMPLE_JWT) ──────────────
+# Cookie configuration
 _JWT = settings.SIMPLE_JWT
 _COOKIE_ACCESS   = _JWT.get('AUTH_COOKIE', 'access_token')
 _COOKIE_REFRESH  = _JWT.get('AUTH_COOKIE_REFRESH', 'refresh_token')
@@ -25,20 +25,8 @@ _COOKIE_SECURE   = _JWT.get('AUTH_COOKIE_SECURE', False)
 _COOKIE_SAMESITE = _JWT.get('AUTH_COOKIE_SAMESITE', 'Lax')
 
 
-# ── Public: Login ─────────────────────────────────────────────────────────────
 class LoginView(APIView):
-    """
-    POST /api/auth/login/
-    Body: { "email": "...", "password": "..." }
-    Returns: { message, role, university_id, full_name }
-             + sets HttpOnly access_token & refresh_token cookies.
-    
-    Security:
-      - Tracks failed login attempts per username using Django cache (Redis)
-      - Implements account locking after 10 consecutive failed attempts
-      - Progressive delays after 3 failed attempts (to slow brute-force attacks)
-      - Works reliably with shared IPs (campus networks, NAT environments)
-    """
+    """Authenticates credentials and sets HttpOnly JWT cookies."""
     permission_classes = []
     authentication_classes = []
 
@@ -52,36 +40,24 @@ class LoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # ─ Step 1: Check security before processing login ─
         security_check = check_login_security(email)
-        
         if not security_check['allowed']:
-            # Account is locked; return 403 Forbidden
             return Response(
                 {'error': security_check['error']},
                 status=security_check['status_code'],
             )
-        
-        # ─ Step 2: Apply progressive delay if needed ─
-        # This slows down brute-force attempts without completely blocking legitimate users
+
         if security_check['delay'] > 0:
             apply_progressive_delay(security_check['delay'])
-        
-        # ─ Step 3: Authenticate user ─
-        # authenticate() expects 'username' kwarg which maps to USERNAME_FIELD usually,
-        # but our custom backend or ModelBackend handles it.
-        user = authenticate(request, username=email, password=password)
 
-        # ─ Step 4: Handle authentication result ─
+        user = authenticate(request, username=email, password=password)
         if user is None or not user.is_active:
-            # Authentication failed; track the failure
             failure_response = handle_login_failure(email)
             return Response(
                 {'error': failure_response['error']},
                 status=failure_response['status_code'],
             )
 
-        # ─ Step 5: Login successful; reset security counters ─
         handle_login_success(email)
 
         refresh = RefreshToken.for_user(user)
@@ -102,18 +78,10 @@ class LoginView(APIView):
         return response
 
 
-# ── Public: Custom token obtain (header-based, returns enriched JSON) ─────────
 class CustomTokenObtainPairView(TokenObtainPairView):
-    """
-    POST /api/token/
-    Body: { "email": "...", "password": "..." }
-    Returns: { access, refresh, university_id, full_name, role }
-    Use this if the React frontend prefers bearer-token storage over cookies.
-    """
     serializer_class = CustomTokenObtainPairSerializer
 
 
-# ── Protected: Logout ─────────────────────────────────────────────────────────
 class LogoutView(APIView):
     """
     POST /api/auth/logout/
@@ -136,13 +104,7 @@ class LogoutView(APIView):
         return response
 
 
-# ── Protected: /api/me/ ───────────────────────────────────────────────────────
 class MeView(APIView):
-    """
-    GET /api/me/
-    Returns the authenticated user's profile.
-    Requires a valid access_token cookie OR Authorization: Bearer <token> header.
-    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -150,7 +112,6 @@ class MeView(APIView):
         return Response(serializer.data)
 
 
-# ── Protected: Change password ────────────────────────────────────────────────
 class ChangePasswordView(APIView):
     """
     POST /api/auth/password/change/
@@ -212,16 +173,12 @@ class ChangePasswordView(APIView):
         return response
 
 
-# ── Helper ────────────────────────────────────────────────────────────────────
-
 def _set_auth_cookies(response, access: str, refresh: str):
-    """Set both HttpOnly auth cookies on a Response object."""
     cookie_kwargs = dict(httponly=True, secure=_COOKIE_SECURE, samesite=_COOKIE_SAMESITE)
     response.set_cookie(key=_COOKIE_ACCESS,  value=access,  **cookie_kwargs)
     response.set_cookie(key=_COOKIE_REFRESH, value=refresh, **cookie_kwargs)
 
 
-# ── Protected: Cookie-based token refresh ───────────────────────────────────
 class CookieTokenRefreshView(APIView):
     """
     POST /api/auth/refresh/

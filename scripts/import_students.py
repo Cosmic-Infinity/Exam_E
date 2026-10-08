@@ -31,14 +31,11 @@ def connect_db():
 
 def ensure_school(cur, school_name, school_code):
     """Ensure a school exists, return its ID."""
-    # Use TRIM and ILIKE/UPPER to be more robust against data inconsistencies
     cur.execute("SELECT school_id FROM schools WHERE TRIM(name) ILIKE TRIM(%s)", (school_name,))
     res = cur.fetchone()
     if res:
         return res[0]
-    
-    # Generate unique code if duplicate code exists, but if name exists above, we'd have returned.
-    # If the INSERT fails on NAME, we should stop trying to change CODE.
+
     original_name = school_name
     original_code = school_code
     suffix = 1
@@ -51,17 +48,13 @@ def ensure_school(cur, school_name, school_code):
             return cur.fetchone()[0]
         except errors.UniqueViolation as e:
             cur.connection.rollback()
-            # If the error is about the NAME, don't loop forever changing the code.
             if 'name' in str(e).lower():
-                # Try fetching again to be sure
                 cur.execute("SELECT school_id FROM schools WHERE TRIM(name) ILIKE TRIM(%s)", (school_name,))
                 res = cur.fetchone()
                 if res: return res[0]
-                # If still not found, we have a real DB issue, but let's break to avoid logs flood.
-                print(f"CRITICAL: Failed to insert or find school '{school_name}'")
+                print(f"Failed to insert or find school '{school_name}'")
                 return None
-            
-            # If error is on CODE, then suffix and retry
+
             school_code = f"{original_code}{suffix}"
             suffix += 1
             if suffix > 100: # Safety break

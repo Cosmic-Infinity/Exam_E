@@ -80,14 +80,9 @@ class UserAdmin(BaseUserAdmin):
 
         count = 0
         for user in queryset:
-            # Generate a secure 12-char alphanumeric password
             plain_password = get_random_string(length=12)
-            
-            # Set the password (hashes it)
             user.set_password(plain_password)
             user.save()
-            
-            # Send the email with the PLAIN password
             send_credentials_email.delay(user.pk, plain_password)
             count += 1
             
@@ -189,20 +184,17 @@ class ExamAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
         
         if form.cleaned_data.get('apply_to_all_sections'):
-            # Propagate schema to other sections of the same course & session
             course = obj.allocation.course
             session = obj.allocation.session
             exam_type = obj.exam_type
-            
-            # Find all sibling allocations
+
             sibling_allocations = CourseAllocation.objects.filter(
                 course=course,
                 session=session
             ).exclude(pk=obj.allocation.pk)
-            
+
             count = 0
             for allocation in sibling_allocations:
-                # Find or create the exam for this sibling allocation
                 sibling_exam, created = Exam.objects.get_or_create(
                     allocation=allocation,
                     exam_type=exam_type,
@@ -212,14 +204,13 @@ class ExamAdmin(admin.ModelAdmin):
                         'is_active': obj.is_active
                     }
                 )
-                
-                # If it already existed, update it
+
                 if not created:
                     sibling_exam.total_marks = obj.total_marks
                     sibling_exam.question_paper_schema = obj.question_paper_schema
                     sibling_exam.is_active = obj.is_active
                     sibling_exam.save()
-                
+
                 count += 1
             
             self.message_user(request, f"Schema applied to {count} other sections.")

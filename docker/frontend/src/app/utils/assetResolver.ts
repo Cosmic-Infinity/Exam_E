@@ -1,26 +1,11 @@
-/**
- * Asset URL Resolver
- * 
- * Intelligently resolves asset URLs for use in development and production.
- * Handles:
- * - Absolute URLs (http/https) - returned as-is
- * - Relative paths starting with /media/ or /Data/ - uses current origin for LAN access
- * - Other relative paths - prepends API base URL
- * 
- * In debug mode on LAN/hotspot, this ensures URLs use the current hostname
- * instead of a hardcoded localhost reference.
- */
-
+/** Resolves relative and environment-based asset URLs for current host. */
 export function resolveAssetUrl(rawPath?: string): string | undefined {
   if (!rawPath) return undefined;
 
-  // If already absolute URL, return as-is
   if (rawPath.startsWith("http://") || rawPath.startsWith("https://")) {
     return rawPath;
   }
 
-  // For media and Data paths, use relative URLs to current origin
-  // This allows them to work from any hostname (localhost, LAN IP, etc.)
   if (rawPath.startsWith("/media/") || rawPath.startsWith("/Data/")) {
     return rawPath;
   }

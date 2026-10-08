@@ -348,9 +348,6 @@ const ControllerSubjectStatistics = () => {
       newSelected.push(section);
     }
     
-    // If all individual sections are selected, switch back to "All"? 
-    // Or just keep it flexible. Let's keep it simple.
-    
     setSelectedSections(newSelected);
   };
   

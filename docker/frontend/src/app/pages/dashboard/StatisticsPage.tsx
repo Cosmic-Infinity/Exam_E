@@ -322,18 +322,11 @@ const StatisticsPage = () => {
       newSelected.push(section);
     }
     
-    // If all individual sections are selected, switch back to "All"? 
-    // Or just keep it flexible. Let's keep it simple.
-    
     setSelectedSections(newSelected);
   };
-  
+
   const handleViewScript = (student: StudentStats) => {
-     // Assuming rollNo is university_id for now based on typical schema, or part of student object
-     // We need to pass the correct mode for read-only view
-     // We'll use "graded" mode as specified in the prompt ("checked by teacher")
-     // Also pass role=faculty to ensure we view the student's script, not the logged-in user's
-      navigate(`/evaluation/${selectedCourse}?roll=${student.university_id}&mode=graded&role=faculty&readOnly=1`);
+    navigate(`/evaluation/${selectedCourse}?roll=${student.university_id}&mode=graded&role=faculty&readOnly=1`);
   };
 
   return (

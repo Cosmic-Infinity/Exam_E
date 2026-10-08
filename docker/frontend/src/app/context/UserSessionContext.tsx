@@ -1,22 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import AuthService from "@/app/services/authService";
 
-/**
- * UserSessionContext
- *
- * NOT an authentication system - Backend (Django) handles real authentication via JWT
- * This only manages frontend user session state after successful backend login.
- *
- * Purpose:
- * - Stores logged-in user info (university_id, role, full_name)
- * - Prevents passing user data through URL parameters
- * - Ensures authenticated components have access to current user
- *
- * Do NOT:
- * - Implement login/password validation here
- * - Store passwords
- * - Replace backend authentication
- */
+/** Context managing client-side authenticated user session state. */
 
 export interface UserSession {
   universityId: string;

@@ -8,17 +8,12 @@
   <select id="select_section" style="padding: 4px; display: none">
     <option value="">-- Pick Section --</option>
   </select>
-  <small id="drilldown_status" style="color: green; display: none">✓ Matched Allocation</small>
+  <small id="drilldown_status" style="color: green; display: none">Matched Allocation</small>
 </span>
 
 <script>
   (function ($) {
     $(document).ready(function () {
-      console.log("Drill-down script loaded");
-      // Wait for autocomplete to initialize
-      // The autocomplete widget is complex, but we interact with the related SELECT if present, or just use the ID.
-      // If it's `autocomplete_fields`, it's a select2-like widget. Let's see.
-
       let dataHierarchy = {};
 
       // Fetch data
@@ -74,26 +69,12 @@
       $("#select_section").change(function () {
         const allocId = $(this).val();
         if (allocId) {
-          // Find the target field. Typically id_allocation for ForeignKey "allocation"
-          // For autocomplete, it's a select with some select2 magic.
           const $target = $("#id_allocation");
 
           if ($target.length) {
-            // Update value
             $target.val(allocId).trigger("change");
 
-            // If it's a select2, refresh it (Django admin uses Select2)
-            // Or if it's raw text input?
-
-            // For Autocomplete widget:
-            // It usually has a hidden select. We might need to fetch the label separately?
-            // But if we just set value, Django might accept on save.
-            // Let's try setting value and triggering change.
-
-            // Also update label for visual feedback?
-            // Or maybe inject the option if it doesn't exist?
             if (!$target.find(`option[value='${allocId}']`).length) {
-              // Add temporary option so UI shows strict selection
               const label = `${$("#select_course").val()} - Section ${$(this).find("option:selected").text().replace("Section ", "")}`;
               $target.append(new Option(label, allocId, true, true));
             }

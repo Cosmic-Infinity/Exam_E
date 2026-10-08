@@ -100,11 +100,11 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(
         default=False,
-        help_text="(Built-in Django) ⚠️ ADMIN PANEL ACCESS. Check strictly for System Administrators. Students/Teachers must be UNCHECKED."
+        help_text="Designates whether the user can log into the admin site. Strictly for System Administrators."
     )
     is_superuser = models.BooleanField(
         default=False,
-        help_text="(Built-in Django) ⚠️ GOD MODE. Grants full permission to modify ANY data. Check strictly for Main System Admin."
+        help_text="Designates that this user has all permissions without explicitly assigning them. Strictly for System Administrators."
     )
 
     date_joined = models.DateTimeField(default=timezone.now)
@@ -173,7 +173,6 @@ class Course(models.Model):
 
 class CourseAllocation(models.Model):
     allocation_id = models.AutoField(primary_key=True)
-    # Yes, it is a FK. We should use ForeignKey in Django.
     course = models.ForeignKey(Course, on_delete=models.DO_NOTHING, db_column='course_code')
     section_name = models.CharField(max_length=10)
     session = models.ForeignKey(AcademicSession, on_delete=models.DO_NOTHING)

@@ -499,9 +499,7 @@ export async function getScript(
     }
   }
 
-  // 3) Student fallback (only if not faculty)
   if (role === "faculty") {
-    // Faculty should only use teacher API, not student API
     return undefined;
   }
 
@@ -684,15 +682,11 @@ export async function getStudentResults(_rollNo: string): Promise<StudentResult[
   });
 }
 
-/** Backend releases completed papers; keep always true in current UI contract */
 export function areResultsPublished(): boolean {
   return true;
 }
 
-/** No frontend toggle; backend controls visibility/state */
-export function setResultsPublished(_published: boolean): void {
-  // no-op
-}
+export function setResultsPublished(_published: boolean): void {}
 
 /** Fetch full paper details for a student by subject code */
 export async function getStudentPaperDetailsBySubject(subjectCode: string): Promise<StudentPaperDetail | null> {

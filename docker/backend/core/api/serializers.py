@@ -14,46 +14,27 @@ User = get_user_model()
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-    """
-    Extends the default simplejwt serializer to include user profile fields
-    (university_id, full_name, role) in the response.
-    Accepts 'email' as the login field.
-    
-    Security:
-      - Integrates account-based rate limiting (failed attempts tracking)
-      - Implements account locking after 10 consecutive failed attempts
-      - Progressive delays after 3 failed attempts
-      - Works reliably with shared IPs (campus networks, NAT environments)
-    """
-    username_field = User.USERNAME_FIELD  # 'email'
+    """Extends simplejwt serializer to include user profile fields and security checks."""
+    username_field = User.USERNAME_FIELD
 
     def validate(self, attrs):
         email = attrs.get(self.username_field)
-        
-        # ─ Step 1: Check security before processing login ─
+
         security_check = check_login_security(email)
-        
         if not security_check['allowed']:
-            # Account is locked; raise authentication error
             raise AuthenticationFailed(security_check['error'])
-        
-        # ─ Step 2: Apply progressive delay if needed ─
-        # This slows down brute-force attempts without completely blocking legitimate users
+
         if security_check['delay'] > 0:
             apply_progressive_delay(security_check['delay'])
-        
-        # ─ Step 3: Call parent validate() which authenticates the user ─
+
         try:
-            data = super().validate(attrs)  # adds 'access' and 'refresh' keys
+            data = super().validate(attrs)
         except AuthenticationFailed:
-            # Authentication failed; track the failure
             handle_login_failure(email)
             raise
-        
-        # ─ Step 4: Login successful; reset security counters ─
+
         handle_login_success(email)
-        
-        # Append user profile fields
+
         data['university_id'] = self.user.university_id
         data['full_name'] = self.user.full_name
         data['role'] = self.user.role

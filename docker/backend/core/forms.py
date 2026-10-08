@@ -22,7 +22,6 @@ class ExamSchemaWidget(Widget):
                 'value': value,
             }
         }
-        # My custom template will contain the HTML and JS
         return mark_safe(render_to_string(self.template_name, context))
 
 class ExamForm(forms.ModelForm):

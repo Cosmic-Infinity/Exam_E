@@ -1,7 +1,7 @@
 # 🎓 Exam Evaluation System (Exam_E)
 
 > **Quick Start**: Go to [SETUP_AND_RUN.md](SETUP_AND_RUN.md) for first-boot instructions.
-> **Status**: Active Development. See [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md) for the latest changelog (March 16, 2026).
+> **Status**: Active Development.
 
 > **Team Acceleration Tip**: You can export a DB snapshot and auto-load it on boot (`export_db_snapshot.sh` or `export_db_snapshot.ps1`). See the "Database Snapshot Export + Auto-Load" section in [SETUP_AND_RUN.md](SETUP_AND_RUN.md).
 
@@ -32,7 +32,7 @@ Current development access:
 
 Nginx (Port 80):
 
-Rule A: Request for `/Data/*` (e.g., Papers) -> Served directly from disk (Alias to `/app/Data`).
+Rule A: Protected Assets -> Routed through authenticated backend gateway with `X-Accel-Redirect` internal locations.
 
 Rule B: Request for `/api/*` -> Proxy to Backend (Port 8000).
 
@@ -188,42 +188,3 @@ For detailed authentication information, see [AUTHENTICATION.md](AUTHENTICATION.
 ---
 
 
-## One-Command Testing Mode (Apply + Undo)
-
-Use this when you want all papers visible in student portal quickly for demo/testing.
-
-What it does in `apply` mode:
-- Backs up current `exam_papers` state into DB table `testing_exam_papers_backup`
-- Seeds media folders from `Data/Papers` into `backend/mediafiles/papers`
-- Runs media relink (`import_exam_media --overwrite-existing`)
-- Sets all `exam_papers.evaluation_status='COMPLETED'`
-
-What `undo` does:
-- Restores `evaluation_status`, `total_score`, and `marks_json` from backup table
-
-Run from repo root:
-
-```bash
-cd /Users/prom1/Documents/Exam_E
-chmod +x scripts/testing_portal_ready.sh
-
-# Apply testing mode
-./scripts/testing_portal_ready.sh apply
-
-# Check current linkage/status
-./scripts/testing_portal_ready.sh status
-
-# Strict readiness checks (student + teacher media visibility)
-./scripts/testing_portal_ready.sh verify
-
-# Revert to previous state
-./scripts/testing_portal_ready.sh undo
-```
-
-Optional override:
-
-```bash
-MEDIA_PAGES_PER_PAPER=5 ./scripts/testing_portal_ready.sh apply
-```
-
-> This is testing-only workflow. Please inform the team before running `apply` on a shared DB snapshot.

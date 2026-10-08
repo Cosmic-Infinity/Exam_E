@@ -22,7 +22,6 @@ const PREVIEW_DOC_CACHE = "exam-preview-docs-v1";
 const THUMBNAIL_STRIP_SESSION_KEY = "evaluation-thumbnail-strip-open";
 const DRAWINGS_STORAGE_PREFIX = "evaluation-drawings-v1";
 
-// Placeholder image pages for the answer sheet (different tinted "scanned" look per page)
 const PAGE_COLORS = [
   "from-blue-950/30 to-slate-900/60",
   "from-slate-800/40 to-blue-950/30",
@@ -449,7 +448,6 @@ const EvaluationViewer = () => {
       } catch (err) {
         console.error("Failed to load script:", err);
         toast.error("Unable to load answer sheet for this subject.");
-        // navigate("/dashboard/student"); // Let user stay and understand why
       } finally {
         if (active) setLoading(false);
       }
@@ -2018,7 +2016,6 @@ const EvaluationViewer = () => {
 
                 {isResizingPreview && <div className="fixed inset-0 z-[120] cursor-row-resize" aria-hidden="true" />}
 
-                {/* Marks Breakdown — unchanged */}
                 <div className="px-3 py-2.5 space-y-1.5 shrink-0">
                   <div className="flex items-center justify-between">
                     <h3 className="text-[11px] font-semibold text-foreground uppercase tracking-wider">Marks Breakdown</h3>

@@ -1,119 +1,129 @@
 # Exam Evaluation System (Exam_E)
 
 > **Quick Start**: Go to [SETUP_AND_RUN.md](docs/SETUP_AND_RUN.md) for first-boot instructions.
-> **Status**: Active Development.
 
-> **Team Acceleration Tip**: You can export a DB snapshot and auto-load it on boot (`export_db_snapshot.sh` or `export_db_snapshot.ps1`). See the "Database Snapshot Export + Auto-Load" section in [SETUP_AND_RUN.md](docs/SETUP_AND_RUN.md).
+> **Acceleration Tip**: You can export a DB snapshot and auto-load it on boot (`export_db_snapshot.sh` or `export_db_snapshot.ps1`). See the "Database Snapshot Export + Auto-Load" section in [SETUP_AND_RUN.md](docs/SETUP_AND_RUN.md).
 
-## 1. The Core Philosophy
+---
 
-"Optimize for Speed & Security, Not Raw Compute." Since you are a small team with a hard deadline, choose tools that handle the heavy lifting (Admin panels, Auth, Security) for you. Do not reinvent the wheel.
+## 1. System Overview
 
+Exam_E is a university-grade examination paper evaluation, digitization, and grievance review platform. It provides specialized, role-based workspaces for Students, Faculty (Evaluators and Course Coordinators), and Examination Controllers, backed by an automated Django administration control plane. The platform is engineered for high concurrency, academic data integrity, and strict access controls over digitized answer sheets and grading workflows.
 
-# 2. The Recommended Stack
+---
 
-| Component   | Choice             | Why for your team?                                                                 |
-|-------------|--------------------|------------------------------------------------------------------------------------|
-| Backend     | Python (Django)    | The built-in Admin Interface saves ~30% of dev time. It handles the "System Admin" roles (data ingress, user management) out-of-the-box. |
-| API Layer   | Django Ninja/DRF   | It uses Type Hints (Standard Python 3.6+). It validates data strictness like Java but writes as fast as Python. Highly performant. |
-| Frontend    | React (TypeScript) | Essential for the complex "Paper Checking" UI and the "Controller Dashboard". TypeScript prevents runtime bugs. |
-| Database    | PostgreSQL         | The industry standard. Handles concurrent writes/reads better than MySQL. Essential for the complex "random allocation" queries. |
-| Web Server  | Nginx              | CRITICAL. It serves the heavy static images (scanned papers) and protects the slower Python backend from the 5,000 concurrent connections. |
-| Task Queue  | Celery + Redis     | Handles the "Mass Mailing" and "Auto-Distribution" scripts in the background without freezing the student's UI. |
+## 2. Technology Stack
 
+| Layer | Technology | Role in System |
+| :--- | :--- | :--- |
+| **Backend** | Python 3 / Django 4.2+ | Core ORM, business logic, and administrative control plane for academic entities. |
+| **API Layer** | Django REST Framework (DRF) + SimpleJWT | RESTful endpoints, serializer validation, token rotation, and role-based permissions (RBAC). |
+| **Frontend** | React 18 / TypeScript / Vite / Tailwind CSS | Single-page application with responsive layouts and runtime adaptive routing for desktop and mobile views. |
+| **Database** | PostgreSQL | Relational database enforcing strict integrity across schools, courses, allocations, enrollments, papers, marks, and grievances. |
+| **Reverse Proxy** | Nginx | Reverse proxy handling public traffic and serving digitized paper scans securely via internal `X-Accel-Redirect` gateways. |
+| **Task Queue & Cache** | Celery + Redis | Asynchronous background email delivery and account-based brute force protection tracking. |
 
-# 3. The Architecture (Single Machine / Local Network)
+---
+
+## 3. Architecture (Single Machine / Local Network)
 
 Entry Point: http://localhost (Nginx reverse proxy).
 
 Current development access:
+
 - `http://localhost` (recommended via nginx)
 - `http://<your-lan-ip>` from hotspot/LAN devices in DEBUG mode
 
-Nginx (Port 80):
+### Reverse Proxy (Nginx - Port 80)
 
-Rule A: Protected Assets -> Routed through authenticated backend gateway with `X-Accel-Redirect` internal locations.
+- **Rule A: Protected Assets** -> Routed through authenticated backend gateway with `X-Accel-Redirect` internal locations.
+- **Rule B: API Requests (`/api/*`)** -> Proxy to Backend (Port 8000).
+- **Rule C: Frontend Requests (`/`)** -> Proxy to Frontend (Port 8080).
 
-Rule B: Request for `/api/*` -> Proxy to Backend (Port 8000).
+### Backend Application (Django/Gunicorn)
 
-Rule C: Request for `/` -> Proxy to Frontend (Port 8080).
+Runs via `python manage.py runserver` in dev. Handles logic, auth, and DB queries.
 
-Application (Django/Gunicorn): Runs via `python manage.py runserver` in dev. Handles logic, auth, and DB queries.
+### Frontend Runtime Routing
 
-Frontend Runtime Routing (current):
 - Desktop and mobile views share route paths, and `App.tsx` selects mobile page variants at runtime based on user-agent + touch heuristics.
 - Mobile-specific pages currently include login, student/faculty dashboards, grievance page, statistics pages, and evaluator view.
 
-Database (Postgres): 
+### Database (PostgreSQL)
+
 - **Internal**: `db:5432` (Accessed by Django).
 - **External**: `localhost:5433` (Exposed for debugging tools like DBeaver).
 - **Persistence**: Data stored in `postgres_data` volume.
 
-Celery Worker: A separate background process that wakes up to send emails or shuffle grievances.
+### Background Task Queue (Celery Worker)
 
+Asynchronous worker process handling background credential dispatch, notifications, and scheduled queue maintenance via Redis.
 
-# 4. Implementation Strategy by Feature
+---
 
-Auth & Security:
+## 4. Core System Features
 
-Stateless JWT (JSON Web Tokens) via Django REST Framework simplejwt for scalable, secure login without server-side sessions.
+### Paper Evaluation Workspace
 
-Email-based authentication (not username) for university compatibility.
+- **Evaluation Viewer**: Full-screen workstation with custom canvas annotation tools (pen, eraser, stroke reset, rotation, and resizable layout panels).
+- **Granular Scoring**: Multi-section question grid validating awarded marks against expected schema maximums with real-time score calculation.
+- **Reference Material Sidecar**: Live side-by-side inspection of official question papers and answer keys alongside the student's script.
+- **Protected Delivery**: Paper scans are never bundled as bulk client downloads; single pages are streamed individually through authenticated endpoints.
 
-Per-username security tracking: Failed attempts traced to individual accounts (not IP addresses), enabling reliable operation in shared campus networks. Account lockout after 10 failures, with progressive delays (2s → 5s → 10s) after 3 attempts.
+### Grievance Review & Resolution
 
-For detailed security architecture, see [AUTHENTICATION.md](docs/AUTHENTICATION.md).
+- **Student Submissions**: Students can inspect evaluated scripts and register grievances (categorized as Page Missing, Full Sheet Missing, or General evaluation challenges).
+- **Faculty Review**: Assigned teachers and course coordinators review student remarks, verify submitted markings against digitized sheets, and record formal decisions (Accept/Reject) with optional score adjustments.
 
-Paper Evaluation:
+### Mass Credential Management
 
-Frontend: React loads the JPG. Use a library like react-zoom-pan-pinch.
+- **Bulk Credential Generation**: System administrators can batch-generate randomized credentials filtered by school, stream, semester, or section.
+- **Asynchronous Delivery**: Credentials are queued in Redis and delivered via Celery background mail workers.
 
-Data: Teachers submit "Marks" and "Comments". These are JSON payloads sent to Django.
+---
 
-Constraint: Do not let teachers "download" the whole bundle. Stream images one by one.
+## 5. Admin & Analytics
 
-Grievance System:
+### Statistics Dashboard
 
-Submission: Student flags a question index.
+A custom Django Admin dashboard (`/admin/stats/`) provides real-time statistics:
 
-Distribution: A nightly Celery task queries all Grievance objects with status='OPEN' and randomly assigns them to a Teacher in the Subject pool.
-
-Mass Mailing (Credentials):
-
-Trigger: System Administrator (via Django Admin Panel) selects Students/Teachers and clicks "Generate & Email selected credentials".
-
-Action: Django adds tasks to Redis. Celery workers pick them up one by one and talk to the configured SMTP server (or print to console in dev).
-
-
-# 5. Admin & Analytics
-
-**Dashboard**: A custom Django Admin dashboard (`/admin/stats/`) provides real-time statistics:
 - **Grievance Analytics**: Visualize complaints per course/section.
 - **Score Distribution**: Histograms of student performance.
 - **Drill-down**: Click on charts to view specific students and their exam papers.
 
-**Exam Builder**: A visual drag-and-drop interface within the Admin panel allows System admin to define complex exam structures (Sections, Questions, Parts) without writing raw JSON.
+### Interactive Exam Schema Builder
 
-**Bulk Password Management**: A dedicated tool in the admin panel to filter students by school, stream, section, or semester and generate credentials in bulk.
+An interactive schema builder widget embedded in the Django Admin form allows administrators to structure exams (sections, questions, and sub-parts with designated mark allocations) that automatically compiles into the validation JSON schema used by the evaluation viewer.
 
-**Media Auto-Import for Testing**: On startup, the backend auto-links exam assets from `backend/mediafiles`:
+### Bulk Password Management
+
+A dedicated tool in the admin panel to filter students by school, stream, section, or semester and generate credentials in bulk.
+
+### Media Auto-Import for Testing
+
+On startup, the backend auto-links exam assets from `backend/mediafiles`:
+
 - Student answer pages from `backend/mediafiles/papers/<ROLLNO>_<COURSECODE>/...`
 - Question papers and answer keys from `backend/mediafiles/exam_docs/`
 
+---
 
-# 6. Authentication, Authorization & Security
+## 6. Authentication, Authorization & Security
 
 For comprehensive documentation on authentication, role-based access control, and security implementation, see **[AUTHENTICATION.md](docs/AUTHENTICATION.md)**.
 
-**Quick Reference**:
+### Quick Reference
 
-**Authentication**:
+#### Authentication
+
 - Users authenticate with email + password via `POST /api/auth/login/`
 - JWT tokens stored in secure HttpOnly cookies (HTTPS-only in production)
 - 15-minute access token TTL + 1-day refresh token TTL
 - Automatic token rotation with blacklisting on logout
 
-**Smart Security (University Network Safe)**:
+#### Smart Security (University Network Safe)
+
 - Failed login attempts tracked **per-username** (not per-IP) using Redis cache
 - Account lockout after 10 consecutive failed attempts (15-minute lockout)
 - Progressive delays (2s → 5s → 10s) after 3 failed attempts to slow brute-force attacks
@@ -121,7 +131,8 @@ For comprehensive documentation on authentication, role-based access control, an
 - Works reliably in campus networks and NAT environments (no legitimate user blocking)
 - Handles 5000+ concurrent users without IP-based collisions
 
-**Authorization**:
+#### Authorization
+
 - Three roles: STUDENT, TEACHER, CONTROLLER
 - Role-based API access control via permission classes (IsStudent, IsTeacher, IsController)
 - Course-level authorization for statistics and grading
@@ -129,45 +140,58 @@ For comprehensive documentation on authentication, role-based access control, an
 
 ---
 
-## Admin Panel
+## 7. Admin Panel Operations
 
 The Django admin (`http://localhost/admin/`) is the central control hub for the system. It handles:
 
-- **User Management**:
-  - Full CRUD for Students, Teachers, and System Administrators.
-  - **Single-click Credential Generation**: Select users and choose "Generate & Email selected credentials" from the actions menu.
-- **Bulk Password Management Tool**:
-  - Located on the Admin Dashboard > "Bulk Password Management".
-  - Allows bulk password generation for students filtered by School, Stream, Section, or Semester.
-  - Integrated with Celery for background email delivery.
-- **Academic Setup**:
-  - Automated CSV imports via `docker/backend/entrypoint.sh` using `Data/test_data/`.
-  - Automatic media seeding from `Data/Papers` via `python manage.py seed_media_from_data --pages-per-paper 5`.
-  - Automatic media linking via `python manage.py import_exam_media --overwrite-existing`.
-  - Course coordinator is a real faculty capability, assigned by linking a teacher to `Course.coordinator`.
-- **Stats Dashboard**:
-  - Real-time evaluation progress, grievance analytics, and score distribution.
+### User Management
+
+- Full CRUD for Students, Teachers, and System Administrators.
+- **Single-click Credential Generation**: Select users and choose "Generate & Email selected credentials" from the actions menu.
+
+### Bulk Password Management Tool
+
+- Located on the Admin Dashboard > "Bulk Password Management".
+- Allows bulk password generation for students filtered by School, Stream, Section, or Semester.
+- Integrated with Celery for background email delivery.
+
+### Academic Setup & Media Seeding
+
+- Automated CSV imports via `docker/backend/entrypoint.sh` using `Data/test_data/`.
+- Automatic media seeding from `Data/Papers` via `python manage.py seed_media_from_data --pages-per-paper 5`.
+- Automatic media linking via `python manage.py import_exam_media --overwrite-existing`.
+- Course coordinator is a real faculty capability, assigned by linking a teacher to `Course.coordinator`.
+
+### Stats Dashboard
+
+- Real-time evaluation progress, grievance analytics, and score distribution.
 
 > **Note**: The Admin Panel is for System Administrators only. Students & Teachers use the React Frontend (`http://localhost/`).
 
-## Background Email (Celery)
+---
+
+## 8. Background Email & Tasks (Celery)
 
 System-wide notifications (password generation, grievance updates) are handled asynchronously.
 
 - **Dev**: Emails are printed to the docker logs (`docker compose logs backend`).
 - **Production**: Configure `EMAIL_BACKEND` (SMTP) via environment variables.
 
-## First-Time Setup & Initialization
+---
+
+## 9. First-Time Setup & Initialization
 
 The system is fully automated on startup.
 
 1. **Clean Start**: To reset everything (schema, data, and users):
+
    ```bash
    cd docker
    docker compose down -v
    ```
 
 2. **Build and Start**:
+
    ```bash
    docker compose up --build
    ```
@@ -196,5 +220,3 @@ Comprehensive guides and architectural documentation are available in the [`docs
 - [REST API Documentation](docs/API_DOCS.md)
 - [Database Entry & Workflows](docs/database_entry.md)
 - [Database Schema Reference](docs/database_schema.md)
-
-

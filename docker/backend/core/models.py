@@ -2,7 +2,6 @@ from django.db import models
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
 from django.utils import timezone
-from django.utils.html import mark_safe
 
 class AcademicSession(models.Model):
     session_id = models.AutoField(primary_key=True)
@@ -90,21 +89,16 @@ class User(AbstractBaseUser, PermissionsMixin):
         max_length=20,
         choices=ROLE_CHOICES,
         default='STUDENT',
-        help_text=mark_safe(
-            '<div style="background-color: #fff3cd; color: #856404; padding: 10px; border: 1px solid #ffeeba; border-radius: 4px; margin-top: 5px;">'
-            '<strong>FOR COURSE COORDINATORS:</strong> Select <em>Teacher</em> here.<br>'
-            'Then go to the <strong>Courses</strong> menu to assign them as a coordinator.'
-            '</div>'
-        )
+        help_text="Course coordinators should be assigned the Teacher role."
     )
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(
         default=False,
-        help_text="Designates whether the user can log into the admin site. Strictly for System Administrators."
+        help_text="Designates whether the user can log into this admin site."
     )
     is_superuser = models.BooleanField(
         default=False,
-        help_text="Designates that this user has all permissions without explicitly assigning them. Strictly for System Administrators."
+        help_text="Designates that this user has all permissions without explicitly assigning them."
     )
 
     date_joined = models.DateTimeField(default=timezone.now)

@@ -6,9 +6,9 @@ import { decideFacultyGrievance, getFacultyGrievances, getFacultyGrievanceStats 
 import type { FacultyGrievanceFilter, FacultyGrievanceItem, FacultyGrievanceStats } from "@/app/services/evaluationService";
 
 const FILTERS: Array<{ key: FacultyGrievanceFilter; label: string }> = [
-  { key: "all", label: "All visible grievances" },
-  { key: "my_section", label: "Grievances from my section" },
-  { key: "other_section", label: "Grievances from other section" },
+  { key: "all", label: "All" },
+  { key: "my_section", label: "My Section" },
+  { key: "other_section", label: "Other Sections" },
 ];
 
 const ASSIGNMENT_LABELS: Record<string, { text: string; className: string }> = {
@@ -21,7 +21,7 @@ const ASSIGNMENT_LABELS: Record<string, { text: string; className: string }> = {
     className: "bg-warning/15 text-warning",
   },
   UNASSIGNED_AT_PRESENT: {
-    text: "Unassigned at present",
+    text: "Unassigned",
     className: "bg-muted text-muted-foreground",
   },
 };
@@ -94,7 +94,7 @@ const FacultyGrievancePage = () => {
       <header className="border-b border-border px-6 py-3 flex items-center justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold text-foreground">Faculty Grievance Management</h1>
-          <p className="text-sm text-muted-foreground">Review and resolve grievances assigned to your faculty workflow.</p>
+          <p className="text-sm text-muted-foreground">Review and resolve submitted student grievances.</p>
         </div>
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => navigate("/dashboard/faculty")} className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-2 text-sm hover:bg-muted/40">

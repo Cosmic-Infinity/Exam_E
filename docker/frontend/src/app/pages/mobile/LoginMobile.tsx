@@ -58,7 +58,7 @@ const LoginMobile = () => {
           <div className="text-center mb-5">
             <img src="/KIIT_logo.svg" alt="KIIT Logo" className="w-14 h-14 mx-auto mb-2 object-contain" />
             <h1 className="text-xl font-bold">KIIT Exam Portal</h1>
-            <p className="text-xs text-muted-foreground mt-1">Mobile access</p>
+            <p className="text-xs text-muted-foreground mt-1">Sign in with your institutional email</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">

@@ -76,7 +76,6 @@ const Login = () => {
                     required
                     className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
                   />
-                  <p className="text-xs text-muted-foreground">Use your official institutional email ID.</p>
                 </div>
 
                 <div className="space-y-2">
@@ -101,10 +100,6 @@ const Login = () => {
                 >
                   {loading ? "Signing in..." : "Sign In"}
                 </button>
-              </div>
-
-              <div className="px-7 py-4 border-t border-border rounded-b-xl bg-muted/20">
-                <p className="text-center text-xs text-muted-foreground">Login with your authorised username and password.</p>
               </div>
             </div>
           </form>

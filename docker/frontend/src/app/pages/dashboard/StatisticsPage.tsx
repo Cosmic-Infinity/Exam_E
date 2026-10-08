@@ -436,7 +436,7 @@ const StatisticsPage = () => {
                   <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">
                     Score Distribution
                   </h3>
-                  <p className="mt-1 text-xs text-muted-foreground">Click on the graph for more details.</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Distribution by score range</p>
                 </div>
                 <div className="relative w-[220px]">
                   <Button

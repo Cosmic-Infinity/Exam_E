@@ -54,3 +54,10 @@ This repository contains a **university‑level paper evaluation and student vie
  - Django admin : django admin = admin@kiit.ac.in, pass : admin
  - Faculty : id = kavita.mishra@example.com, pass : Check@123
  - Student : id = 2305101@kiit.ac.in, pass : Check@123
+
+ ### 8. UI Copy & End-User Standards
+- Design exclusively for the end-user, never for the person prompting you.
+- Zero "Proof-of-Work" Artifacts: Never include text, subtext, tags, or badges intended to prove you satisfied prompt instructions.
+- Separate Logic from Copy: Functional or technical requirements (e.g., security, loaded models, database status) belong in code and architecture, not in visible UI copy unless explicitly requested as an admin dashboard metric.
+- Production Microcopy: Use standard, concise product copy (e.g., "Sign In" instead of "Protected Member Portal"; "Ready" instead of "Successfully integrated all 4 models").
+- No Prompt Echoing: Do not reflect user prompts, instructions, or internal technical jargon back into public-facing component labels.

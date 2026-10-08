@@ -55,9 +55,9 @@ class CSVImportForm(forms.Form):
         ('course', 'Courses (Course Code, Title, Credits, Type)'),
         ('allocation', 'Allocations (Course, Teacher, Session, Section, Semester)'),
         ('enrollment', 'Enrollments (Roll No, Course Code, Session, Section, Type)'),
-    ], help_text="Select the type of data you are uploading.")
+    ])
     
-    csv_file = forms.FileField(help_text="Upload a standard CSV file with headers matching the type.")
+    csv_file = forms.FileField()
 
 class PasswordFilterForm(forms.Form):
     school = forms.ModelChoiceField(

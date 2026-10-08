@@ -1357,7 +1357,7 @@ const EvaluationViewerMobile = () => {
             <section className="rounded-xl border border-border bg-card p-3 space-y-2">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Marks</h3>
-                <span className="text-xs font-mono text-primary">Total: {totalMarks}{hasOptionalRule ? " (rules applied)" : ""}</span>
+                <span className="text-xs font-mono text-primary">Total: {totalMarks}</span>
               </div>
 
               <button
@@ -1436,7 +1436,7 @@ const EvaluationViewerMobile = () => {
               )}
 
               {isFaculty && (
-                <button onClick={handleSaveMarks} disabled={savingMarks || getInvalidMarkEntries(marks).length > 0} className="w-full rounded-lg bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50" title={getInvalidMarkEntries(marks).length > 0 ? `Fix invalid marks before saving. Example: ${getInvalidMarkEntries(marks)[0].q} part ${getInvalidMarkEntries(marks)[0].part.toUpperCase()} exceeds max ${getInvalidMarkEntries(marks)[0].expected}.` : isMarksAlreadySaved ? "Update marks" : "Save marks"}>
+                <button onClick={handleSaveMarks} disabled={savingMarks || getInvalidMarkEntries(marks).length > 0} className="w-full rounded-lg bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50" title={getInvalidMarkEntries(marks).length > 0 ? "Fix marks exceeding question maximum before saving." : isMarksAlreadySaved ? "Update Marks" : "Save Marks"}>
                   {savingMarks ? "Saving..." : isMarksAlreadySaved ? "Update Marks" : "Save Marks"}
                 </button>
               )}

@@ -58,7 +58,6 @@ const FacultyGrievanceMobile = () => {
       <header className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur px-4 py-3 flex items-center justify-between">
         <div>
           <h1 className="text-sm font-semibold">Grievance Management</h1>
-          <p className="text-[11px] text-muted-foreground">Faculty mobile view</p>
         </div>
         <button onClick={() => navigate("/dashboard/faculty")} className="rounded-md border border-border px-3 py-1.5 text-xs">
           Back

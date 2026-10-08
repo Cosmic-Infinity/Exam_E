@@ -1582,7 +1582,7 @@ const EvaluationViewer = () => {
             <p className="max-w-md text-lg">
               No answer sheet found for subject <span className="font-mono font-bold text-foreground">{subjectCode}</span>.
             </p>
-            <p className="text-sm text-muted-foreground/80">Please check with your faculty coordinator if it has been uploaded or if you are enrolled in this course.</p>
+            <p className="text-sm text-muted-foreground/80">Contact your course coordinator if you believe this is an error.</p>
             <button onClick={() => navigate("/dashboard/student")} className="mt-4 px-4 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 transition-colors">
               Return to Dashboard
             </button>
@@ -2031,19 +2031,14 @@ const EvaluationViewer = () => {
                       </button>
                     )}
                   </div>
-                  {isFaculty && !isReadOnlyMode && (
-                    <div
-                      className={`rounded-md border px-2 py-1 text-[10px] ${hasInvalidMarks ? "border-destructive/40 bg-destructive/10 text-destructive" : "border-border bg-muted/25 text-muted-foreground"}`}
-                    >
-                      {hasInvalidMarks
-                        ? `Fix invalid marks before saving. Example: ${invalidMarkEntries[0].q} part ${invalidMarkEntries[0].part.toUpperCase()} exceeds max ${invalidMarkEntries[0].expected}.`
-                        : "Tip: Empty fields are grey, valid marks are green, and values above max are red."}
+                  {isFaculty && !isReadOnlyMode && hasInvalidMarks && (
+                    <div className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-1 text-[10px] text-destructive">
+                      Fix marks exceeding the question maximum before saving.
                     </div>
                   )}
                   {currentScript?.marksUnavailable ? (
                     <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
                       <p>Question-wise marks are not available for this paper yet.</p>
-                      {isFaculty ? <p className="mt-1 text-[11px] font-normal text-amber-800">Ask the administrator to update question schema.</p> : null}
                     </div>
                   ) : (
                     <div className="space-y-1.5 rounded-lg border border-border p-1.5 bg-card/30">
@@ -2127,7 +2122,7 @@ const EvaluationViewer = () => {
 
                       <div className="border-t border-border pt-1.5">
                         <div className="flex items-center justify-between rounded-md bg-card px-2 py-1">
-                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Grand Total{hasOptionalRule ? " (Section Rules Applied)" : ""}</span>
+                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Grand Total</span>
                           <span className="font-mono text-sm font-bold text-primary">{totalMarks}</span>
                         </div>
                       </div>
@@ -2272,7 +2267,7 @@ const EvaluationViewer = () => {
                     </div>
                   ) : (
                     <div className="flex items-center justify-center flex-1 py-4">
-                      <p className="text-xs text-muted-foreground text-center">{isFresh ? "Evaluate the answer sheet and save marks above." : "No grievance filed for this answer sheet."}</p>
+                      <p className="text-xs text-muted-foreground text-center">No grievances filed for this paper.</p>
                     </div>
                   )}
                 </div>

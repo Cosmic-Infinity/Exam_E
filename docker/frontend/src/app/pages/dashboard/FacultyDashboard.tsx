@@ -179,7 +179,6 @@ const FacultyDashboard = () => {
             {user?.fullName ? `Welcome, ${user.fullName}` : "Faculty Dashboard"}
             {user?.universityId && <span className="font-mono text-sm text-muted-foreground ml-2">(ID: {user.universityId})</span>}
           </h1>
-          <p className="text-sm text-muted-foreground">Examination Grading Portal</p>
         </div>
         <div className="flex items-center gap-1.5">
           <button
@@ -456,12 +455,11 @@ const FacultyDashboard = () => {
                     <label className="text-xs font-medium text-muted-foreground block">Roll No (Contains)</label>
                     <input
                       type="text"
-                      placeholder="e.g. 2105 (for batch)"
+                      placeholder="e.g. 2105"
                       value={minRollFilter}
                       onChange={(e) => setMinRollFilter(e.target.value)}
                       className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     />
-                    <p className="text-[10px] text-muted-foreground pt-1">Shows students with Roll No containing this sequence.</p>
                   </div>
                 </div>
               </div>

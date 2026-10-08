@@ -25,7 +25,97 @@ Exam_E is a university-grade examination paper evaluation, digitization, and gri
 
 ---
 
-## 3. Architecture (Single Machine / Local Network)
+## 3. Visual Tour & Screenshots
+
+### Authentication & Access
+
+#### Unified Portal Login
+![Unified Portal Login](screenshots/unified-student-teacher-login.png)
+*Institutional portal sign-in for students, faculty, and examination controllers.*
+
+#### Django Administration Login
+![Django Administration Login](screenshots/admin-login.png)
+*System administration sign-in for database configuration and operations.*
+
+---
+
+### Teacher Evaluation Workspace
+
+#### Teacher Grading Dashboard
+![Teacher Grading Dashboard](screenshots/teacher-home.png)
+*Assigned script queue with grading status and student search filters.*
+
+#### Interactive Evaluation Workstation
+![Interactive Evaluation Workstation](screenshots/teacher-checking-no-solution-widget-on-screen.png)
+*Full-page canvas annotation tools with question-wise score entry.*
+
+#### Evaluation with Side-by-Side Scheme & Answer Key
+![Evaluation with Side-by-Side Scheme & Answer Key](screenshots/teacher-checking-solution-widget-on-screen.png)
+*Side-by-side reference view for question papers and answer keys.*
+
+#### Faculty Grievance Queue
+![Faculty Grievance Queue](screenshots/teacher-grievance-management.png)
+*Assigned student grievances filtered by section and review status.*
+
+#### Grievance Review & Decision Panel
+![Grievance Review & Decision Panel](screenshots/teacher-resolving-grievance.png)
+*Student grievance review with mark adjustments and resolution decisions.*
+
+---
+
+### Student Portal & Script Review
+
+#### Student Results & Exam Services Dashboard
+![Student Results & Exam Services Dashboard](screenshots/student-home.png)
+*Course results, published marks, and answer sheet access.*
+
+#### Student Evaluated Script Review
+![Student Evaluated Script Review](screenshots/student-viewing.png)
+*Evaluated answer sheet review with faculty annotations and mark breakdown.*
+
+#### Student Grievance Submission
+![Student Grievance Submission](screenshots/student-raising-grievance.png)
+*Recheck request submission with issue categorization and student notes.*
+
+---
+
+### Controller & Coordinator Analytics
+
+#### Subject Analytics & Evaluation Metrics
+![Subject Analytics & Evaluation Metrics](screenshots/controller-coordinator-statistics.png)
+*Evaluation progress, score distributions, and section comparisons.*
+
+---
+
+### Django Administration & Operations
+
+#### Django Admin Control Hub
+![Django Admin Control Hub](screenshots/admin-home.png)
+*Central administration dashboard with access to data models and system tools.*
+
+#### Bulk Academic Data Importer
+![Bulk Academic Data Importer](screenshots/admin-view-bulk-data-import.png)
+*CSV data import for schools, courses, faculty, and student enrollments.*
+
+#### Course Allocation & Section Assignment
+![Course Allocation & Section Assignment](screenshots/admin-view-course-allocation.png)
+*Course and section assignments mapped across academic sessions.*
+
+#### Interactive Question Paper Schema Builder
+![Interactive Question Paper Schema Builder](screenshots/admin-view-question-schema-builder.png)
+*Visual section and question schema builder with point weight allocations.*
+
+#### Bulk Password Generation & Dispatch Tool
+![Bulk Password Generation & Dispatch Tool](screenshots/admin-bulk-password-generate.png)
+*Batch password generation and automated email delivery for student cohorts.*
+
+#### Administrative Grievance Oversight & Assignment
+![Administrative Grievance Oversight & Assignment](screenshots/admin-grievance-view-and-assignment.png)
+*Grievance tracking across departments with re-evaluation assignment.*
+
+---
+
+## 4. Architecture (Single Machine / Local Network)
 
 Entry Point: http://localhost (Nginx reverse proxy).
 
@@ -61,7 +151,7 @@ Asynchronous worker process handling background credential dispatch, notificatio
 
 ---
 
-## 4. Core System Features
+## 5. Core System Features
 
 ### Paper Evaluation Workspace
 
@@ -82,7 +172,7 @@ Asynchronous worker process handling background credential dispatch, notificatio
 
 ---
 
-## 5. Admin & Analytics
+## 6. Admin & Analytics
 
 ### Statistics Dashboard
 
@@ -109,7 +199,7 @@ On startup, the backend auto-links exam assets from `backend/mediafiles`:
 
 ---
 
-## 6. Authentication, Authorization & Security
+## 7. Authentication, Authorization & Security
 
 For comprehensive documentation on authentication, role-based access control, and security implementation, see **[AUTHENTICATION.md](docs/AUTHENTICATION.md)**.
 
@@ -140,7 +230,7 @@ For comprehensive documentation on authentication, role-based access control, an
 
 ---
 
-## 7. Admin Panel Operations
+## 8. Admin Panel Operations
 
 The Django admin (`http://localhost/admin/`) is the central control hub for the system. It handles:
 
@@ -170,7 +260,7 @@ The Django admin (`http://localhost/admin/`) is the central control hub for the 
 
 ---
 
-## 8. Background Email & Tasks (Celery)
+## 9. Background Email & Tasks (Celery)
 
 System-wide notifications (password generation, grievance updates) are handled asynchronously.
 
@@ -179,7 +269,7 @@ System-wide notifications (password generation, grievance updates) are handled a
 
 ---
 
-## 9. First-Time Setup & Initialization
+## 10. First-Time Setup & Initialization
 
 > [!NOTE]
 > The system is in debug/demo mode for the purposes of demonstartion out of the box. There is some pre-seeded data to assist with development and are provided as samples. Kindly do not treat the system in it's current state as a ready-made deployable version, and clean out the database and seeded data if you plan to use it. The **seeded data** is not meant to be redistributed and **is NOT covered by the opensource licenses** that this project may be distributed under, and is strictly not to be used for any purposes other than the demonstration of this system.

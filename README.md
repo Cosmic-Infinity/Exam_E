@@ -27,11 +27,17 @@ Exam_E is a university-grade examination paper evaluation, digitization, and gri
 
 ## 3. Visual Tour & Screenshots
 
+> The visual tour highlights both desktop and mobile layouts across user-facing roles (Students, Faculty, and Course Coordinators). System administration tools are accessed via the desktop control plane.
+
 ### Authentication & Access
 
 #### Unified Portal Login
 ![Unified Portal Login](screenshots/unified-student-teacher-login.png)
 <p align="center"><em>Institutional portal sign-in for students, faculty, and examination controllers.</em></p>
+
+#### Unified Portal Login (Mobile)
+![Unified Portal Login (Mobile)](screenshots/mobile/unified-login-faculty-student.png)
+<p align="center"><em>Mobile portal sign-in for students, faculty, and examination controllers.</em></p>
 
 #### Django Administration Login
 ![Django Administration Login](screenshots/admin-login.png)
@@ -45,21 +51,41 @@ Exam_E is a university-grade examination paper evaluation, digitization, and gri
 ![Teacher Grading Dashboard](screenshots/teacher-home.png)
 <p align="center"><em>Assigned script queue with grading status and student search filters.</em></p>
 
+#### Teacher Grading Dashboard (Mobile)
+![Teacher Grading Dashboard (Mobile)](screenshots/mobile/faculty-home.png)
+<p align="center"><em>Assigned script queue with evaluation status filters on mobile.</em></p>
+
 #### Interactive Evaluation Workstation
 ![Interactive Evaluation Workstation](screenshots/teacher-checking-no-solution-widget-on-screen.png)
 <p align="center"><em>Full-page canvas annotation tools with question-wise score entry.</em></p>
+
+#### Mobile Evaluation Workstation with Annotation Tools
+![Mobile Evaluation Workstation with Annotation Tools](screenshots/mobile/faculty-view-tools.png)
+<p align="center"><em>Touch drawing tools with rotate, pencil, eraser, and score entry grid.</em></p>
 
 #### Evaluation with Side-by-Side Scheme & Answer Key
 ![Evaluation with Side-by-Side Scheme & Answer Key](screenshots/teacher-checking-solution-widget-on-screen.png)
 <p align="center"><em>Side-by-side reference view for question papers and answer keys.</em></p>
 
+#### Mobile Question Paper & Scheme Reference
+![Mobile Question Paper & Scheme Reference](screenshots/mobile/faculty-view-with-question-paper-open.png)
+<p align="center"><em>Embedded question paper reference during mobile evaluation.</em></p>
+
 #### Faculty Grievance Queue
 ![Faculty Grievance Queue](screenshots/teacher-grievance-management.png)
 <p align="center"><em>Assigned student grievances filtered by section and review status.</em></p>
 
+#### Faculty Grievance Queue (Mobile)
+![Faculty Grievance Queue (Mobile)](screenshots/mobile/faculty-view-grievance-page.png)
+<p align="center"><em>Assigned student grievances filtered by section and status on mobile.</em></p>
+
 #### Grievance Review & Decision Panel
 ![Grievance Review & Decision Panel](screenshots/teacher-resolving-grievance.png)
 <p align="center"><em>Student grievance review with mark adjustments and resolution decisions.</em></p>
+
+#### Grievance Resolution & Score Update (Mobile)
+![Grievance Resolution & Score Update (Mobile)](screenshots/mobile/faculty-view-greivance-resolution.png)
+<p align="center"><em>Student grievance review with mark adjustments and resolution decisions on mobile.</em></p>
 
 ---
 
@@ -69,9 +95,17 @@ Exam_E is a university-grade examination paper evaluation, digitization, and gri
 ![Student Results & Exam Services Dashboard](screenshots/student-home.png)
 <p align="center"><em>Course results, published marks, and answer sheet access.</em></p>
 
+#### Student Results Dashboard (Mobile)
+![Student Results Dashboard (Mobile)](screenshots/mobile/student-home.png)
+<p align="center"><em>Course results, published marks, and exam service actions on mobile.</em></p>
+
 #### Student Evaluated Script Review
 ![Student Evaluated Script Review](screenshots/student-viewing.png)
 <p align="center"><em>Evaluated answer sheet review with faculty annotations and mark breakdown.</em></p>
+
+#### Evaluated Script Review & Grievance Lodging (Mobile)
+![Evaluated Script Review & Grievance Lodging (Mobile)](screenshots/mobile/student-view-and-grievance-lodging.png)
+<p align="center"><em>Annotated answer sheet inspection, question-wise score breakdown, and recheck submission on mobile.</em></p>
 
 #### Student Grievance Submission
 ![Student Grievance Submission](screenshots/student-raising-grievance.png)
@@ -84,6 +118,10 @@ Exam_E is a university-grade examination paper evaluation, digitization, and gri
 #### Subject Analytics & Evaluation Metrics
 ![Subject Analytics & Evaluation Metrics](screenshots/controller-coordinator-statistics.png)
 <p align="center"><em>Evaluation progress, score distributions, and section comparisons.</em></p>
+
+#### Coordinator Section Statistics (Mobile)
+![Coordinator Section Statistics (Mobile)](screenshots/mobile/coordinator-statistics.png)
+<p align="center"><em>Mobile evaluation metrics, completion percentages, and section breakdowns.</em></p>
 
 ---
 

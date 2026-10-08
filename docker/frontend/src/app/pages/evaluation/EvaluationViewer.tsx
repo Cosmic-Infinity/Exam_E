@@ -2024,8 +2024,13 @@ const EvaluationViewer = () => {
                         onClick={handleSaveMarks}
                         disabled={hasInvalidMarks}
                         className={`rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${
-                          hasInvalidMarks ? "bg-muted text-muted-foreground cursor-not-allowed" : "bg-primary text-primary-foreground hover:bg-primary/90"
+                          hasInvalidMarks
+                            ? "bg-destructive/15 border border-destructive/40 text-destructive cursor-not-allowed"
+                            : isMarksAlreadySaved
+                              ? "bg-success text-success-foreground hover:bg-success/90"
+                              : "bg-primary text-primary-foreground hover:bg-primary/90"
                         }`}
+                        title={hasInvalidMarks ? "Fix marks exceeding question maximum before saving." : isMarksAlreadySaved ? "Update Marks" : "Save Marks"}
                       >
                         {isMarksAlreadySaved ? "Update Marks" : "Save Marks"}
                       </button>

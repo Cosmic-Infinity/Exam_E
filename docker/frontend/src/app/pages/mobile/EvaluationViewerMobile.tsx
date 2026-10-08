@@ -322,16 +322,18 @@ const EvaluationViewerMobile = () => {
     [marks],
   );
 
+  const invalidMarkEntries = useMemo(() => getInvalidMarkEntries(marks), [marks]);
+  const hasInvalidMarks = invalidMarkEntries.length > 0;
+
   const handleMarkChange = (rowIndex: number, partKey: string, nextValue: string) => {
     const cleaned = sanitizeMarkInput(nextValue);
     setMarks((prev) => prev.map((row, idx) => (idx !== rowIndex ? row : { ...row, parts: { ...row.parts, [partKey]: cleaned } })));
   };
 
   const validateMarksWithinExpected = (): string | null => {
-    const invalidMarkEntries = getInvalidMarkEntries(marks);
     const firstInvalid = invalidMarkEntries[0];
     if (firstInvalid) {
-      return `${firstInvalid.q} part ${firstInvalid.part.toUpperCase()} is ${firstInvalid.awarded}, max is ${firstInvalid.expected}.`;
+      return `Question ${firstInvalid.q} Part ${firstInvalid.part.toUpperCase()} exceeds max marks (${firstInvalid.awarded}/${firstInvalid.expected}).`;
     }
     return null;
   };
@@ -1406,16 +1408,27 @@ const EvaluationViewerMobile = () => {
                               <div className="grid grid-cols-2 gap-1">
                                 {partKeys.map((key) => {
                                   const expected = Number(row.expectedParts?.[key] ?? 0);
+                                  const raw = row.parts[key] ?? "";
+                                  const awarded = parseMarkValue(raw);
+                                  const isEmpty = raw.trim() === "";
+                                  const isInvalid = !isEmpty && (awarded < 0 || awarded > expected);
+                                  const tintClass = isInvalid
+                                    ? "bg-destructive/20 border-destructive/70 text-destructive"
+                                    : isEmpty
+                                      ? "bg-background border-border text-foreground"
+                                      : "bg-success/20 border-success/60 text-foreground";
                                   const awardedDisplay = row.parts[key] && row.parts[key] !== "-" ? row.parts[key] : "0";
+
                                   return (
-                                    <div key={key} className="rounded-md border border-border bg-card p-1 space-y-0.5">
+                                    <div key={key} className={`rounded-md border p-1 space-y-0.5 ${isInvalid ? "border-destructive/40 bg-destructive/5" : "border-border bg-card"}`}>
                                       <div className="text-[9px] text-muted-foreground uppercase leading-none">Part {key}</div>
                                       <div className="flex items-end justify-between gap-1">
                                         {isFaculty ? (
                                           <input
                                             value={row.parts[key] ?? ""}
                                             onChange={(e) => handleMarkChange(idx, key, e.target.value)}
-                                            className="w-10 rounded-md border border-border bg-background px-1 py-0.5 text-[11px] text-foreground text-center"
+                                            title={isInvalid ? `Max allowed for ${row.q} Part ${key.toUpperCase()} is ${expected}` : `Max ${expected}`}
+                                            className={`w-10 rounded-md border px-1 py-0.5 text-[11px] text-center font-mono focus:outline-none focus:ring-1 focus:ring-primary/50 ${tintClass}`}
                                           />
                                         ) : (
                                           <span className="text-[11px] font-mono font-semibold text-foreground leading-none">{awardedDisplay}</span>
@@ -1435,8 +1448,25 @@ const EvaluationViewerMobile = () => {
                 </div>
               )}
 
+              {isFaculty && hasInvalidMarks && (
+                <div className="rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive text-center font-medium">
+                  Fix marks exceeding question maximum before saving.
+                </div>
+              )}
+
               {isFaculty && (
-                <button onClick={handleSaveMarks} disabled={savingMarks || getInvalidMarkEntries(marks).length > 0} className="w-full rounded-lg bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50" title={getInvalidMarkEntries(marks).length > 0 ? "Fix marks exceeding question maximum before saving." : isMarksAlreadySaved ? "Update Marks" : "Save Marks"}>
+                <button
+                  onClick={handleSaveMarks}
+                  disabled={savingMarks || hasInvalidMarks}
+                  className={`w-full rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
+                    hasInvalidMarks
+                      ? "bg-destructive/15 border border-destructive/40 text-destructive cursor-not-allowed"
+                      : isMarksAlreadySaved
+                        ? "bg-success text-success-foreground hover:bg-success/90"
+                        : "bg-primary text-primary-foreground hover:bg-primary/90"
+                  }`}
+                  title={hasInvalidMarks ? "Fix marks exceeding question maximum before saving." : isMarksAlreadySaved ? "Update Marks" : "Save Marks"}
+                >
                   {savingMarks ? "Saving..." : isMarksAlreadySaved ? "Update Marks" : "Save Marks"}
                 </button>
               )}

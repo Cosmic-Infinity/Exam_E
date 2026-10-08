@@ -1,6 +1,6 @@
 # Development Setup & First Boot
 
-Follow this guide to setting up the backend, frontend, and database for the first time.
+Follow this guide to set up the backend, frontend, and database environments.
 
 ---
 
@@ -8,17 +8,17 @@ Follow this guide to setting up the backend, frontend, and database for the firs
 
 - **Docker Desktop** (Running)
 - **Git**
-- **DBeaver** (Optional, for database visualization)
+- **DBeaver** or **PgAdmin** (Optional, for direct database inspection)
 
 ---
 
-## 2. Initial Setup (The "Nuke & Boot")
+## 2. Initial Setup
 
-If you are setting this up for the first time or want a fresh start, follow these steps.
+To configure and run the full stack for the first time:
 
 ### Step 1: Navigate to the Docker Directory
 
-The entire stack configuration lives in the `docker/` folder.
+The container stack configuration lives in the `docker/` directory:
 
 ```bash
 cd docker
@@ -26,54 +26,53 @@ cd docker
 
 ### Step 2: Build and Start the Stack
 
-This command builds the Python (Backend) and Node (Frontend) images and starts the database.
+This command builds the Python (Backend) and Node (Frontend) container images and initializes the services:
 
 ```bash
 docker compose up --build -d
 ```
 
-> **Note**: The first build may take 5-10 minutes.
+> **Note**: Initial image builds may take several minutes depending on network download speeds.
 
-### Step 4: Verify Running Services
+### Step 3: Verify Running Services
 
 ```bash
 docker compose ps
 ```
 
-You should see `backend`, `frontend`, `db`, `nginx`, `redis`, and `celery` all with status `Up`.
+All core services (`backend`, `frontend`, `db`, `nginx`, `redis`, and `celery`) should report status `Up`.
 
 ---
 
-## 3. Resetting the System (The "Nuclear Option")
+## 3. Resetting the Database
 
-To wipe the database and start fresh with the latest CSV/PDF data:
+To reset the database and re-run all initialization scripts from scratch:
 
 ```bash
-# 1. Stop all containers and remove volumes (DELETES DB DATA)
+# 1. Stop containers and remove persistent volumes
 docker compose down -v
 
-# 2. Rebuild and Start (Will auto-run all import scripts on boot)
+# 2. Rebuild and restart (triggers automated bootstrap import on boot)
 docker compose up --build -d
 ```
 
 ---
 
-## 4. Database Initialization
+## 4. Database Initialization & Default Credentials
 
-### Automatic Setup (The "Zero-Touch" Boot)
+### Automated Initialization
 
-Automatically on the first boot:
-- **Database Schema**: Imported from `docker/init_db.sql`.
-- **Migrations**: Automatic execution of Django migrations.
-- **Superuser**: Created automatically (Credentials below).
-- **Academic Data**: Imports Schools, Teachers, Courses from `Data/` CSVs.
-- **Student Data**: Imports Students & Enrollments from `Data/` CSVs. 
-- **Exam Media Linking**: Scans `backend/mediafiles/papers` and `backend/mediafiles/exam_docs` and auto-links:
-	- paper pages to `ExamPaper.pages` using `ROLLNO_COURSECODE` folder names,
-	- question paper and answer key paths to exams.
+On initial database creation:
+- **Database Schema**: Initialized from `docker/init_db.sql`.
+- **Migrations**: Applies all Django database migrations.
+- **Superuser**: Provisioned automatically.
+- **Academic Data**: Imports Schools, Teachers, and Courses from `Data/` CSV files.
+- **Student Data**: Imports Students and Enrollments from `Data/` CSV files.
+- **Exam Media Linking**: Scans `backend/mediafiles/papers` and `backend/mediafiles/exam_docs` and links:
+  - Paper page assets to `ExamPaper.pages` using `ROLLNO_COURSECODE` folder conventions.
+  - Question papers and answer key paths to their respective exam definitions.
 
 ### Default Superuser Credentials (SYSTEM ADMIN)
-
 
 | Attribute | Value |
 | :--- | :--- |
@@ -82,153 +81,97 @@ Automatically on the first boot:
 | **University ID** | `0000` |
 
 ### Default Student Credentials (TEST DATA)
-The system imports students from CSVs (e.g., `2305.csv`).
-- **Email**: Derived from CSV (usually `rollno@kiit.ac.in`).
-- **Password**: `password` (Hardcoded for all imported students).
+
+Students imported from sample CSV files:
+- **Email**: Derived from CSV (e.g., `rollno@kiit.ac.in`).
+- **Password**: `Check@123`
 - **Roll No**: As per CSV (e.g., `2305101`).
 
-> [!NOTE]
-> **Email Configuration**: This email address can be changed in [docker/backend/entrypoint.sh](../docker/backend/entrypoint.sh) if needed for mail service API testing or production setup. The email must match your **mail service provider's authenticated sender address** when configuring `EMAIL_HOST_USER` in the environment variables.
-
 ---
 
-## 4. Manual Administration
+## 5. Manual Administration & Service Access
 
-While the system is automated, you can manually trigger commands if needed.
+### Manual Administrative Commands
 
-### Creating a Manual Superuser
-If you need an additional admin:
 ```bash
+# Create an additional superuser interactively
 docker compose exec backend python manage.py createsuperuser
-```
 
-### Manual Media Re-Link (if files changed)
-```bash
+# Re-link exam media files
 docker compose exec backend python manage.py import_exam_media --overwrite-existing
-```
 
-### Seed More Test Media from Data (then auto-link)
-```bash
+# Seed additional test media from Data directory and link
 docker compose exec backend python manage.py seed_media_from_data --pages-per-paper 5 --assign-missing-teachers --overwrite-existing
 ```
-This command copies additional source pages from `Data/Papers/*` into `backend/mediafiles/papers/<ROLLNO>_<COURSECODE>`,
-copies question/answer docs into `backend/mediafiles/exam_docs`, and then runs `import_exam_media` to link assets via active enrollments.
 
-### Accessing the System
+### Service Access Endpoints
 
-| System          | URL                                                              | Description                                        |
-| :-------------- | :--------------------------------------------------------------- | :------------------------------------------------- |
-| **Admin Panel** | [http://localhost/admin](http://localhost/admin)                 | **System Admin Only** (via nginx). Django direct also works at `http://localhost:8000/admin`. |
-| **API Docs**    | See [API_DOCS.md](API_DOCS.md)                                    | Backend API Documentation (No live Swagger UI yet) |
-| **Frontend**    | [http://localhost](http://localhost)                             | **Main App** via nginx reverse proxy (recommended). Dev frontend-only remains at `http://localhost:8080`. |
-| **Database**    | `localhost:5433`                                                 | Direct SQL Access (Use DBeaver/PgAdmin, not browser) |
+| System | URL | Description |
+| :--- | :--- | :--- |
+| **Admin Panel** | [http://localhost/admin](http://localhost/admin) | Django Administration (via Nginx reverse proxy). Direct access at `http://localhost:8000/admin`. |
+| **Frontend Application** | [http://localhost](http://localhost) | Portal application via Nginx reverse proxy. Development frontend server runs at `http://localhost:8080`. |
+| **API Documentation** | [API_DOCS.md](API_DOCS.md) | REST API specification. |
+| **Database Direct Port** | `localhost:5433` | Direct PostgreSQL port for external tools. |
 
-### LAN/Hotspot Access (DEBUG)
+### Local Network Access (DEBUG Mode)
 
-- Backend allows wildcard hosts and permissive CORS in DEBUG for team devices on local network.
-- Vite proxies `/api`, `/media`, and `/Data` to backend.
-- Frontend asset resolver uses current hostname for relative assets, so mobile devices can open papers/keys from LAN URLs.
+- In `DEBUG` mode, the backend allows local network access for testing across handheld devices.
+- The frontend asset resolver resolves relative media URLs to the current host, allowing mobile devices on the same LAN to load paper images and documents.
 
 ---
 
-## 8. Database Snapshot Export + Auto-Load
+## 6. Database Snapshot Export & Restore
 
-To speed up team onboarding, you can export a full DB snapshot and let backend boot auto-load it.
+To share initialized database states across development machines without re-running CSV imports:
 
-### Export current database snapshot
+### Export Snapshot
 
-From the `docker/` folder:
+From the `docker/` directory:
 
 ```bash
+# Linux / macOS
 sh export_db_snapshot.sh
-```
 
-Windows PowerShell:
-
-```powershell
+# Windows PowerShell
 .\export_db_snapshot.ps1
 ```
 
-This writes to:
-
+Snapshots are written to:
 ```text
 Data/db_snapshots/exam_e_snapshot.sql
 ```
 
-You can also provide a custom output path:
-
+A custom destination path can be specified:
 ```bash
-sh export_db_snapshot.sh ../Data/db_snapshots/my_team_snapshot.sql
+sh export_db_snapshot.sh ../Data/db_snapshots/custom_snapshot.sql
 ```
 
-PowerShell with custom path:
+### Automatic Snapshot Restore on Startup
 
-```powershell
-.\export_db_snapshot.ps1 -SnapshotPath ../Data/db_snapshots/my_team_snapshot.sql
-```
+The backend entrypoint checks for `Data/db_snapshots/exam_e_snapshot.sql` on startup:
+- **If present**: Restores the SQL dump directly into PostgreSQL, runs pending migrations, and bypasses CSV bootstrap scripts.
+- **If absent**: Executes standard CSV bootstrap import routines.
 
-### Auto-load behavior on backend startup
+---
 
-Backend entrypoint now checks this file first:
+## 7. Connecting to the Database (DBeaver / PgAdmin)
 
-```text
-/app/Data/db_snapshots/exam_e_snapshot.sql
-```
-
-If present:
-- restores snapshot into `exam_e`,
-- runs migrations,
-- skips CSV/media bootstrap imports.
-
-If absent:
-- continues existing normal bootstrap flow (migrations + CSV/media imports).
-
-To reset and re-run with snapshot logic:
-
-```bash
-docker compose down -v
-docker compose up --build -d
-```
-
-
-## 5. Connecting to the Database (DBeaver/PgAdmin)
-
-To inspect the raw data or debug queries:
+To connect an external database client:
 
 - **Host**: `localhost`
-- **Port**: `5433` (Mapped from internal 5432 to avoid conflicts)
+- **Port**: `5433` (Mapped from container port 5432 to avoid local port conflicts)
 - **Database**: `exam_e`
 - **Username**: `postgres`
 - **Password**: `postgres`
 
-> **Why Port 5433?** We use port 5433 for the host machine to avoid clashing with any local Postgres instance you might already have running.
-
 ---
 
-## 6. Advanced: Selective Component Startup
+## 8. Selective Component Startup
 
-Once the initial setup is complete (and the database volume is initialized), you often don't need to run the entire stack. You can start specific services to save resources.
+During active development, individual services can be started independently:
 
-| Goal              | Command                                     | Why?                                                             |
-| :---------------- | :------------------------------------------ | :--------------------------------------------------------------- |
-| **Backend Only**  | `docker compose up db redis backend celery` | Develop API endpoints without running the Frontend/React server. |
-| **Frontend Only** | `docker compose up frontend`                | UI work (assuming the backend is already running or mocked).     |
-| **Database Only** | `docker compose up db -d`                   | Inspect data in DBeaver without running any application logic.   |
-
-> **Service Names**: The valid service names defined in `docker-compose.yml` are: `db`, `redis`, `backend`, `celery`, `frontend`, `nginx`.
-
----
-
-## 7. How to "Nuke" and Reset
-
-If you need to wipe the database and start fresh (e.g., to re-test the import flow):
-
-```bash
-# 1. Stop containers and DELETE volumes (This destroys all data)
-docker compose down -v
-
-# 2. Restart (Schema will be re-imported auto-magically)
-docker compose up -d
-
-# 3. Re-create the superuser (Step 3 above)
-```
+| Scope | Command | Purpose |
+| :--- | :--- | :--- |
+| **Backend Stack** | `docker compose up db redis backend celery` | Backend API and background task development without frontend build. |
+| **Frontend Only** | `docker compose up frontend` | UI development against an already running or mocked backend. |
+| **Database Only** | `docker compose up db -d` | Direct database inspection without application processes. |

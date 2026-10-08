@@ -2,13 +2,6 @@
 
 This document outlines the REST APIs exposed by the Django backend for consumption by the React frontend.
 
-## Sync Notes (March 16, 2026)
-
-- Frontend runtime now auto-selects mobile page components for the same route paths; API paths are unchanged.
-- In DEBUG, frontend development proxy supports `/api`, `/media`, and `/Data`.
-- `/api/stats/students/` is active and used for score-range drill-down.
-- `/api/me/` remains the session validation endpoint used on frontend session restore.
-
 ---
 
 ## 0. Role & Permission System
@@ -498,7 +491,7 @@ For rejection:
 
 These APIs power the dashboards for Controllers (global view) and Course Coordinators—TEACHER users with assigned courses (course-specific view).
 
-Isolation note: `/api/stats/*` endpoints are application-role APIs for frontend dashboards. Django admin analytics use separate `/admin/stats/api/*` endpoints and are not routed through frontend stats permission logic.
+Admin analytics endpoints reside under `/admin/stats/` and are isolated from frontend `/api/stats/` endpoints.
 
 ### `GET /api/stats/dashboard/data/`
 
@@ -643,7 +636,7 @@ Updates the marks and evaluation status for a specific paper.
 
 ---
 
-## 3. Student Portal APIs
+## 4. Student Portal APIs
 
 ### `GET /api/student/enrollments/`
 
@@ -886,113 +879,6 @@ Returns grievance history for the logged-in student.
   ```
 
 ---
-
-## 5. Analytics & Statistics APIs
-
-These endpoints provide data for frontend dashboard visualizations for application roles.
-
-Note: Django admin/staff statistics are isolated to `/admin/stats/*` endpoints and are not mixed with `/api/stats/*` role checks.
-
-Students are explicitly denied from all `/api/stats/*` endpoints and will receive `403 Forbidden`.
-
-### `GET /api/stats/dashboard/data/`
-
-Returns the list of courses the user is authorized to view stats for.
-
-- **Auth**: `CONTROLLER` or `TEACHER` (if course coordinator).
-- **Output**:
-  ```json
-  { "courses": [{ "course_code": "CS101", "title": "Intro to CS" }] }
-  ```
-
-### `GET /api/stats/subjects/`
-
-Returns all subjects for the current active semester with their evaluation progress.
-
-- **Auth**: `CONTROLLER` or `TEACHER` (if course coordinator).
-- **Output**:
-  ```json
-  {
-    "subjects": [
-      {
-        "course_code": "CS101",
-        "title": "Intro to CS",
-        "total_students": 500,
-        "checked": 400,
-        "pending": 100,
-        "grievances": 5
-      }
-    ]
-  }
-  ```
-
-### `GET /api/stats/sections/`
-
-Returns sections for a specific course with their evaluation progress.
-
-- **Auth**: `CONTROLLER` or `TEACHER` (if course coordinator).
-- **Query Params**: `course_code` (Required).
-- **Output**:
-  ```json
-  {
-    "sections": [
-      {
-        "allocation_id": 1,
-        "section_name": "Section A",
-        "teacher__full_name": "Jane Doe",
-        "total_students": 50,
-        "checked": 40,
-        "pending": 10,
-        "grievances": 2
-      }
-    ]
-  }
-  ```
-
-### `GET /api/stats/grievances/`
-
-Returns grievance statistics.
-
-- **Auth**: `CONTROLLER` or `TEACHER` (if course coordinator).
-- **Query Params**: `course_code` (Optional. If omitted, returns aggregate of all accessible courses).
-- **Output**:
-  ```json
-  {
-    "by_course": [{ "label": "CS101", "count": 5 }],
-    "chart_data": [{ "label": "Section A", "count": 2 }],
-    "label_type": "Section"
-  }
-  ```
-
-### `GET /api/stats/scores/`
-
-Returns score distribution histograms.
-
-- **Auth**: `CONTROLLER` or `TEACHER` (if course coordinator).
-- **Query Params**: `course_code` (Optional).
-- **Output**:
-  ```json
-  {
-    "distribution": [0, 2, 5, 10, ...],
-    "labels": ["0-10", "10-20", ...],
-    "meta": { "count": 50, "avg": 75.5 }
-  }
-  ```
-
-### `GET /api/stats/students/`
-
-Drill down to see students in a specific score range.
-
-- **Auth**: `CONTROLLER` or `TEACHER` (if course coordinator).
-- **Query Params**: `course_code`, `min`, `max`.
-- **Output**:
-  ```json
-  { "students": [{ "name": "John", "score": 85, "paper_id": 101 }] }
-  ```
-
----
-
-## 5. Student Papers API
 
 ### `GET /api/student/papers/`
 

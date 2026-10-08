@@ -355,8 +355,7 @@ Current behavior (March 2026):
 - Redirect unauthorized users to appropriate dashboard
 - Show/hide features based on `isCourseCoordinator` / `isController`
 
-Runtime route mapping note:
-- Route paths are shared between desktop and mobile; `App.tsx` selects mobile page components at runtime for handheld devices.
+- Route paths are shared between desktop and mobile; `App.tsx` selects mobile components dynamically based on device heuristics.
 
 ---
 
@@ -364,19 +363,19 @@ Runtime route mapping note:
 
 ### **Token Security**
 
-- [x] **HttpOnly Cookies** - XSS protection  
-- [x] **Secure Flag** - HTTPS-only transmission  
-- [x] **SameSite** - CSRF protection  
-- [x] **Short TTL** - Minimize exposure duration  
-- [x] **Refresh Rotation** - Automatic token cycling  
-- [x] **Blacklist** - Logout revokes tokens
+- **HttpOnly Cookies**: Prevents client-side script access (XSS mitigation)  
+- **Secure Flag**: Enforces HTTPS transmission in production environments  
+- **SameSite**: Mitigates Cross-Site Request Forgery (CSRF)  
+- **Short TTL**: Limits access token lifetime to 15 minutes  
+- **Refresh Rotation**: Issues new refresh tokens upon each refresh cycle  
+- **Blacklist**: Explicitly revokes active tokens on user logout  
 
 ### **Request Validation**
 
-- [x] **Role in JWT** - No server lookup on every request  
-- [x] **Permission Classes** - DRF enforces RBAC  
-- [x] **Course Lookups** - Database verification for stats access  
-- [x] **User Isolation** - Filters by `request.user`
+- **Role in JWT Claims**: Avoids database lookups on standard authenticated requests  
+- **Permission Classes**: Django REST framework enforces RBAC at the view layer  
+- **Course Lookups**: Enforces coordinator-level verification for subject analytics  
+- **User Isolation**: Scopes record queries directly to `request.user`
 
 ### **Login Abuse Protection (Shared-Network Safe)**
 
@@ -395,11 +394,7 @@ HTTP responses during login:
 - `200`: Login successful
 - `400`: Missing email or password
 - `401`: Invalid credentials
-- `403`: Account temporarily locked
-
-Frontend note:
-
-- Desktop and mobile login handlers must treat `403` as account lockout feedback.
+- `403`: Account temporarily locked (both desktop and mobile clients handle this as lockout feedback)
 
 ### **Database Constraints**
 

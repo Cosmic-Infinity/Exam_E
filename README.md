@@ -1,9 +1,9 @@
-# 🎓 Exam Evaluation System (Exam_E)
+# Exam Evaluation System (Exam_E)
 
-> **Quick Start**: Go to [SETUP_AND_RUN.md](SETUP_AND_RUN.md) for first-boot instructions.
+> **Quick Start**: Go to [SETUP_AND_RUN.md](docs/SETUP_AND_RUN.md) for first-boot instructions.
 > **Status**: Active Development.
 
-> **Team Acceleration Tip**: You can export a DB snapshot and auto-load it on boot (`export_db_snapshot.sh` or `export_db_snapshot.ps1`). See the "Database Snapshot Export + Auto-Load" section in [SETUP_AND_RUN.md](SETUP_AND_RUN.md).
+> **Team Acceleration Tip**: You can export a DB snapshot and auto-load it on boot (`export_db_snapshot.sh` or `export_db_snapshot.ps1`). See the "Database Snapshot Export + Auto-Load" section in [SETUP_AND_RUN.md](docs/SETUP_AND_RUN.md).
 
 ## 1. The Core Philosophy
 
@@ -62,7 +62,7 @@ Email-based authentication (not username) for university compatibility.
 
 Per-username security tracking: Failed attempts traced to individual accounts (not IP addresses), enabling reliable operation in shared campus networks. Account lockout after 10 failures, with progressive delays (2s → 5s → 10s) after 3 attempts.
 
-For detailed security architecture, see [AUTHENTICATION.md](AUTHENTICATION.md).
+For detailed security architecture, see [AUTHENTICATION.md](docs/AUTHENTICATION.md).
 
 Paper Evaluation:
 
@@ -103,7 +103,7 @@ Action: Django adds tasks to Redis. Celery workers pick them up one by one and t
 
 # 6. Authentication, Authorization & Security
 
-For comprehensive documentation on authentication, role-based access control, and security implementation, see **[AUTHENTICATION.md](AUTHENTICATION.md)**.
+For comprehensive documentation on authentication, role-based access control, and security implementation, see **[AUTHENTICATION.md](docs/AUTHENTICATION.md)**.
 
 **Quick Reference**:
 
@@ -183,8 +183,18 @@ The system is fully automated on startup.
    - **Test Students**: Check [Data/test_data/1_students.csv](Data/test_data/1_students.csv) (Roll numbers are login IDs)
    - **Test Teachers**: Check [Data/test_data/2_teachers.csv](Data/test_data/2_teachers.csv) (Emp IDs are login IDs)
 
-For detailed authentication information, see [AUTHENTICATION.md](AUTHENTICATION.md).
+For detailed authentication information, see [AUTHENTICATION.md](docs/AUTHENTICATION.md).
 
 ---
+
+## Documentation Index
+
+Comprehensive guides and architectural documentation are available in the [`docs/`](docs/) directory:
+
+- [Development Setup & First Boot Guide](docs/SETUP_AND_RUN.md)
+- [Authentication & Access Control Architecture](docs/AUTHENTICATION.md)
+- [REST API Documentation](docs/API_DOCS.md)
+- [Database Entry & Workflows](docs/database_entry.md)
+- [Database Schema Reference](docs/database_schema.md)
 
 

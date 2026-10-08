@@ -1,4 +1,4 @@
-# 🚀 Development Setup & First Boot
+# Development Setup & First Boot
 
 Follow this guide to setting up the backend, frontend, and database for the first time.
 
@@ -87,7 +87,8 @@ The system imports students from CSVs (e.g., `2305.csv`).
 - **Password**: `password` (Hardcoded for all imported students).
 - **Roll No**: As per CSV (e.g., `2305101`).
 
-> **⚠️ Note on Email Configuration**: This email address can be changed in [docker/backend/entrypoint.sh](docker/backend/entrypoint.sh) if needed for mail service API testing or production setup. The email must match your **mail service provider's authenticated sender address** when configuring `EMAIL_HOST_USER` in the environment variables.
+> [!NOTE]
+> **Email Configuration**: This email address can be changed in [docker/backend/entrypoint.sh](../docker/backend/entrypoint.sh) if needed for mail service API testing or production setup. The email must match your **mail service provider's authenticated sender address** when configuring `EMAIL_HOST_USER` in the environment variables.
 
 ---
 
@@ -118,7 +119,7 @@ copies question/answer docs into `backend/mediafiles/exam_docs`, and then runs `
 | System          | URL                                                              | Description                                        |
 | :-------------- | :--------------------------------------------------------------- | :------------------------------------------------- |
 | **Admin Panel** | [http://localhost/admin](http://localhost/admin)                 | **System Admin Only** (via nginx). Django direct also works at `http://localhost:8000/admin`. |
-| **API Docs**    | See `API_DOCS.md` file                                           | Backend API Documentation (No live Swagger UI yet) |
+| **API Docs**    | See [API_DOCS.md](API_DOCS.md)                                    | Backend API Documentation (No live Swagger UI yet) |
 | **Frontend**    | [http://localhost](http://localhost)                             | **Main App** via nginx reverse proxy (recommended). Dev frontend-only remains at `http://localhost:8080`. |
 | **Database**    | `localhost:5433`                                                 | Direct SQL Access (Use DBeaver/PgAdmin, not browser) |
 

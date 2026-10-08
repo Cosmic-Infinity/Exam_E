@@ -4,7 +4,7 @@ This document outlines the workflows for populating the `Exam_E` database, speci
 
 ---
 
-## 🔐 0. Role Configuration in Data Entry
+## 0. Role Configuration in Data Entry
 
 | User Type | `role` | `is_staff` | Description |
 | :--- | :--- | :--- | :--- |
@@ -22,7 +22,7 @@ This coordinator capability is **not imported from CSV teacher data** and must b
 
 ---
 
-## 🛠 Technical Guide: How to Run the Imports
+## Technical Guide: How to Run the Imports
 
 The system now runs these imports **automatically** on startup inside the Docker container (`entrypoint.sh`). If you need to re-run them manually, use the following commands inside the `backend` container:
 
@@ -122,15 +122,15 @@ _Generated dynamically during the grading process._
 
 ## Summary of Required Scripts
 
-1.  ✅ `scripts/import_students.py`: Registers Users & Student Profiles from CSV.
-2.  ✅ `scripts/import_academic_data.py`: Multi-purpose importer for Schools/Streams, Teachers, Courses, and Allocations.
-3.  ❌ `scripts/assign_core.py`: Enrolls a whole semester into a subject.
-4.  ❌ `scripts/assign_elective.py`: Enrolls a CSV list of students into a subject.
-5.  ❌ `scripts/upload_scanned_papers.py`: Digitization dept tool to parse filenames and populate `exam_papers`.
+- [x] `scripts/import_students.py`: Registers Users & Student Profiles from CSV.
+- [x] `scripts/import_academic_data.py`: Multi-purpose importer for Schools/Streams, Teachers, Courses, and Allocations.
+- [ ] `scripts/assign_core.py`: Enrolls a whole semester into a subject.
+- [ ] `scripts/assign_elective.py`: Enrolls a CSV list of students into a subject.
+- [ ] `scripts/upload_scanned_papers.py`: Digitization dept tool to parse filenames and populate `exam_papers`.
 
 ---
 
-## 🛠 Technical Guide: How to Run the Imports
+## Technical Guide: How to Run the Imports
 
 ### Prerequisites
 

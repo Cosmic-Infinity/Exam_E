@@ -1,4 +1,4 @@
-# 📡 Exam_E API Documentation
+# Exam_E API Documentation
 
 This document outlines the REST APIs exposed by the Django backend for consumption by the React frontend.
 
@@ -11,7 +11,7 @@ This document outlines the REST APIs exposed by the Django backend for consumpti
 
 ---
 
-## 🔐 0. Role & Permission System
+## 0. Role & Permission System
 
 The application uses a **Hierarchical Role System**.
 

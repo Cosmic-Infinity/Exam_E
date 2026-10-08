@@ -1,4 +1,4 @@
-# 🔐 Authentication & Access Control Architecture
+# Authentication & Access Control Architecture
 
 This document explains how the Exam_E system handles user authentication and role-based access control (RBAC).
 
@@ -32,9 +32,9 @@ The application uses a **three-layer authentication model**:
                         ↓
             ┌──────────────────────────┐
             │ Generate JWT + Claims    │
-            │ ✓ university_id          │
-            │ ✓ full_name              │
-            │ ✓ role (STUDENT/TEACHER/ │
+            │ + university_id          │
+            │ + full_name              │
+            │ + role (STUDENT/TEACHER/ │
             │        CONTROLLER)       │
             └──────────┬───────────────┘
                        ↓
@@ -45,11 +45,11 @@ The application uses a **three-layer authentication model**:
         └──────────────────────────────┘
 ```
 
-**Implementation**: [core/api/auth.py - LoginView](docker/backend/core/api/auth.py#L25-L84)
+**Implementation**: [core/api/auth.py - LoginView](../docker/backend/core/api/auth.py#L25-L84)
 
 ### **Authentication Backends**
 
-**[core/api/authentication.py](docker/backend/core/api/authentication.py)**
+**[core/api/authentication.py](../docker/backend/core/api/authentication.py)**
 
 #### **EmailBackend**
 
@@ -88,11 +88,11 @@ The application uses a **three-layer authentication model**:
 - `university_id` - Institutional ID for audit trails
 - `full_name` - Display name for UI
 
-**Implementation**: [core/api/serializers.py - CustomTokenObtainPairSerializer](docker/backend/core/api/serializers.py#L7-L28)
+**Implementation**: [core/api/serializers.py - CustomTokenObtainPairSerializer](../docker/backend/core/api/serializers.py#L7-L28)
 
 ### **Configuration**
 
-**[config/settings.py - SIMPLE_JWT](docker/backend/config/settings.py#L130-L145)**
+**[config/settings.py - SIMPLE_JWT](../docker/backend/config/settings.py#L130-L145)**
 
 ```python
 SIMPLE_JWT = {
@@ -169,7 +169,7 @@ The system has **3 active roles**:
 
 ### **Permission Classes**
 
-**[core/api/permissions.py](docker/backend/core/api/permissions.py)**
+**[core/api/permissions.py](../docker/backend/core/api/permissions.py)**
 
 #### **IsTeacher**
 
@@ -210,7 +210,7 @@ class IsController(BasePermission):
 
 Statistics and grading require additional authorization based on course assignment.
 
-**[core/api/stats.py - \_get_api_accessible_courses()](docker/backend/core/api/stats.py#L11-L21)**
+**[core/api/stats.py - \_get_api_accessible_courses()](../docker/backend/core/api/stats.py#L11-L21)**
 
 ```python
 def _get_api_accessible_courses(user):
@@ -244,11 +244,11 @@ def _get_api_accessible_courses(user):
 
 | Endpoint             | Method |   Permission    |  Auth Required   |
 | -------------------- | :----: | :-------------: | :--------------: |
-| `/api/auth/login/`   |  POST  |      None       |        ❌        |
-| `/api/token/`        |  POST  |      None       |        ❌        |
-| `/api/auth/logout/`  |  POST  | IsAuthenticated |        ✅        |
+| `/api/auth/login/`   |  POST  |      None       |        No        |
+| `/api/token/`        |  POST  |      None       |        No        |
+| `/api/auth/logout/`  |  POST  | IsAuthenticated |       Yes        |
 | `/api/auth/refresh/` |  POST  |       ---       | Cookie or header |
-| `/api/me/`           |  GET   | IsAuthenticated |        ✅        |
+| `/api/me/`           |  GET   | IsAuthenticated |       Yes        |
 
 `/api/token/` accepts `{ "email", "password" }` only.
 
@@ -321,7 +321,7 @@ Isolation guarantee:
 
 ### **User Session Context**
 
-**[frontend/src/app/context/UserSessionContext.tsx](docker/frontend/src/app/context/UserSessionContext.tsx)**
+**[frontend/src/app/context/UserSessionContext.tsx](../docker/frontend/src/app/context/UserSessionContext.tsx)**
 
 ```tsx
 interface UserSession {
@@ -341,7 +341,7 @@ Current behavior (March 2026):
 
 ### **Protected Routes**
 
-**[frontend/src/App.tsx](docker/frontend/src/App.tsx)**
+**[frontend/src/App.tsx](../docker/frontend/src/App.tsx)**
 
 ```tsx
 <ProtectedRoute allowedRoles={["faculty"]} requireCoordinator>
@@ -364,19 +364,19 @@ Runtime route mapping note:
 
 ### **Token Security**
 
-✅ **HttpOnly Cookies** - XSS protection  
-✅ **Secure Flag** - HTTPS-only transmission  
-✅ **SameSite** - CSRF protection  
-✅ **Short TTL** - Minimize exposure duration  
-✅ **Refresh Rotation** - Automatic token cycling  
-✅ **Blacklist** - Logout revokes tokens
+- [x] **HttpOnly Cookies** - XSS protection  
+- [x] **Secure Flag** - HTTPS-only transmission  
+- [x] **SameSite** - CSRF protection  
+- [x] **Short TTL** - Minimize exposure duration  
+- [x] **Refresh Rotation** - Automatic token cycling  
+- [x] **Blacklist** - Logout revokes tokens
 
 ### **Request Validation**
 
-✅ **Role in JWT** - No server lookup on every request  
-✅ **Permission Classes** - DRF enforces RBAC  
-✅ **Course Lookups** - Database verification for stats access  
-✅ **User Isolation** - Filters by `request.user`
+- [x] **Role in JWT** - No server lookup on every request  
+- [x] **Permission Classes** - DRF enforces RBAC  
+- [x] **Course Lookups** - Database verification for stats access  
+- [x] **User Isolation** - Filters by `request.user`
 
 ### **Login Abuse Protection (Shared-Network Safe)**
 
@@ -403,7 +403,7 @@ Frontend note:
 
 ### **Database Constraints**
 
-**[docker/init_db.sql - users table](docker/init_db.sql#L388)**
+**[docker/init_db.sql - users table](../docker/init_db.sql#L388)**
 
 ```sql
 CONSTRAINT users_role_check CHECK (
@@ -521,7 +521,7 @@ SIMPLE_JWT = {
 
 ### **Settings**
 
-**[config/settings.py](docker/backend/config/settings.py)**
+**[config/settings.py](../docker/backend/config/settings.py)**
 
 ```python
 # Authentication backends (tried in order)
@@ -667,13 +667,13 @@ A CONTROLLER named "Dr. Smith" who examines 5 courses:
 
 | File                                                                                              |                Purpose                |
 | ------------------------------------------------------------------------------------------------- | :-----------------------------------: |
-| [core/api/authentication.py](docker/backend/core/api/authentication.py)                           |      JWT + Cookie auth backends       |
-| [core/api/permissions.py](docker/backend/core/api/permissions.py)                                 |        RBAC permission classes        |
-| [core/api/auth.py](docker/backend/core/api/auth.py)                                               |    Login, logout, token endpoints     |
-| [core/api/serializers.py](docker/backend/core/api/serializers.py)                                 |       JWT payload customization       |
-| [core/api/teacher.py](docker/backend/core/api/teacher.py)                                         |       Teacher portal endpoints        |
-| [core/api/student.py](docker/backend/core/api/student.py)                                         |       Student portal endpoints        |
-| [core/api/stats.py](docker/backend/core/api/stats.py)                                             | Statistics APIs + course access logic |
-| [config/settings.py](docker/backend/config/settings.py)                                           |       JWT + CORS configuration        |
-| [config/urls.py](docker/backend/config/urls.py)                                                   |         API route definitions         |
-| [frontend/src/app/context/UserSessionContext.tsx](docker/frontend/src/app/context/UserSessionContext.tsx) |      Frontend user session state      |
+| [core/api/authentication.py](../docker/backend/core/api/authentication.py)                           |      JWT + Cookie auth backends       |
+| [core/api/permissions.py](../docker/backend/core/api/permissions.py)                                 |        RBAC permission classes        |
+| [core/api/auth.py](../docker/backend/core/api/auth.py)                                               |    Login, logout, token endpoints     |
+| [core/api/serializers.py](../docker/backend/core/api/serializers.py)                                 |       JWT payload customization       |
+| [core/api/teacher.py](../docker/backend/core/api/teacher.py)                                         |       Teacher portal endpoints        |
+| [core/api/student.py](../docker/backend/core/api/student.py)                                         |       Student portal endpoints        |
+| [core/api/stats.py](../docker/backend/core/api/stats.py)                                             | Statistics APIs + course access logic |
+| [config/settings.py](../docker/backend/config/settings.py)                                           |       JWT + CORS configuration        |
+| [config/urls.py](../docker/backend/config/urls.py)                                                   |         API route definitions         |
+| [frontend/src/app/context/UserSessionContext.tsx](../docker/frontend/src/app/context/UserSessionContext.tsx) |      Frontend user session state      |

@@ -404,7 +404,7 @@ const EvaluationViewer = () => {
 
   // Recheck accordion
   const [recheckOpen, setRecheckOpen] = useState(false);
-  const [missingType, setMissingType] = useState<"pages" | "complete" | null>(null);
+  const [grievanceType, setGrievanceType] = useState<"GENERAL" | "PAGE_MISSING" | "FULL_SHEET_MISSING">("GENERAL");
   const [missingPages, setMissingPages] = useState("");
 
   // Loading & Error states
@@ -874,17 +874,26 @@ const EvaluationViewer = () => {
   };
 
   const handleSubmitGrievance = () => {
-    if (!grievanceText.trim()) {
+    if (grievanceType === "GENERAL" && !grievanceText.trim()) {
       toast.error("Please enter your grievance details.");
       return;
     }
-    const prefix = missingType === "pages" ? `[Pages Missing: ${missingPages}] ` : missingType === "complete" ? "[Complete Answer Sheet Missing] " : "";
+    if (grievanceType === "PAGE_MISSING" && !missingPages.trim()) {
+      toast.error("Please specify the missing page number(s).");
+      return;
+    }
+    const prefix =
+      grievanceType === "PAGE_MISSING"
+        ? `[Pages Missing: ${missingPages.trim()}] `
+        : grievanceType === "FULL_SHEET_MISSING"
+          ? "[Complete Answer Sheet Missing] "
+          : "";
     (async () => {
       try {
-        await submitGrievance(rollNo, subjectId || "", prefix + grievanceText);
+        await submitGrievance(rollNo, subjectId || "", prefix + grievanceText.trim());
         toast.success("Grievance submitted for re-evaluation.", { duration: 2500 });
         setGrievanceText("");
-        setMissingType(null);
+        setGrievanceType("GENERAL");
         setMissingPages("");
         setRecheckOpen(false);
 
@@ -2239,27 +2248,44 @@ const EvaluationViewer = () => {
                           {/* Quick-flag buttons */}
                           <div className="flex flex-col gap-2">
                             <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Issue Type</p>
-                            <div className="flex gap-2">
+                            <div className="grid grid-cols-3 gap-2">
                               <button
-                                onClick={() => setMissingType(missingType === "pages" ? null : "pages")}
-                                className={`flex-1 rounded-md px-2 py-1.5 text-[11px] font-medium border transition-colors ${
-                                  missingType === "pages" ? "bg-warning/15 border-warning/40 text-warning" : "border-border bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                                type="button"
+                                onClick={() => setGrievanceType("GENERAL")}
+                                className={`rounded-md px-2 py-1.5 text-[11px] font-medium border transition-colors ${
+                                  grievanceType === "GENERAL"
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "border-border bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                                }`}
+                              >
+                                General
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setGrievanceType("PAGE_MISSING")}
+                                className={`rounded-md px-2 py-1.5 text-[11px] font-medium border transition-colors ${
+                                  grievanceType === "PAGE_MISSING"
+                                    ? "bg-warning/15 border-warning/40 text-warning"
+                                    : "border-border bg-secondary text-secondary-foreground hover:bg-secondary/80"
                                 }`}
                               >
                                 Pages Missing
                               </button>
                               <button
-                                onClick={() => setMissingType(missingType === "complete" ? null : "complete")}
-                                className={`flex-1 rounded-md px-2 py-1.5 text-[11px] font-medium border transition-colors ${
-                                  missingType === "complete" ? "bg-destructive/15 border-destructive/40 text-destructive" : "border-border bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                                type="button"
+                                onClick={() => setGrievanceType("FULL_SHEET_MISSING")}
+                                className={`rounded-md px-2 py-1.5 text-[11px] font-medium border transition-colors ${
+                                  grievanceType === "FULL_SHEET_MISSING"
+                                    ? "bg-destructive/15 border-destructive/40 text-destructive"
+                                    : "border-border bg-secondary text-secondary-foreground hover:bg-secondary/80"
                                 }`}
                               >
-                                Full Sheet Missing
+                                Full Sheet
                               </button>
                             </div>
 
                             {/* Conditional: page numbers input */}
-                            {missingType === "pages" && (
+                            {grievanceType === "PAGE_MISSING" && (
                               <div className="space-y-1">
                                 <label className="text-[10px] text-muted-foreground font-medium">Missing Page Numbers</label>
                                 <input
@@ -2279,7 +2305,11 @@ const EvaluationViewer = () => {
                             <textarea
                               value={grievanceText}
                               onChange={(e) => setGrievanceText(e.target.value)}
-                              placeholder="Describe your concern regarding the evaluation..."
+                              placeholder={
+                                grievanceType === "FULL_SHEET_MISSING"
+                                  ? "Optional note (complete sheet missing)..."
+                                  : "Describe your concern regarding the evaluation..."
+                              }
                               rows={3}
                               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors resize-none"
                             />

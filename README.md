@@ -2,7 +2,7 @@
 
 > **Quick Start**: Go to [SETUP_AND_RUN.md](docs/SETUP_AND_RUN.md) for first-boot instructions.
 
-> **Acceleration Tip**: You can export a DB snapshot and auto-load it on boot (`export_db_snapshot.sh` or `export_db_snapshot.ps1`). See the "Database Snapshot Export + Auto-Load" section in [SETUP_AND_RUN.md](docs/SETUP_AND_RUN.md).
+> **Tip**: You can export a DB snapshot and auto-load it on boot (`export_db_snapshot.sh` or `export_db_snapshot.ps1`). See the "Database Snapshot Export + Auto-Load" section in [SETUP_AND_RUN.md](docs/SETUP_AND_RUN.md).
 
 ---
 
@@ -24,70 +24,73 @@ Exam_E is a university-grade examination paper evaluation, digitization, and gri
 | **Task Queue & Cache** | Celery + Redis | Asynchronous background email delivery and account-based brute force protection tracking. |
 
 ---
+---
 
-## 3. Visual Tour & Screenshots
+## 3. Visual Tour
 
 ### Authentication & Access
 
-#### Unified Portal Login
 ![Unified Portal Login](screenshots/unified-student-teacher-login.png)
 <p align="center"><em>Institutional portal sign-in for students, faculty, and examination controllers.</em></p>
 
-#### Django Administration Login
+---
 ![Django Administration Login](screenshots/admin-login.png)
 <p align="center"><em>System administration sign-in for database configuration and operations.</em></p>
 
 ---
+---
 
 ### Teacher Evaluation Workspace
 
-#### Teacher Grading Dashboard
 ![Teacher Grading Dashboard](screenshots/teacher-home.png)
 <p align="center"><em>Assigned script queue with grading status and student search filters.</em></p>
 
-#### Interactive Evaluation Workstation
+---
 ![Interactive Evaluation Workstation](screenshots/teacher-checking-no-solution-widget-on-screen.png)
 <p align="center"><em>Full-page canvas annotation tools with question-wise score entry.</em></p>
 
-#### Evaluation with Side-by-Side Scheme & Answer Key
+---
 ![Evaluation with Side-by-Side Scheme & Answer Key](screenshots/teacher-checking-solution-widget-on-screen.png)
 <p align="center"><em>Side-by-side reference view for question papers and answer keys.</em></p>
 
-#### Faculty Grievance Queue
+---
 ![Faculty Grievance Queue](screenshots/teacher-grievance-management.png)
 <p align="center"><em>Assigned student grievances filtered by section and review status.</em></p>
 
-#### Grievance Review & Decision Panel
+---
 ![Grievance Review & Decision Panel](screenshots/teacher-resolving-grievance.png)
 <p align="center"><em>Student grievance review with mark adjustments and resolution decisions.</em></p>
 
 ---
+---
 
 ### Student Portal & Script Review
 
-#### Student Results & Exam Services Dashboard
 ![Student Results & Exam Services Dashboard](screenshots/student-home.png)
 <p align="center"><em>Course results, published marks, and answer sheet access.</em></p>
 
-#### Student Evaluated Script Review
+---
+
 ![Student Evaluated Script Review](screenshots/student-viewing.png)
 <p align="center"><em>Evaluated answer sheet review with faculty annotations and mark breakdown.</em></p>
 
-#### Student Grievance Submission
+---
+
 ![Student Grievance Submission](screenshots/student-raising-grievance.png)
 <p align="center"><em>Recheck request submission with issue categorization and student notes.</em></p>
 
 ---
+---
 
 ### Controller & Coordinator Analytics
 
-#### Subject Analytics & Evaluation Metrics
 ![Subject Analytics & Evaluation Metrics](screenshots/controller-coordinator-statistics.png)
 <p align="center"><em>Evaluation progress, score distributions, and section comparisons.</em></p>
 
 ---
+---
 
-### Mobile Responsive Interface (User-Facing Portals)
+### Mobile Interface
 
 The application provides a touch-optimized mobile experience for students, faculty evaluators, and course coordinators. Administrative operations remain exclusively within the desktop control plane.
 
@@ -113,40 +116,41 @@ The application provides a touch-optimized mobile experience for students, facul
 | *Assigned student grievance list* | *Mark adjustment and resolution actions* | *Course metrics and section completion* |
 
 ---
+---
 
 ### Django Administration & Operations
 
-#### Django Admin Control Hub
 ![Django Admin Control Hub](screenshots/admin-home.png)
 <p align="center"><em>Central administration dashboard with access to data models and system tools.</em></p>
 
-#### Bulk Academic Data Importer
+---
 ![Bulk Academic Data Importer](screenshots/admin-view-bulk-data-import.png)
 <p align="center"><em>CSV data import for schools, courses, faculty, and student enrollments.</em></p>
 
-#### Course Allocation & Section Assignment
+---
 ![Course Allocation & Section Assignment](screenshots/admin-view-course-allocation.png)
 <p align="center"><em>Course and section assignments mapped across academic sessions.</em></p>
 
-#### Interactive Question Paper Schema Builder
+---
 ![Interactive Question Paper Schema Builder](screenshots/admin-view-question-schema-builder.png)
 <p align="center"><em>Visual section and question schema builder with point weight allocations.</em></p>
 
-#### Bulk Password Generation & Dispatch Tool
+---
 ![Bulk Password Generation & Dispatch Tool](screenshots/admin-bulk-password-generate.png)
 <p align="center"><em>Batch password generation and automated email delivery for student cohorts.</em></p>
 
-#### Administrative Grievance Oversight & Assignment
+---
 ![Administrative Grievance Oversight & Assignment](screenshots/admin-grievance-view-and-assignment.png)
 <p align="center"><em>Grievance tracking across departments with re-evaluation assignment.</em></p>
 
 ---
+---
 
-## 4. Architecture (Single Machine / Local Network)
+## 4. Architecture
 
 Entry Point: http://localhost (Nginx reverse proxy).
 
-Current development access:
+Development access:
 
 - `http://localhost` (recommended via nginx)
 - `http://<your-lan-ip>` from hotspot/LAN devices in DEBUG mode
@@ -178,7 +182,7 @@ Asynchronous worker process handling background credential dispatch, notificatio
 
 ---
 
-## 5. Core System Features
+## 5. Core Features
 
 ### Paper Evaluation Workspace
 
@@ -227,10 +231,6 @@ On startup, the backend auto-links exam assets from `backend/mediafiles`:
 ---
 
 ## 7. Authentication, Authorization & Security
-
-For comprehensive documentation on authentication, role-based access control, and security implementation, see **[AUTHENTICATION.md](docs/AUTHENTICATION.md)**.
-
-### Quick Reference
 
 #### Authentication
 
@@ -301,9 +301,10 @@ System-wide notifications (password generation, grievance updates) are handled a
 > [!NOTE]
 > The system is in debug/demo mode for the purposes of demonstartion out of the box. There is some pre-seeded data to assist with development and are provided as samples. Kindly do not treat the system in it's current state as a ready-made deployable version, and clean out the database and seeded data if you plan to use it. The **seeded data** is not meant to be redistributed and **is NOT covered by the opensource licenses** that this project may be distributed under, and is strictly not to be used for any purposes other than the demonstration of this system.
 
-The system is fully automated on startup.
 
-1. **Clean Start**: To reset everything (schema, data, and users):
+1. **Clean Start**: To reset data from previous launches (if applicable):
+
+   > Cleanup [`Data/db_snapshots`](Data/db_snapshots) to flush the demo data. Additionally cleanup the demo files from the [`Data/`](Data/) directory.
 
    ```bash
    cd docker
@@ -316,19 +317,15 @@ The system is fully automated on startup.
    docker compose up --build
    ```
 
-   Wait for the terminal to show "Automatic Data Import Complete".
-
 3. **Access the Application**:
    - **Student/Teacher Portal**: http://localhost
    - **Admin Panel**: http://localhost/admin/
 
 4. **Default Credentials**:
+   > Applicable if started in demo mode, else use your own seed credentials [`docker/backend/entrypoint.sh`](docker/backend/entrypoint.sh)
    - **Admin**: `admin@kiit.ac.in` / `admin`
    - **Test Student**: id = `2305101@kiit.ac.in` / `Check@123` (generate more from the admin dashboard)
    - **Test Teacher**: `kavita.mishra@example.com` / `Check@123` (generate more from the admin dashboard)
-
-
-For detailed authentication information, see [AUTHENTICATION.md](docs/AUTHENTICATION.md).
 
 ---
 
